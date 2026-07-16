@@ -116,23 +116,59 @@ public final class Text {
         return withOptions(o -> o.proto = token);
     }
 
-    /** Send a single-turn prompt and return the response. */
+    /** Opt into prompt caching (ADR-026). */
+    public Text caching() {
+        return withOptions(o -> o.caching = true);
+    }
+
+    /** Set the cache TTL in seconds (resource caching only). */
+    public Text cacheTtl(int seconds) {
+        return withOptions(o -> o.cacheTtl = seconds);
+    }
+
+    /** Register a middleware hook (observation + pre-phase veto). */
+    public Text addMiddleware(MiddlewareFn hook) {
+        return withOptions(o -> o.middleware.add(hook));
+    }
+
+    /**
+     * Send a single-turn prompt and return the response. Fires the
+     * {@code llmRequest} middleware op (pre-phase veto, post-phase
+     * observation with usage) and applies prompt caching to the built body
+     * when {@link #caching()} was set.
+     */
     public Response prompt(String userPrompt) {
         Providers.Spec config = Providers.config(provider);
         RequestBuilder.Resolved resolved = RequestBuilder.resolveChatProtocol(config, options.proto);
         String resolvedModel = resolveModel(config);
 
-        RequestBuilder.Built built = RequestBuilder.buildBody(
-                config, resolved.wireShape(), apiKey, resolvedModel, system,
-                List.of(new Msg.Text("user", userPrompt)), List.of(), options);
-        String url = RequestBuilder.buildUrl(config, resolved.endpoint(), apiKey, resolvedModel, baseUrlOverride);
+        Event baseEvent = Event.of(MiddlewareOp.LLM_REQUEST, config.slug, resolvedModel);
+        long startNanos = System.nanoTime();
+        Middleware.firePre(options.middleware, baseEvent);
 
-        HttpTransport.Result result =
-                RequestBuilder.send(config, url, built.body(), built.headers(), apiKey, http);
-        if (result.statusCode() < 200 || result.statusCode() >= 300) {
-            throw ResponseParser.parseError(config, result.statusCode(), result.body());
+        try {
+            RequestBuilder.Built built = RequestBuilder.buildBody(
+                    config, resolved.wireShape(), apiKey, resolvedModel, system,
+                    List.of(new Msg.Text("user", userPrompt)), List.of(), options);
+            CachingRuntime.apply(built.body(), config, resolvedModel, apiKey, options, http, baseUrlOverride);
+            String url = RequestBuilder.buildUrl(config, resolved.endpoint(), apiKey, resolvedModel, baseUrlOverride);
+
+            HttpTransport.Result result =
+                    RequestBuilder.send(config, url, built.body(), built.headers(), apiKey, http);
+            if (result.statusCode() < 200 || result.statusCode() >= 300) {
+                throw ResponseParser.parseError(config, result.statusCode(), result.body());
+            }
+            Response response = ResponseParser.parse(config, result.body());
+            Middleware.firePost(
+                    options.middleware,
+                    baseEvent.toPost("", response.usage(), null, Middleware.elapsedMillis(startNanos)));
+            return response;
+        } catch (RuntimeException e) {
+            Middleware.firePost(
+                    options.middleware,
+                    baseEvent.toPost("", null, e.getMessage(), Middleware.elapsedMillis(startNanos)));
+            throw e;
         }
-        return ResponseParser.parse(config, result.body());
     }
 
     /**
@@ -151,14 +187,30 @@ public final class Text {
     /**
      * Submit the prompts as an async batch and return the live handle
      * (ADR-064 batch-as-text-execution-mode). Blocking one-liner:
-     * {@code batch(...).await()}.
+     * {@code batch(...).await()}. Fires the {@code batchSubmit} middleware
+     * op and threads caching into each per-item body (BUG-004).
      */
     public BatchJob batch(String... prompts) {
         Providers.Spec config = Providers.config(provider);
         String resolvedModel = resolveModel(config);
-        return Batching.submit(
-                config, apiKey, http, baseUrlOverride, resolvedModel, system,
-                java.util.Arrays.asList(prompts), options);
+
+        Event baseEvent = Event.of(MiddlewareOp.BATCH_SUBMIT, config.slug, resolvedModel);
+        long startNanos = System.nanoTime();
+        Middleware.firePre(options.middleware, baseEvent);
+
+        try {
+            BatchJob job = Batching.submit(
+                    config, apiKey, http, baseUrlOverride, resolvedModel, system,
+                    java.util.Arrays.asList(prompts), options);
+            Middleware.firePost(
+                    options.middleware, baseEvent.toPost("", null, null, Middleware.elapsedMillis(startNanos)));
+            return job;
+        } catch (RuntimeException e) {
+            Middleware.firePost(
+                    options.middleware,
+                    baseEvent.toPost("", null, e.getMessage(), Middleware.elapsedMillis(startNanos)));
+            throw e;
+        }
     }
 
     /**
