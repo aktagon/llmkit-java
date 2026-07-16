@@ -54,6 +54,11 @@ public final class Client {
         return Text.root(provider, apiKey, baseUrlOverride, http);
     }
 
+    /** A fresh stateful tool-loop agent (the one stateful builder). */
+    public Agent agent() {
+        return new Agent(provider, apiKey, baseUrlOverride, http);
+    }
+
     /**
      * Reports whether an explicit request for {@code capability} will not
      * hard-fail pre-flight on this client's provider (ADR-030). Gated
