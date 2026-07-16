@@ -44,6 +44,59 @@ public final class Options {
         }
     }
 
+    /** One provider's supported option -> wire-key binding. */
+    public static final class SupportedDef {
+        public final Key key;
+        public final String jsonKey;
+
+        SupportedDef(Key key, String jsonKey) {
+            this.key = key;
+            this.jsonKey = jsonKey;
+        }
+    }
+
+    /**
+     * A provider-level option override (ADR-024): a different wire key, an
+     * allowed-value whitelist, and/or extra JSON merged at option or
+     * request-root level.
+     */
+    public static final class OptionOverrideDef {
+        public final Key key;
+        public final String jsonKey;
+        public final java.util.List<String> allowedValues;
+        public final String extraFieldsJson;
+        public final String rootExtraFieldsJson;
+
+        OptionOverrideDef(
+                Key key,
+                String jsonKey,
+                java.util.List<String> allowedValues,
+                String extraFieldsJson,
+                String rootExtraFieldsJson) {
+            this.key = key;
+            this.jsonKey = jsonKey;
+            this.allowedValues = allowedValues;
+            this.extraFieldsJson = extraFieldsJson;
+            this.rootExtraFieldsJson = rootExtraFieldsJson;
+        }
+    }
+
+    /** A per-model option-key override (ADR-024); precedence lives in the resolver. */
+    public static final class ModelOptionOverrideDef {
+        /** "id" | "pattern" */
+        public final String matcherKind;
+        public final String matcherValue;
+        public final Key key;
+        public final String jsonKey;
+
+        ModelOptionOverrideDef(String matcherKind, String matcherValue, Key key, String jsonKey) {
+            this.matcherKind = matcherKind;
+            this.matcherValue = matcherValue;
+            this.key = key;
+            this.jsonKey = jsonKey;
+        }
+    }
+
     public static final java.util.List<Def> ALL = java.util.List.of(
             new Def(Key.FREQUENCY_PENALTY, "float64", "frequency_penalty"),
             new Def(Key.MAX_TOKENS, "int", "max_tokens"),
@@ -56,17 +109,6 @@ public final class Options {
             new Def(Key.TOP_K, "int", "top_k"),
             new Def(Key.TOP_P, "float64", "top_p")
     );
-
-    /** One provider's supported option -> wire-key binding. */
-    public static final class SupportedDef {
-        public final Key key;
-        public final String jsonKey;
-
-        SupportedDef(Key key, String jsonKey) {
-            this.key = key;
-            this.jsonKey = jsonKey;
-        }
-    }
 
     public static java.util.List<SupportedDef> supported(ProviderName provider) {
         switch (provider) {
@@ -290,6 +332,96 @@ public final class Options {
                     new SupportedDef(Key.TEMPERATURE, "temperature"),
                     new SupportedDef(Key.TOP_P, "top_p"));
             default: throw new IllegalStateException("unreachable: " + provider);
+        }
+    }
+
+    public static java.util.List<OptionOverrideDef> optionOverrides(ProviderName provider) {
+        switch (provider) {
+            case AI21: return java.util.List.of();
+            case ANTHROPIC: return java.util.List.of(
+                    new OptionOverrideDef(Key.REASONING_EFFORT, "output_config.effort", java.util.List.of("low", "medium", "high", "xhigh", "max"), "", "{\"thinking\":{\"type\":\"adaptive\"}}"),
+                    new OptionOverrideDef(Key.THINKING_BUDGET, "thinking.budget_tokens", java.util.List.of(), "{\"type\":\"enabled\"}", ""));
+            case ASSEMBLYAI: return java.util.List.of();
+            case AZURE: return java.util.List.of();
+            case BEDROCK: return java.util.List.of();
+            case CEREBRAS: return java.util.List.of();
+            case COHERE: return java.util.List.of();
+            case DEEPSEEK: return java.util.List.of();
+            case DOUBAO: return java.util.List.of();
+            case ERNIE: return java.util.List.of();
+            case FIREWORKS: return java.util.List.of();
+            case GOOGLE: return java.util.List.of(
+                    new OptionOverrideDef(Key.REASONING_EFFORT, "thinkingConfig.thinkingLevel", java.util.List.of("low", "high"), "", ""));
+            case GROK: return java.util.List.of();
+            case GROQ: return java.util.List.of();
+            case INWORLD: return java.util.List.of();
+            case JAN: return java.util.List.of();
+            case LLAMACPP: return java.util.List.of();
+            case LMSTUDIO: return java.util.List.of();
+            case MINIMAX: return java.util.List.of();
+            case MISTRAL: return java.util.List.of();
+            case MOONSHOT: return java.util.List.of();
+            case OLLAMA: return java.util.List.of();
+            case OPENAI: return java.util.List.of(
+                    new OptionOverrideDef(Key.REASONING_EFFORT, "reasoning_effort", java.util.List.of("low", "medium", "high"), "", ""));
+            case OPENROUTER: return java.util.List.of();
+            case PERPLEXITY: return java.util.List.of();
+            case PIXVERSE: return java.util.List.of();
+            case QWEN: return java.util.List.of();
+            case RECRAFT: return java.util.List.of();
+            case SAMBANOVA: return java.util.List.of();
+            case TOGETHER: return java.util.List.of();
+            case VERTEX: return java.util.List.of();
+            case VIDU: return java.util.List.of();
+            case VLLM: return java.util.List.of();
+            case WORKERSAI: return java.util.List.of();
+            case YI: return java.util.List.of();
+            case ZHIPU: return java.util.List.of();
+            default: return java.util.List.of();
+        }
+    }
+
+    public static java.util.List<ModelOptionOverrideDef> modelOptionOverrides(ProviderName provider) {
+        switch (provider) {
+            case AI21: return java.util.List.of();
+            case ANTHROPIC: return java.util.List.of();
+            case ASSEMBLYAI: return java.util.List.of();
+            case AZURE: return java.util.List.of();
+            case BEDROCK: return java.util.List.of();
+            case CEREBRAS: return java.util.List.of();
+            case COHERE: return java.util.List.of();
+            case DEEPSEEK: return java.util.List.of();
+            case DOUBAO: return java.util.List.of();
+            case ERNIE: return java.util.List.of();
+            case FIREWORKS: return java.util.List.of();
+            case GOOGLE: return java.util.List.of();
+            case GROK: return java.util.List.of();
+            case GROQ: return java.util.List.of();
+            case INWORLD: return java.util.List.of();
+            case JAN: return java.util.List.of();
+            case LLAMACPP: return java.util.List.of();
+            case LMSTUDIO: return java.util.List.of();
+            case MINIMAX: return java.util.List.of();
+            case MISTRAL: return java.util.List.of();
+            case MOONSHOT: return java.util.List.of();
+            case OLLAMA: return java.util.List.of();
+            case OPENAI: return java.util.List.of(
+                    new ModelOptionOverrideDef("pattern", "gpt-5*", Key.MAX_TOKENS, "max_completion_tokens"),
+                    new ModelOptionOverrideDef("pattern", "o*", Key.MAX_TOKENS, "max_completion_tokens"));
+            case OPENROUTER: return java.util.List.of();
+            case PERPLEXITY: return java.util.List.of();
+            case PIXVERSE: return java.util.List.of();
+            case QWEN: return java.util.List.of();
+            case RECRAFT: return java.util.List.of();
+            case SAMBANOVA: return java.util.List.of();
+            case TOGETHER: return java.util.List.of();
+            case VERTEX: return java.util.List.of();
+            case VIDU: return java.util.List.of();
+            case VLLM: return java.util.List.of();
+            case WORKERSAI: return java.util.List.of();
+            case YI: return java.util.List.of();
+            case ZHIPU: return java.util.List.of();
+            default: return java.util.List.of();
         }
     }
 }
