@@ -1,14 +1,18 @@
 package com.aktagon.llmkit;
 
+import com.aktagon.llmkit.providers.generated.Caching;
 import com.aktagon.llmkit.providers.generated.Providers;
 import com.aktagon.llmkit.providers.generated.Response;
+import com.aktagon.llmkit.providers.generated.ResponsePaths;
 import com.google.gson.JsonElement;
 import java.nio.charset.StandardCharsets;
 
 /**
  * Parses a provider chat response into the universal {@code Response},
  * reading every field from the per-provider dotted paths declared on the
- * generated {@code Providers.Spec}. Mirrors Swift's ResponseParser / Rust's
+ * generated {@code Providers.Spec} (text/usage/finish paths) plus the
+ * {@code Caching}/{@code ResponsePaths} fact tables (cache and cost paths,
+ * Phase 1). Mirrors Swift's ResponseParser / Rust's
  * {@code parse_response_shaped}.
  */
 final class ResponseParser {
@@ -18,15 +22,17 @@ final class ResponseParser {
         String text = new String(body, StandardCharsets.UTF_8);
         JsonElement raw = Json.parse(text);
 
+        Caching.UsagePaths cachePaths = Caching.usagePaths(config.name);
+        String costPath = ResponsePaths.usageCostPath(config.name);
         Usage usage = new Usage(
                 Json.longAt(raw, config.usageInputPath),
                 Json.longAt(raw, config.usageOutputPath),
-                config.cacheWritePath.isEmpty() ? 0 : Json.longAt(raw, config.cacheWritePath),
-                config.cacheReadPath.isEmpty() ? 0 : Json.longAt(raw, config.cacheReadPath),
+                cachePaths.write.isEmpty() ? 0 : Json.longAt(raw, cachePaths.write),
+                cachePaths.read.isEmpty() ? 0 : Json.longAt(raw, cachePaths.read),
                 config.reasoningTokensPath.isEmpty() ? 0 : Json.longAt(raw, config.reasoningTokensPath),
-                config.usageCostPath.isEmpty()
+                costPath.isEmpty()
                         ? 0.0
-                        : Json.doubleAt(raw, config.usageCostPath) * config.usageCostScale);
+                        : Json.doubleAt(raw, costPath) * ResponsePaths.usageCostScale(config.name));
 
         return new Response(
                 Json.stringAt(raw, config.responseTextPath),
