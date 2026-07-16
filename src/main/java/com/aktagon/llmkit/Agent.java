@@ -8,7 +8,9 @@ import com.aktagon.llmkit.providers.generated.ToolResult;
 import com.google.gson.JsonElement;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The tool-using agent loop — a port of Swift's {@code Agent} / Rust's
@@ -17,7 +19,8 @@ import java.util.List;
  * registered tools until the model returns a plain-text answer (or
  * {@link #maxToolIterations} is hit). The request body is built through the
  * shared {@code RequestBuilder}, so the agent constructs no wire shape of its
- * own. Middleware fires land with the middleware seam (Java phase 4).
+ * own. Fires {@code llmRequest} around each turn and {@code toolCall} around
+ * each tool invocation; caching is applied on every turn (BUG-004).
  */
 public final class Agent {
     private final ProviderName provider;
@@ -62,6 +65,24 @@ public final class Agent {
         return this;
     }
 
+    /** Opt into prompt caching (ADR-026) — applied on every turn (BUG-004). Returns this. */
+    public Agent caching() {
+        options.caching = true;
+        return this;
+    }
+
+    /** Set the cache TTL in seconds (resource caching only). Returns this. */
+    public Agent cacheTtl(int seconds) {
+        options.cacheTtl = seconds;
+        return this;
+    }
+
+    /** Register a middleware hook (observation + pre-phase veto). Returns this. */
+    public Agent addMiddleware(MiddlewareFn hook) {
+        options.middleware.add(hook);
+        return this;
+    }
+
     /** Append a user turn and run the tool loop to a final text answer. */
     public Response prompt(String message) {
         history.add(new Msg.Text("user", message));
@@ -80,15 +101,35 @@ public final class Agent {
         double totalCost = 0.0;
 
         for (int iteration = 0; iteration < maxToolIterations; iteration++) {
-            RequestBuilder.Built built = RequestBuilder.buildBody(
-                    config, config.chatWireShape, apiKey, resolvedModel, system, history, tools, options);
-            HttpTransport.Result result =
-                    RequestBuilder.send(config, url, built.body(), built.headers(), apiKey, http);
-            if (result.statusCode() < 200 || result.statusCode() >= 300) {
-                throw ResponseParser.parseError(config, result.statusCode(), result.body());
+            Event llmEvent = Event.of(MiddlewareOp.LLM_REQUEST, config.slug, resolvedModel);
+            long llmStartNanos = System.nanoTime();
+            Middleware.firePre(options.middleware, llmEvent);
+
+            JsonElement raw;
+            Response parsed;
+            try {
+                // Caching is a shared request-construction step (ADR-026 / BUG-004):
+                // applied on every agent turn by construction, like the Text path.
+                RequestBuilder.Built built = RequestBuilder.buildBody(
+                        config, config.chatWireShape, apiKey, resolvedModel, system, history, tools, options);
+                CachingRuntime.apply(built.body(), config, resolvedModel, apiKey, options, http, baseUrlOverride);
+                HttpTransport.Result result =
+                        RequestBuilder.send(config, url, built.body(), built.headers(), apiKey, http);
+                if (result.statusCode() < 200 || result.statusCode() >= 300) {
+                    throw ResponseParser.parseError(config, result.statusCode(), result.body());
+                }
+                raw = Json.parse(new String(result.body(), StandardCharsets.UTF_8));
+                parsed = ResponseParser.parse(config, result.body());
+            } catch (RuntimeException e) {
+                Middleware.firePost(
+                        options.middleware,
+                        llmEvent.toPost("", null, e.getMessage(), Middleware.elapsedMillis(llmStartNanos)));
+                throw e;
             }
-            JsonElement raw = Json.parse(new String(result.body(), StandardCharsets.UTF_8));
-            Response parsed = ResponseParser.parse(config, result.body());
+            Middleware.firePost(
+                    options.middleware,
+                    llmEvent.toPost("", parsed.usage(), null, Middleware.elapsedMillis(llmStartNanos)));
+
             totalInput += parsed.usage().input();
             totalOutput += parsed.usage().output();
             totalCacheWrite += parsed.usage().cacheWrite();
@@ -107,6 +148,18 @@ public final class Agent {
 
             history.add(new Msg.Calls(calls));
             for (ToolCall call : calls) {
+                Map<String, JsonElement> args = Map.of();
+                if (call.input() != null && call.input().isJsonObject()) {
+                    args = new LinkedHashMap<>();
+                    for (Map.Entry<String, JsonElement> entry : call.input().getAsJsonObject().entrySet()) {
+                        args.put(entry.getKey(), entry.getValue());
+                    }
+                }
+                Event toolEvent =
+                        Event.of(MiddlewareOp.TOOL_CALL, config.slug, resolvedModel).withTool(call.name(), args);
+                long toolStartNanos = System.nanoTime();
+                Middleware.firePre(options.middleware, toolEvent);
+
                 String content;
                 Tool tool = tools.stream().filter(t -> t.name.equals(call.name())).findFirst().orElse(null);
                 if (tool != null) {
@@ -118,6 +171,11 @@ public final class Agent {
                 } else {
                     content = "error: unknown tool " + call.name();
                 }
+
+                Middleware.firePost(
+                        options.middleware,
+                        toolEvent.toPost(content, null, null, Middleware.elapsedMillis(toolStartNanos)));
+
                 history.add(new Msg.ToolOutput(new ToolResult(call.id(), content)));
             }
         }
