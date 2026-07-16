@@ -189,4 +189,63 @@ class RequestWireTest {
                 .model("claude-sonnet-4-6").schema(SCHEMA_NESTED).prompt(PROMPT_NESTED);
         assertGolden("structured-output-nested-anthropic");
     }
+
+    // --- Streaming (BUG-028: stream_options.include_usage on the body) ---
+
+    @Test
+    void streamOpenAI() throws Exception {
+        client(ProviderName.OPENAI).text().model("gpt-4o-mini").stream("Say hello.", delta -> { });
+        assertGolden("stream-openai");
+    }
+
+    // --- Agent tool definitions (per wire shape) ---
+
+    private static final String TOOL_SCHEMA =
+            "{\"type\":\"object\",\"properties\":{\"city\":{\"type\":\"string\"}},\"additionalProperties\":false}";
+    private static final String TOOL_PROMPT = "What is the weather in Helsinki right now?";
+
+    private Tool weatherTool() {
+        return new Tool(
+                "get_weather",
+                "Get the current weather for a city.",
+                Json.parse(TOOL_SCHEMA),
+                args -> "");
+    }
+
+    @Test
+    void toolDefOpenAI() throws Exception {
+        client(ProviderName.OPENAI).agent().addTool(weatherTool()).prompt(TOOL_PROMPT);
+        assertGolden("tooldef-openai");
+    }
+
+    @Test
+    void toolDefAnthropic() throws Exception {
+        client(ProviderName.ANTHROPIC).agent().addTool(weatherTool()).prompt(TOOL_PROMPT);
+        assertGolden("tooldef-anthropic");
+    }
+
+    @Test
+    void toolDefGoogle() throws Exception {
+        client(ProviderName.GOOGLE).agent().addTool(weatherTool()).prompt(TOOL_PROMPT);
+        assertGolden("tooldef-google");
+    }
+
+    @Test
+    void toolDefBedrock() throws Exception {
+        client(ProviderName.BEDROCK).agent().addTool(weatherTool()).prompt(TOOL_PROMPT);
+        assertGolden("tooldef-bedrock");
+    }
+
+    // --- Bedrock Converse (SigV4 signing; body is asserted, signature is not).
+    // AWS_REGION / AWS_SECRET_ACCESS_KEY are deterministic dummies supplied by
+    // the Gradle test task (Java cannot setenv at runtime); the signature is
+    // time-dependent and NOT asserted, only the body is. ---
+
+    @Test
+    void bedrockChat() throws Exception {
+        client(ProviderName.BEDROCK).text()
+                .maxTokens(256).temperature(0.7).topP(0.9).stopSequences(List.of("END_OF_ANSWER"))
+                .prompt("Name the capital of Finland in one word, then write END_OF_ANSWER.");
+        assertGolden("bedrock-chat");
+    }
 }

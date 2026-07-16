@@ -88,4 +88,16 @@ final class TestPaths {
         Files.writeString(
                 directory.resolve("java.json"), NULL_SERIALIZING.toJson(projection), StandardCharsets.UTF_8);
     }
+
+    /**
+     * Write a lifecycle-wire artifact to
+     * {@code target/wire/lifecycle/<fixture>/java.json} (the normalized
+     * JobStatus projection) for the cross-SDK lifecycle comparator.
+     */
+    static void writeLifecycleArtifact(String fixture, JsonElement projection) throws IOException {
+        Path directory = repoRoot().resolve("target/wire/lifecycle").resolve(fixture);
+        Files.createDirectories(directory);
+        Files.writeString(
+                directory.resolve("java.json"), NULL_SERIALIZING.toJson(projection), StandardCharsets.UTF_8);
+    }
 }
