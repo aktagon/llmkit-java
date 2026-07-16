@@ -1,0 +1,135 @@
+// Code generated — DO NOT EDIT.
+
+package com.aktagon.llmkit.providers.generated;
+
+
+public final class Caching {
+    private Caching() {}
+
+    public enum Mode { AUTOMATIC_CACHING, EXPLICIT_CACHING, RESOURCE_CACHING }
+
+
+    public static final class ResourceLifecycleDef {
+        public final String createEndpoint;
+        public final String responseIdPath;
+        public final String referenceField;
+        public final String pollingEndpoint;
+        public final String pollingStatusPath;
+        public final String pollingDoneValue;
+        public final java.util.List<String> pollingErrorValues;
+        public final String resultEndpoint;
+        public final String resultResponsePath;
+        public final String resultFileIdPath;
+        public final String fileContentEndpoint;
+
+        ResourceLifecycleDef(
+                String createEndpoint,
+                String responseIdPath,
+                String referenceField,
+                String pollingEndpoint,
+                String pollingStatusPath,
+                String pollingDoneValue,
+                java.util.List<String> pollingErrorValues,
+                String resultEndpoint,
+                String resultResponsePath,
+                String resultFileIdPath,
+                String fileContentEndpoint) {
+            this.createEndpoint = createEndpoint;
+            this.responseIdPath = responseIdPath;
+            this.referenceField = referenceField;
+            this.pollingEndpoint = pollingEndpoint;
+            this.pollingStatusPath = pollingStatusPath;
+            this.pollingDoneValue = pollingDoneValue;
+            this.pollingErrorValues = pollingErrorValues;
+            this.resultEndpoint = resultEndpoint;
+            this.resultResponsePath = resultResponsePath;
+            this.resultFileIdPath = resultFileIdPath;
+            this.fileContentEndpoint = fileContentEndpoint;
+        }
+    }
+
+    public static final class Def {
+        public final Mode mode;
+        public final String controlType;
+        public final String writeTokensPath;
+        public final String readTokensPath;
+        public final String defaultTtl;
+
+        public final ResourceLifecycleDef lifecycle;
+
+        Def(
+                Mode mode,
+                String controlType,
+                String writeTokensPath,
+                String readTokensPath,
+                String defaultTtl,
+                ResourceLifecycleDef lifecycle) {
+            this.mode = mode;
+            this.controlType = controlType;
+            this.writeTokensPath = writeTokensPath;
+            this.readTokensPath = readTokensPath;
+            this.defaultTtl = defaultTtl;
+            this.lifecycle = lifecycle;
+        }
+    }
+
+    public static Def config(ProviderName provider) {
+        switch (provider) {
+            case ANTHROPIC:
+                return new Def(
+                        Mode.EXPLICIT_CACHING,
+                        "ephemeral",
+                        "usage.cache_creation_input_tokens",
+                        "usage.cache_read_input_tokens",
+                        "300",
+                        null);
+            case GOOGLE:
+                return new Def(
+                        Mode.RESOURCE_CACHING,
+                        "",
+                        "",
+                        "usageMetadata.cachedContentTokenCount",
+                        "3600",
+                        new Caching.ResourceLifecycleDef(
+                                "/v1beta/cachedContents",
+                                "name",
+                                "cachedContent",
+                                "",
+                                "",
+                                "",
+                                java.util.List.of(),
+                                "",
+                                "",
+                                "",
+                                ""));
+            case OPENAI:
+                return new Def(
+                        Mode.AUTOMATIC_CACHING,
+                        "",
+                        "",
+                        "usage.prompt_tokens_details.cached_tokens",
+                        "",
+                        null);
+            default: return null;
+        }
+    }
+
+
+    public static final class UsagePaths {
+        public final String write;
+        public final String read;
+
+        UsagePaths(String write, String read) {
+            this.write = write;
+            this.read = read;
+        }
+    }
+
+    public static UsagePaths usagePaths(ProviderName provider) {
+        Def def = config(provider);
+        if (def == null) {
+            return new UsagePaths("", "");
+        }
+        return new UsagePaths(def.writeTokensPath, def.readTokensPath);
+    }
+}
