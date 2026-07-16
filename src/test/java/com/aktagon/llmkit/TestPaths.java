@@ -1,16 +1,26 @@
 package com.aktagon.llmkit;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Locates repo-root artifacts (shared wire goldens, driver output) from the
  * Gradle test working directory ({@code java/}), independent of machine.
  */
 final class TestPaths {
+    // The response projection carries an explicit `error: null`; the shared
+    // request serializer omits nulls, so artifact writing keeps them.
+    private static final Gson NULL_SERIALIZING =
+            new GsonBuilder().disableHtmlEscaping().serializeNulls().create();
+
     private TestPaths() {}
 
     /** The monorepo root: the nearest ancestor containing {@code codegen/}. */
@@ -44,5 +54,38 @@ final class TestPaths {
         Path directory = repoRoot().resolve("target/wire/request").resolve(fixture);
         Files.createDirectories(directory);
         Files.writeString(directory.resolve("java.json"), Json.serialize(body), StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Write a request-wire HEADER artifact to
+     * {@code target/wire/request/<fixture>/java.headers.json} (lowercased keys),
+     * the per-SDK companion the comparator subset-matches against a fixture's
+     * {@code <fixture>.headers.json} golden (HANDOFF-028 / BUG-017).
+     */
+    static void writeRequestHeaders(String fixture, Map<String, String> headers) throws IOException {
+        Path directory = repoRoot().resolve("target/wire/request").resolve(fixture);
+        Files.createDirectories(directory);
+        JsonObject lowered = new JsonObject();
+        Map<String, String> sorted = new TreeMap<>();
+        for (Map.Entry<String, String> entry : headers.entrySet()) {
+            sorted.put(entry.getKey().toLowerCase(java.util.Locale.ROOT), entry.getValue());
+        }
+        for (Map.Entry<String, String> entry : sorted.entrySet()) {
+            lowered.addProperty(entry.getKey(), entry.getValue());
+        }
+        Files.writeString(
+                directory.resolve("java.headers.json"), Json.serialize(lowered), StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Write a response-wire artifact to
+     * {@code target/wire/response/<shape>/java.json}, mirroring the other SDK
+     * drivers' outputs for the cross-SDK response comparator.
+     */
+    static void writeResponseArtifact(String shape, JsonElement projection) throws IOException {
+        Path directory = repoRoot().resolve("target/wire/response").resolve(shape);
+        Files.createDirectories(directory);
+        Files.writeString(
+                directory.resolve("java.json"), NULL_SERIALIZING.toJson(projection), StandardCharsets.UTF_8);
     }
 }
