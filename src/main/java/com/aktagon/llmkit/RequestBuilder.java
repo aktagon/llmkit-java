@@ -56,14 +56,20 @@ final class RequestBuilder {
         return "responses".equals(token) ? "ChatResponsesOpenAI" : null;
     }
 
-    /** Construct the request body + headers for a single-turn chat request. */
+    /**
+     * Construct the request body + headers for a chat request. {@code msgs} is
+     * the internal message list (a single user turn on the Text path, the full
+     * history on the Agent path); {@code tools} serializes tool definitions
+     * when the caller registered any. Mirror of Rust's {@code build_request}.
+     */
     static Built buildBody(
             Providers.Spec config,
             String wireShape,
             String apiKey,
             String model,
             String system,
-            String userPrompt,
+            java.util.List<Msg> msgs,
+            java.util.List<Tool> tools,
             PromptOptions options) {
         JsonObject body = Json.object();
         Map<String, String> headers = buildAuthHeaders(config, apiKey);
@@ -107,7 +113,8 @@ final class RequestBuilder {
             default -> { } // MessageInArray
         }
 
-        Transforms.applyMessageShape(body, userPrompt, system, wireShape, config);
+        Transforms.applyMessageShape(body, msgs, system, wireShape, config);
+        Transforms.applyToolDefs(body, config, tools);
 
         // Options. When the provider wraps options (Google's generationConfig),
         // the generation params + max-token key nest inside the wrapper; root
@@ -152,6 +159,73 @@ final class RequestBuilder {
         }
 
         return new Built(body, headers);
+    }
+
+    /**
+     * The chosen model, or the provider default; throws when neither exists
+     * (ADR-031 honest no-default contract).
+     */
+    static String resolveModel(Providers.Spec config, String override) {
+        if (override != null) {
+            return override;
+        }
+        if (config.defaultModel.isEmpty()) {
+            throw new ValidationException(
+                    "model", "no model chosen and \"" + config.slug + "\" declares no default");
+        }
+        return config.defaultModel;
+    }
+
+    /**
+     * Send a chat request, dispatching on the auth scheme: a SigV4 provider
+     * (Bedrock) signs the exact bytes and reads its credentials from the
+     * environment (ADR-052); every other provider posts with the auth headers.
+     */
+    static HttpTransport.Result send(
+            Providers.Spec config,
+            String url,
+            JsonObject body,
+            Map<String, String> headers,
+            String apiKey,
+            HttpTransport http) {
+        if (!"SigV4".equals(config.authScheme)) {
+            return http.postJson(url, Json.serialize(body), headers);
+        }
+        String region = System.getenv(config.regionEnvVar);
+        if (region == null) {
+            throw new ValidationException("provider", "missing env var " + config.regionEnvVar);
+        }
+        String secretKey = System.getenv(config.secretKeyEnvVar);
+        if (secretKey == null) {
+            throw new ValidationException("provider", "missing env var " + config.secretKeyEnvVar);
+        }
+        String sessionToken = config.sessionTokenEnvVar.isEmpty()
+                ? ""
+                : java.util.Objects.requireNonNullElse(System.getenv(config.sessionTokenEnvVar), "");
+        String payload = Json.serialize(body);
+        Map<String, String> signed = SigV4.sign(
+                "POST", url, payload.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                apiKey, secretKey, sessionToken, region, config.serviceName, "application/json");
+        Map<String, String> merged = new LinkedHashMap<>(signed);
+        merged.putAll(headers);
+        return http.postJson(url, payload, merged);
+    }
+
+    /**
+     * Compose two comma-separated {@code anthropic-beta} values, deduplicating
+     * tokens while preserving first-seen order (mirrors Rust/Swift appendBeta).
+     */
+    static String appendBeta(String existing, String value) {
+        java.util.List<String> tokens = new java.util.ArrayList<>();
+        for (String source : new String[] {existing, value}) {
+            for (String token : source.split(",")) {
+                String trimmed = token.trim();
+                if (!trimmed.isEmpty() && !tokens.contains(trimmed)) {
+                    tokens.add(trimmed);
+                }
+            }
+        }
+        return String.join(",", tokens);
     }
 
     /**
