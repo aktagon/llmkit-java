@@ -27,6 +27,13 @@ final class PromptOptions {
 
     String schema;
 
+
+    boolean caching = false;
+
+    Integer cacheTtl;
+
+    List<MiddlewareFn> middleware = new ArrayList<>();
+
     PromptOptions() {}
 
 
@@ -45,6 +52,9 @@ final class PromptOptions {
         o.safetySettings = new ArrayList<>(safetySettings);
         o.proto = proto;
         o.schema = schema;
+        o.caching = caching;
+        o.cacheTtl = cacheTtl;
+        o.middleware = new ArrayList<>(middleware);
         return o;
     }
 }

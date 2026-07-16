@@ -47,7 +47,8 @@ final class Batching {
         JsonObject body = Json.object();
         switch (batch.inputMode) {
             case FILE_REFERENCE_INPUT -> {
-                byte[] jsonl = buildJsonl(prompts, config, apiKey, model, system, batch, options);
+                byte[] jsonl = buildJsonl(
+                        prompts, config, apiKey, model, system, batch, options, http, baseUrlOverride);
                 String fileId = uploadFile(base, headers, batch, jsonl, http, config);
                 body.addProperty(batch.inputField, fileId);
                 body.addProperty("endpoint", batch.endpointPath);
@@ -66,6 +67,7 @@ final class Batching {
                     RequestBuilder.Built built = RequestBuilder.buildBody(
                             config, config.chatWireShape, apiKey, model, system,
                             List.of(new Msg.Text("user", prompts.get(index))), List.of(), options);
+                    CachingRuntime.apply(built.body(), config, model, apiKey, options, http, baseUrlOverride);
                     String itemBeta = built.headers().get("anthropic-beta");
                     if (itemBeta != null) {
                         beta = RequestBuilder.appendBeta(beta, itemBeta);
@@ -110,12 +112,15 @@ final class Batching {
             String model,
             String system,
             Batch.Def batch,
-            PromptOptions options) {
+            PromptOptions options,
+            HttpTransport http,
+            String baseUrlOverride) {
         StringBuilder lines = new StringBuilder();
         for (int index = 0; index < prompts.size(); index++) {
             RequestBuilder.Built built = RequestBuilder.buildBody(
                     config, config.chatWireShape, apiKey, model, system,
                     List.of(new Msg.Text("user", prompts.get(index))), List.of(), options);
+            CachingRuntime.apply(built.body(), config, model, apiKey, options, http, baseUrlOverride);
             JsonObject line = new JsonObject();
             line.addProperty("custom_id", "req-" + index);
             line.addProperty("method", "POST");

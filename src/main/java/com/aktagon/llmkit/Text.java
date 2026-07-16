@@ -117,22 +117,58 @@ public final class Text {
     }
 
 
+    public Text caching() {
+        return withOptions(o -> o.caching = true);
+    }
+
+
+    public Text cacheTtl(int seconds) {
+        return withOptions(o -> o.cacheTtl = seconds);
+    }
+
+
+    public Text addMiddleware(MiddlewareFn hook) {
+        return withOptions(o -> o.middleware.add(hook));
+    }
+
+
+
+
+
+
+
     public Response prompt(String userPrompt) {
         Providers.Spec config = Providers.config(provider);
         RequestBuilder.Resolved resolved = RequestBuilder.resolveChatProtocol(config, options.proto);
         String resolvedModel = resolveModel(config);
 
-        RequestBuilder.Built built = RequestBuilder.buildBody(
-                config, resolved.wireShape(), apiKey, resolvedModel, system,
-                List.of(new Msg.Text("user", userPrompt)), List.of(), options);
-        String url = RequestBuilder.buildUrl(config, resolved.endpoint(), apiKey, resolvedModel, baseUrlOverride);
+        Event baseEvent = Event.of(MiddlewareOp.LLM_REQUEST, config.slug, resolvedModel);
+        long startNanos = System.nanoTime();
+        Middleware.firePre(options.middleware, baseEvent);
 
-        HttpTransport.Result result =
-                RequestBuilder.send(config, url, built.body(), built.headers(), apiKey, http);
-        if (result.statusCode() < 200 || result.statusCode() >= 300) {
-            throw ResponseParser.parseError(config, result.statusCode(), result.body());
+        try {
+            RequestBuilder.Built built = RequestBuilder.buildBody(
+                    config, resolved.wireShape(), apiKey, resolvedModel, system,
+                    List.of(new Msg.Text("user", userPrompt)), List.of(), options);
+            CachingRuntime.apply(built.body(), config, resolvedModel, apiKey, options, http, baseUrlOverride);
+            String url = RequestBuilder.buildUrl(config, resolved.endpoint(), apiKey, resolvedModel, baseUrlOverride);
+
+            HttpTransport.Result result =
+                    RequestBuilder.send(config, url, built.body(), built.headers(), apiKey, http);
+            if (result.statusCode() < 200 || result.statusCode() >= 300) {
+                throw ResponseParser.parseError(config, result.statusCode(), result.body());
+            }
+            Response response = ResponseParser.parse(config, result.body());
+            Middleware.firePost(
+                    options.middleware,
+                    baseEvent.toPost("", response.usage(), null, Middleware.elapsedMillis(startNanos)));
+            return response;
+        } catch (RuntimeException e) {
+            Middleware.firePost(
+                    options.middleware,
+                    baseEvent.toPost("", null, e.getMessage(), Middleware.elapsedMillis(startNanos)));
+            throw e;
         }
-        return ResponseParser.parse(config, result.body());
     }
 
 
@@ -153,12 +189,28 @@ public final class Text {
 
 
 
+
     public BatchJob batch(String... prompts) {
         Providers.Spec config = Providers.config(provider);
         String resolvedModel = resolveModel(config);
-        return Batching.submit(
-                config, apiKey, http, baseUrlOverride, resolvedModel, system,
-                java.util.Arrays.asList(prompts), options);
+
+        Event baseEvent = Event.of(MiddlewareOp.BATCH_SUBMIT, config.slug, resolvedModel);
+        long startNanos = System.nanoTime();
+        Middleware.firePre(options.middleware, baseEvent);
+
+        try {
+            BatchJob job = Batching.submit(
+                    config, apiKey, http, baseUrlOverride, resolvedModel, system,
+                    java.util.Arrays.asList(prompts), options);
+            Middleware.firePost(
+                    options.middleware, baseEvent.toPost("", null, null, Middleware.elapsedMillis(startNanos)));
+            return job;
+        } catch (RuntimeException e) {
+            Middleware.firePost(
+                    options.middleware,
+                    baseEvent.toPost("", null, e.getMessage(), Middleware.elapsedMillis(startNanos)));
+            throw e;
+        }
     }
 
 
