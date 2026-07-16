@@ -15,11 +15,12 @@ import java.util.stream.Collectors;
 /**
  * Streaming (SSE) text generation — a port of Swift's {@code Streamer} /
  * Rust's {@code stream.rs}. Builds the request body through the shared
- * {@link RequestBuilder}, adds the per-provider stream flag (+
- * {@code stream_options.include_usage} where the provider requires it,
+ * {@link RequestBuilder}, applies caching, adds the per-provider stream flag
+ * (+ {@code stream_options.include_usage} where the provider requires it,
  * BUG-028), and consumes the {@code event:} / {@code data:} frame stream,
  * invoking {@code onDelta} per text chunk and assembling the final
- * {@code Response}.
+ * {@code Response}. Fires the {@code llmRequest} middleware op around the
+ * whole call, mirroring Go's {@code promptStream}.
  */
 final class Streaming {
     private Streaming() {}
@@ -39,9 +40,39 @@ final class Streaming {
             throw new ValidationException("provider", "streaming not supported: " + config.slug);
         }
 
+        Event baseEvent = Event.of(MiddlewareOp.LLM_REQUEST, config.slug, model);
+        long startNanos = System.nanoTime();
+        Middleware.firePre(options.middleware, baseEvent);
+
+        try {
+            Response response = doRun(config, apiKey, model, system, msgs, options, http, baseUrlOverride, onDelta, stream);
+            Middleware.firePost(
+                    options.middleware,
+                    baseEvent.toPost("", response.usage(), null, Middleware.elapsedMillis(startNanos)));
+            return response;
+        } catch (RuntimeException e) {
+            Middleware.firePost(
+                    options.middleware,
+                    baseEvent.toPost("", null, e.getMessage(), Middleware.elapsedMillis(startNanos)));
+            throw e;
+        }
+    }
+
+    private static Response doRun(
+            Providers.Spec config,
+            String apiKey,
+            String model,
+            String system,
+            List<Msg> msgs,
+            PromptOptions options,
+            HttpTransport http,
+            String baseUrlOverride,
+            Consumer<String> onDelta,
+            Stream.Def stream) {
         RequestBuilder.Built built = RequestBuilder.buildBody(
                 config, config.chatWireShape, apiKey, model, system, msgs, List.of(), options);
         JsonObject body = built.body();
+        CachingRuntime.apply(body, config, model, apiKey, options, http, baseUrlOverride);
         if (!stream.param.isEmpty()) {
             body.addProperty(stream.param, true);
         }
