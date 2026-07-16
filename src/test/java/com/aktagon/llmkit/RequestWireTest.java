@@ -236,6 +236,38 @@ class RequestWireTest {
         assertGolden("tooldef-bedrock");
     }
 
+    // --- Caching (Anthropic explicit cache_control on the system prefix) ---
+
+    private static final String CACHING_SYSTEM = "a long stable system prefix";
+    private static final String CACHING_PROMPT = "hi";
+
+    @Test
+    void cachingTextAnthropic() throws Exception {
+        client(ProviderName.ANTHROPIC).text()
+                .system(CACHING_SYSTEM).caching().prompt(CACHING_PROMPT);
+        assertGolden("caching-text-anthropic");
+    }
+
+    @Test
+    void cachingAgentAnthropic() throws Exception {
+        // cacheTtl is a no-op under explicit caching (Anthropic ignores it; it
+        // only feeds resource caching) — exercised here alongside .caching() so
+        // both Agent setters are covered without perturbing the golden body.
+        client(ProviderName.ANTHROPIC).agent()
+                .system(CACHING_SYSTEM).caching().cacheTtl(600).prompt(CACHING_PROMPT);
+        assertGolden("caching-agent-anthropic");
+    }
+
+    @Test
+    void cachingBatchAnthropic() throws Exception {
+        Client c = client(ProviderName.ANTHROPIC);
+        // The batch CREATE response must carry an id so submit does not throw;
+        // the assertion is on the captured CREATE request body, not the reply.
+        transport.withResponse(200, "{\"id\":\"batch_1\"}");
+        c.text().system(CACHING_SYSTEM).caching().batch(CACHING_PROMPT);
+        assertGolden("caching-batch-anthropic");
+    }
+
     // --- Bedrock Converse (SigV4 signing; body is asserted, signature is not).
     // AWS_REGION / AWS_SECRET_ACCESS_KEY are deterministic dummies supplied by
     // the Gradle test task (Java cannot setenv at runtime); the signature is

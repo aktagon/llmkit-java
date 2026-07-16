@@ -26,6 +26,13 @@ final class PromptOptions {
     String proto = "";
     /** A JSON-Schema string for structured output, or null. */
     String schema;
+    /** Opt into prompt caching (ADR-026). The provider-appropriate mechanism
+     * is chosen by {@code Caching.config(provider).mode}. */
+    boolean caching = false;
+    /** Cache TTL in seconds (resource caching only); null uses the provider default. */
+    Integer cacheTtl;
+    /** Observation + veto hooks fired around each operation site. */
+    List<MiddlewareFn> middleware = new ArrayList<>();
 
     PromptOptions() {}
 
@@ -45,6 +52,9 @@ final class PromptOptions {
         o.safetySettings = new ArrayList<>(safetySettings);
         o.proto = proto;
         o.schema = schema;
+        o.caching = caching;
+        o.cacheTtl = cacheTtl;
+        o.middleware = new ArrayList<>(middleware);
         return o;
     }
 }
