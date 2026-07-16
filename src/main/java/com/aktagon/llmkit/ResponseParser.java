@@ -46,8 +46,20 @@ final class ResponseParser {
 
 
 
+
     static ApiException parseError(Providers.Spec config, int statusCode, byte[] body) {
-        return new ApiException(
-                config.slug, statusCode, new String(body, StandardCharsets.UTF_8));
+        String raw = new String(body, StandardCharsets.UTF_8);
+        String message = raw;
+        if (!config.errorMessagePath.isEmpty()) {
+            try {
+                String extracted = Json.stringAt(Json.parse(raw), config.errorMessagePath);
+                if (!extracted.isEmpty()) {
+                    message = extracted;
+                }
+            } catch (DecodingException ignored) {
+                //
+            }
+        }
+        return new ApiException(config.slug, statusCode, message);
     }
 }
