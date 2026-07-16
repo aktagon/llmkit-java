@@ -123,15 +123,42 @@ public final class Text {
         String resolvedModel = resolveModel(config);
 
         RequestBuilder.Built built = RequestBuilder.buildBody(
-                config, resolved.wireShape(), apiKey, resolvedModel, system, userPrompt, options);
+                config, resolved.wireShape(), apiKey, resolvedModel, system,
+                List.of(new Msg.Text("user", userPrompt)), List.of(), options);
         String url = RequestBuilder.buildUrl(config, resolved.endpoint(), apiKey, resolvedModel, baseUrlOverride);
 
         HttpTransport.Result result =
-                http.postJson(url, Json.serialize(built.body()), built.headers());
+                RequestBuilder.send(config, url, built.body(), built.headers(), apiKey, http);
         if (result.statusCode() < 200 || result.statusCode() >= 300) {
             throw ResponseParser.parseError(config, result.statusCode(), result.body());
         }
         return ResponseParser.parse(config, result.body());
+    }
+
+    /**
+     * Send a single-turn prompt over SSE, invoking {@code onDelta} per text
+     * chunk, and return the assembled response (streaming execution mode;
+     * BUG-028 usage opt-in applied where the provider requires it).
+     */
+    public Response stream(String userPrompt, java.util.function.Consumer<String> onDelta) {
+        Providers.Spec config = Providers.config(provider);
+        String resolvedModel = resolveModel(config);
+        return Streaming.run(
+                config, apiKey, resolvedModel, system,
+                List.of(new Msg.Text("user", userPrompt)), options, http, baseUrlOverride, onDelta);
+    }
+
+    /**
+     * Submit the prompts as an async batch and return the live handle
+     * (ADR-064 batch-as-text-execution-mode). Blocking one-liner:
+     * {@code batch(...).await()}.
+     */
+    public BatchJob batch(String... prompts) {
+        Providers.Spec config = Providers.config(provider);
+        String resolvedModel = resolveModel(config);
+        return Batching.submit(
+                config, apiKey, http, baseUrlOverride, resolvedModel, system,
+                java.util.Arrays.asList(prompts), options);
     }
 
     /**

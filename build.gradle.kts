@@ -28,4 +28,8 @@ tasks.withType<JavaCompile> {
 
 tasks.test {
     useJUnitPlatform()
+    // Deterministic dummy SigV4 credentials for the bedrock-chat wire driver
+    // (the signature is time-dependent and not asserted; only the body is).
+    environment("AWS_REGION", "us-east-1")
+    environment("AWS_SECRET_ACCESS_KEY", "test-secret")
 }
