@@ -55,6 +55,11 @@ public final class Client {
     }
 
 
+    public Agent agent() {
+        return new Agent(provider, apiKey, baseUrlOverride, http);
+    }
+
+
 
 
 

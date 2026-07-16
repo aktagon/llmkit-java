@@ -123,15 +123,42 @@ public final class Text {
         String resolvedModel = resolveModel(config);
 
         RequestBuilder.Built built = RequestBuilder.buildBody(
-                config, resolved.wireShape(), apiKey, resolvedModel, system, userPrompt, options);
+                config, resolved.wireShape(), apiKey, resolvedModel, system,
+                List.of(new Msg.Text("user", userPrompt)), List.of(), options);
         String url = RequestBuilder.buildUrl(config, resolved.endpoint(), apiKey, resolvedModel, baseUrlOverride);
 
         HttpTransport.Result result =
-                http.postJson(url, Json.serialize(built.body()), built.headers());
+                RequestBuilder.send(config, url, built.body(), built.headers(), apiKey, http);
         if (result.statusCode() < 200 || result.statusCode() >= 300) {
             throw ResponseParser.parseError(config, result.statusCode(), result.body());
         }
         return ResponseParser.parse(config, result.body());
+    }
+
+
+
+
+
+
+    public Response stream(String userPrompt, java.util.function.Consumer<String> onDelta) {
+        Providers.Spec config = Providers.config(provider);
+        String resolvedModel = resolveModel(config);
+        return Streaming.run(
+                config, apiKey, resolvedModel, system,
+                List.of(new Msg.Text("user", userPrompt)), options, http, baseUrlOverride, onDelta);
+    }
+
+
+
+
+
+
+    public BatchJob batch(String... prompts) {
+        Providers.Spec config = Providers.config(provider);
+        String resolvedModel = resolveModel(config);
+        return Batching.submit(
+                config, apiKey, http, baseUrlOverride, resolvedModel, system,
+                java.util.Arrays.asList(prompts), options);
     }
 
 

@@ -57,13 +57,19 @@ final class RequestBuilder {
     }
 
 
+
+
+
+
+
     static Built buildBody(
             Providers.Spec config,
             String wireShape,
             String apiKey,
             String model,
             String system,
-            String userPrompt,
+            java.util.List<Msg> msgs,
+            java.util.List<Tool> tools,
             PromptOptions options) {
         JsonObject body = Json.object();
         Map<String, String> headers = buildAuthHeaders(config, apiKey);
@@ -107,7 +113,8 @@ final class RequestBuilder {
             default -> { } // MessageInArray
         }
 
-        Transforms.applyMessageShape(body, userPrompt, system, wireShape, config);
+        Transforms.applyMessageShape(body, msgs, system, wireShape, config);
+        Transforms.applyToolDefs(body, config, tools);
 
         //
         //
@@ -152,6 +159,73 @@ final class RequestBuilder {
         }
 
         return new Built(body, headers);
+    }
+
+
+
+
+
+    static String resolveModel(Providers.Spec config, String override) {
+        if (override != null) {
+            return override;
+        }
+        if (config.defaultModel.isEmpty()) {
+            throw new ValidationException(
+                    "model", "no model chosen and \"" + config.slug + "\" declares no default");
+        }
+        return config.defaultModel;
+    }
+
+
+
+
+
+
+    static HttpTransport.Result send(
+            Providers.Spec config,
+            String url,
+            JsonObject body,
+            Map<String, String> headers,
+            String apiKey,
+            HttpTransport http) {
+        if (!"SigV4".equals(config.authScheme)) {
+            return http.postJson(url, Json.serialize(body), headers);
+        }
+        String region = System.getenv(config.regionEnvVar);
+        if (region == null) {
+            throw new ValidationException("provider", "missing env var " + config.regionEnvVar);
+        }
+        String secretKey = System.getenv(config.secretKeyEnvVar);
+        if (secretKey == null) {
+            throw new ValidationException("provider", "missing env var " + config.secretKeyEnvVar);
+        }
+        String sessionToken = config.sessionTokenEnvVar.isEmpty()
+                ? ""
+                : java.util.Objects.requireNonNullElse(System.getenv(config.sessionTokenEnvVar), "");
+        String payload = Json.serialize(body);
+        Map<String, String> signed = SigV4.sign(
+                "POST", url, payload.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                apiKey, secretKey, sessionToken, region, config.serviceName, "application/json");
+        Map<String, String> merged = new LinkedHashMap<>(signed);
+        merged.putAll(headers);
+        return http.postJson(url, payload, merged);
+    }
+
+
+
+
+
+    static String appendBeta(String existing, String value) {
+        java.util.List<String> tokens = new java.util.ArrayList<>();
+        for (String source : new String[] {existing, value}) {
+            for (String token : source.split(",")) {
+                String trimmed = token.trim();
+                if (!trimmed.isEmpty() && !tokens.contains(trimmed)) {
+                    tokens.add(trimmed);
+                }
+            }
+        }
+        return String.join(",", tokens);
     }
 
 
