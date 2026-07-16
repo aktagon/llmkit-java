@@ -1,11 +1,15 @@
 package com.aktagon.llmkit;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 /** Default transport over {@code java.net.http} (ADR-068 JAVA-003). */
 final class JdkHttpTransport implements HttpTransport {
@@ -13,15 +17,95 @@ final class JdkHttpTransport implements HttpTransport {
 
     @Override
     public Result postJson(String url, String body, Map<String, String> headers) {
-        HttpRequest.Builder builder;
+        HttpRequest.Builder builder = requestBuilder(url);
+        builder.setHeader("Content-Type", "application/json");
+        applyHeaders(builder, headers);
+        builder.POST(HttpRequest.BodyPublishers.ofString(body));
+        return send(builder);
+    }
+
+    @Override
+    public Result getText(String url, Map<String, String> headers) {
+        HttpRequest.Builder builder = requestBuilder(url);
+        applyHeaders(builder, headers);
+        builder.GET();
+        return send(builder);
+    }
+
+    @Override
+    public Result postMultipart(
+            String url,
+            Map<String, String> fields,
+            String fileField,
+            String filename,
+            byte[] data,
+            Map<String, String> headers) {
+        String boundary = "llmkit-boundary-" + UUID.randomUUID();
+        ByteArrayOutputStream payload = new ByteArrayOutputStream();
         try {
-            builder = HttpRequest.newBuilder(URI.create(url));
+            for (Map.Entry<String, String> field : fields.entrySet()) {
+                payload.write(("--" + boundary + "\r\n"
+                        + "Content-Disposition: form-data; name=\"" + field.getKey() + "\"\r\n\r\n"
+                        + field.getValue() + "\r\n").getBytes(StandardCharsets.UTF_8));
+            }
+            payload.write(("--" + boundary + "\r\n"
+                    + "Content-Disposition: form-data; name=\"" + fileField + "\"; filename=\"" + filename + "\"\r\n"
+                    + "Content-Type: application/octet-stream\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+            payload.write(data);
+            payload.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            throw new TransportException(e.getMessage(), e);
+        }
+        HttpRequest.Builder builder = requestBuilder(url);
+        builder.setHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
+        applyHeaders(builder, headers);
+        builder.POST(HttpRequest.BodyPublishers.ofByteArray(payload.toByteArray()));
+        return send(builder);
+    }
+
+    @Override
+    public StreamResult postJsonStreaming(String url, String body, Map<String, String> headers) {
+        HttpRequest.Builder builder = requestBuilder(url);
+        builder.setHeader("Content-Type", "application/json");
+        applyHeaders(builder, headers);
+        builder.POST(HttpRequest.BodyPublishers.ofString(body));
+        try {
+            HttpResponse<java.util.stream.Stream<String>> response =
+                    client.send(builder.build(), HttpResponse.BodyHandlers.ofLines());
+            return new StreamResult(response.statusCode(), response.body());
+        } catch (IOException e) {
+            throw new TransportException(e.getMessage(), e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new TransportException("interrupted", e);
+        }
+    }
+
+    private static HttpRequest.Builder requestBuilder(String url) {
+        try {
+            return HttpRequest.newBuilder(URI.create(url));
         } catch (IllegalArgumentException e) {
             throw new ValidationException("url", "invalid URL: " + url);
         }
-        builder.header("Content-Type", "application/json");
-        headers.forEach(builder::header);
-        builder.POST(HttpRequest.BodyPublishers.ofString(body));
+    }
+
+    /**
+     * Apply caller headers, skipping the ones {@code java.net.http} restricts
+     * (Host, Content-Length — set by the client itself). SigV4's signed Host
+     * rides implicitly: the client always sends Host = URI host, which is the
+     * value the signature covered.
+     */
+    private static void applyHeaders(HttpRequest.Builder builder, Map<String, String> headers) {
+        for (Map.Entry<String, String> header : headers.entrySet()) {
+            String name = header.getKey().toLowerCase(Locale.ROOT);
+            if (name.equals("host") || name.equals("content-length")) {
+                continue;
+            }
+            builder.setHeader(header.getKey(), header.getValue());
+        }
+    }
+
+    private Result send(HttpRequest.Builder builder) {
         try {
             HttpResponse<byte[]> response =
                     client.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray());
