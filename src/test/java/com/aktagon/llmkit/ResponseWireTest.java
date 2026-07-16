@@ -63,4 +63,47 @@ class ResponseWireTest {
     void chatGoogle() throws Exception {
         drive("chat-google", ProviderName.GOOGLE);
     }
+
+    /**
+     * Streaming variant: feed an anchored SSE frame stream
+     * ({@code bodies/<shape>.sse}) through the real {@code Text.stream} path
+     * and assert the assembled Response normalizes to the same projection
+     * (ADR-065 B-stream).
+     */
+    private void driveStream(String shape, ProviderName provider) throws Exception {
+        String body = TestPaths.read(TestPaths.testdata("wire/response/v1/bodies/" + shape + ".sse"));
+        CapturingTransport transport = new CapturingTransport().withResponse(200, body);
+        Client client = new Client(provider, "key", transport);
+
+        Response response = client.text().stream("ping", delta -> { });
+
+        JsonObject usage = new JsonObject();
+        usage.addProperty("cacheRead", response.usage().cacheRead());
+        usage.addProperty("cacheWrite", response.usage().cacheWrite());
+        usage.addProperty("cost", response.usage().cost());
+        usage.addProperty("input", response.usage().input());
+        usage.addProperty("output", response.usage().output());
+        usage.addProperty("reasoning", response.usage().reasoning());
+
+        JsonObject projection = new JsonObject();
+        projection.addProperty("content", response.text());
+        projection.add("error", JsonNull.INSTANCE);
+        projection.addProperty("finishReason", response.finishReason());
+        projection.add("usage", usage);
+
+        TestPaths.writeResponseArtifact(shape, projection);
+        JsonElement golden =
+                Json.parse(TestPaths.read(TestPaths.testdata("wire/response/v1/" + shape + ".json")));
+        assertEquals(golden, projection, shape + " projection differs from shared golden");
+    }
+
+    @Test
+    void streamOpenAI() throws Exception {
+        driveStream("stream-openai", ProviderName.OPENAI);
+    }
+
+    @Test
+    void streamGoogle() throws Exception {
+        driveStream("stream-google", ProviderName.GOOGLE);
+    }
 }
