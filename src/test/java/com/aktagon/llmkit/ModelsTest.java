@@ -184,4 +184,51 @@ class ModelsTest {
         ProviderError err = result.errors().get("openai");
         assertEquals("unavailable", err.kind());
     }
+
+    @Test
+    void liveMapsTransportFailureToUnavailableInsteadOfAborting() {
+        // A daemon-down / DNS failure lands in the errors map as
+        // "unavailable" (Go parity), never aborts the aggregation.
+        HttpTransport downTransport = new HttpTransport() {
+            @Override
+            public Result postJson(String url, String body, java.util.Map<String, String> headers) {
+                throw new TransportException("connection refused", new java.io.IOException("connection refused"));
+            }
+
+            @Override
+            public Result getText(String url, java.util.Map<String, String> headers) {
+                throw new TransportException("connection refused", new java.io.IOException("connection refused"));
+            }
+
+            @Override
+            public Result postMultipart(
+                    String url,
+                    java.util.Map<String, String> fields,
+                    String fileField,
+                    String filename,
+                    String fileContentType,
+                    byte[] data,
+                    java.util.Map<String, String> headers) {
+                throw new TransportException("connection refused", new java.io.IOException("connection refused"));
+            }
+
+            @Override
+            public Result postBytes(String url, byte[] body, java.util.Map<String, String> headers) {
+                throw new TransportException("connection refused", new java.io.IOException("connection refused"));
+            }
+
+            @Override
+            public StreamResult postJsonStreaming(String url, String body, java.util.Map<String, String> headers) {
+                throw new TransportException("connection refused", new java.io.IOException("connection refused"));
+            }
+        };
+        Client client = new Client(ProviderName.OPENAI, "test-key", downTransport);
+
+        LiveResult result = client.models().live();
+
+        assertTrue(result.models().isEmpty());
+        ProviderError err = result.errors().get("openai");
+        assertEquals("unavailable", err.kind());
+        assertTrue(err.message().contains("connection refused"), err.message());
+    }
 }
