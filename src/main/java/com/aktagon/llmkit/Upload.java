@@ -7,7 +7,6 @@ import com.aktagon.llmkit.providers.generated.Request;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -65,7 +64,8 @@ public final class Upload {
 
     /** Upload the given bytes directly. {@code filename()} is required in this mode. */
     public Upload bytes(byte[] value) {
-        return withOptions(o -> o.bytes = value);
+        byte[] copy = value == null ? null : value.clone();
+        return withOptions(o -> o.bytes = copy);
     }
 
     /** Override the multipart filename. */
@@ -86,7 +86,7 @@ public final class Upload {
     /** Upload the configured file and return its {@link File} handle. */
     public File run() {
         boolean hasPath = options.path != null && !options.path.isEmpty();
-        boolean hasBytes = options.bytes != null && options.bytes.length > 0;
+        boolean hasBytes = options.bytes != null;
         if (!hasPath && !hasBytes) {
             throw new ValidationException("Upload", "exactly one of path() or bytes() must be set");
         }
@@ -110,11 +110,18 @@ public final class Upload {
                 }
                 data = Files.readAllBytes(path);
             } catch (IOException e) {
-                throw new UncheckedIOException("cannot read " + options.path + ": " + e.getMessage(), e);
+                throw new ValidationException("path", "cannot read " + options.path + ": " + e.getMessage());
             }
-            name = options.filename != null && !options.filename.isEmpty()
-                    ? options.filename
-                    : path.getFileName().toString();
+            if (options.filename != null && !options.filename.isEmpty()) {
+                name = options.filename;
+            } else {
+                Path last = path.getFileName();
+                if (last == null) {
+                    throw new ValidationException(
+                            "path", "cannot derive a filename from " + options.path + "; set filename()");
+                }
+                name = last.toString();
+            }
         } else {
             if (options.filename == null || options.filename.isEmpty()) {
                 throw new ValidationException("Upload", "filename() is required when bytes() is set");

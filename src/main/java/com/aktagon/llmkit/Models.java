@@ -106,6 +106,12 @@ public final class Models {
                 all.addAll(scoped.list());
             } catch (CatalogueException e) {
                 errors.put(providerNameSlug(info.id()), new ProviderError(e.kind(), e.getMessage()));
+            } catch (TransportException e) {
+                // A network failure (daemon down, DNS) is a per-provider
+                // "unavailable" entry, not an aggregation abort (mirrors Go's
+                // mapCatalogueHTTPErr on herr != nil).
+                CatalogueException mapped = CatalogueException.unavailable(e.getMessage());
+                errors.put(providerNameSlug(info.id()), new ProviderError(mapped.kind(), mapped.getMessage()));
             }
         }
         List<ModelInfo> filtered = all;

@@ -166,6 +166,15 @@ public final class Agent {
                     try {
                         content = tool.handler.run(call.input() != null ? call.input() : new com.google.gson.JsonObject());
                     } catch (Exception e) {
+                        // Restore the interrupt flag before stringifying — the
+                        // loop reports the failure to the model but must not
+                        // swallow a thread interruption.
+                        for (Throwable t = e; t != null; t = t.getCause()) {
+                            if (t instanceof InterruptedException) {
+                                Thread.currentThread().interrupt();
+                                break;
+                            }
+                        }
                         content = "error: " + e.getMessage();
                     }
                 } else {
