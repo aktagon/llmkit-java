@@ -427,6 +427,142 @@ class RequestWireTest {
         assertGolden("speech-openai");
     }
 
+    // --- Video generation (ADR-034; asynchronous submit). The wire suite
+    // asserts ONLY the submit body -- submit(prompt) performs the submit POST,
+    // the mock answers with the provider's submit-response handle id so submit
+    // returns a VideoJob (discarded), and only the captured outbound bytes are
+    // asserted. The canned response carries every provider's handle field
+    // (mirror of the Swift driver's videoSubmitResponse): request_id / task_id /
+    // id / name / invocationArn / output.task_id / Resp.video_id.
+
+    private static final String VIDEO_SUBMIT_RESPONSE = "{\"request_id\":\"vid_test\",\"task_id\":\"vid_test\","
+            + "\"id\":\"vid_test\",\"name\":\"models/veo-test/operations/op_test\","
+            + "\"invocationArn\":\"arn:test:async-invoke/op_test\","
+            + "\"output\":{\"task_id\":\"vid_test\",\"task_status\":\"PENDING\"},"
+            + "\"Resp\":{\"video_id\":318633193768896}}";
+
+    private Client videoClient(ProviderName provider) {
+        transport = new CapturingTransport().withResponse(200, VIDEO_SUBMIT_RESPONSE);
+        return new Client(provider, "key", transport);
+    }
+
+    // VID-007: Grok video-submit body {model, prompt}.
+    @Test
+    void videoGrok() throws Exception {
+        videoClient(ProviderName.GROK).video()
+                .model("grok-imagine-video")
+                .submit("A drone shot sweeping over snow-capped alpine peaks at sunrise");
+        assertGolden("video-grok");
+    }
+
+    // BUG-010: Grok image-to-video submit body {model, prompt, image:{url}} -- the
+    // seed frame inlines as a data URL at image.url (the Grok image-edit encoding).
+    @Test
+    void videoGrokI2V() throws Exception {
+        videoClient(ProviderName.GROK).video()
+                .model("grok-imagine-video")
+                .image("image/png", imageBytes())
+                .submit("Animate the still: a slow cinematic push-in as clouds drift past the peaks");
+        assertGolden("video-grok-i2v");
+    }
+
+    // ADR-034 fan-out: Zhipu CogVideoX shares the {model, prompt} arm.
+    @Test
+    void videoZhipu() throws Exception {
+        videoClient(ProviderName.ZHIPU).video()
+                .model("cogvideox-3")
+                .submit("A drone shot sweeping over snow-capped alpine peaks at sunrise");
+        assertGolden("video-zhipu");
+    }
+
+    // ADR-034 fan-out: Vidu (Shengshu) shares the {model, prompt} arm.
+    @Test
+    void videoVidu() throws Exception {
+        videoClient(ProviderName.VIDU).video()
+                .model("viduq3-pro")
+                .submit("A drone shot sweeping over snow-capped alpine peaks at sunrise");
+        assertGolden("video-vidu");
+    }
+
+    // ADR-034 fan-out: PixVerse's five-field body {model, prompt, duration,
+    // quality, aspect_ratio}. The per-request Ai-trace-id header is a runtime
+    // UUID (asserted in VideoTest, not the golden).
+    @Test
+    void videoPixVerse() throws Exception {
+        videoClient(ProviderName.PIXVERSE).video()
+                .model("v4.5")
+                .submit("A drone shot sweeping over snow-capped alpine peaks at sunrise");
+        assertGolden("video-pixverse");
+    }
+
+    // ADR-034 fan-out: Together shares the {model, prompt} arm.
+    @Test
+    void videoTogether() throws Exception {
+        videoClient(ProviderName.TOGETHER).video()
+                .model("minimax/video-01-director")
+                .submit("A drone shot sweeping over snow-capped alpine peaks at sunrise");
+        assertGolden("video-together");
+    }
+
+    // ADR-034 fan-out: Qwen (DashScope) nests the prompt under {model,
+    // input:{prompt}} and requires the load-bearing X-DashScope-Async: enable
+    // header (asserted in-driver, mirror of the Anthropic beta-header assert).
+    @Test
+    void videoQwen() throws Exception {
+        videoClient(ProviderName.QWEN).video()
+                .model("wan2.2-t2v-plus")
+                .submit("A drone shot sweeping over snow-capped alpine peaks at sunrise");
+        assertEquals("enable", transport.capturedHeaders.get("X-DashScope-Async"));
+        assertGolden("video-qwen");
+    }
+
+    // ADR-034 fan-out: MiniMax shares the {model, prompt} arm (the two-hop
+    // result retrieve is delivery-side, covered by VideoTest).
+    @Test
+    void videoMiniMax() throws Exception {
+        videoClient(ProviderName.MINIMAX).video()
+                .model("MiniMax-Hailuo-2.3")
+                .submit("A drone shot sweeping over snow-capped alpine peaks at sunrise");
+        assertGolden("video-minimax");
+    }
+
+    // ADR-034 fan-out: Google Veo carries the model in the submit PATH, so the
+    // body is the nested {instances:[{prompt}]} with NO model field.
+    @Test
+    void videoGoogleVeo() throws Exception {
+        videoClient(ProviderName.GOOGLE).video()
+                .model("veo-3.1-generate-preview")
+                .submit("A drone shot sweeping over snow-capped alpine peaks at sunrise");
+        assertGolden("video-google");
+    }
+
+    // ADR-034 fan-out: AWS Bedrock Nova Reel carries the model in the BODY
+    // (modelId), nests the prompt under modelInput, and the caller S3 URI under
+    // outputDataConfig. The submit is SigV4-signed; the mock captures the
+    // outbound body regardless of the (keyless) signature.
+    @Test
+    void videoBedrock() throws Exception {
+        videoClient(ProviderName.BEDROCK).video()
+                .model("amazon.nova-reel-v1:0")
+                .outputUri("s3://llmkit-wire-fixtures/out/")
+                .submit("A drone shot sweeping over snow-capped alpine peaks at sunrise");
+        assertGolden("video-bedrock");
+    }
+
+    // ADR-034 delivery-mode phase: Vertex Veo's submit body is byte-identical to
+    // the Gemini Veo golden (model in the PATH, not the body).
+    @Test
+    void videoVertexVeo() throws Exception {
+        // Vertex's base carries {location}/{project_id} placeholders (the
+        // caller-substituted seam); override with the mock base so the URL is
+        // valid (the mock intercepts regardless; only the body is asserted).
+        Client client = videoClient(ProviderName.VERTEX).baseUrl("https://mock.local");
+        client.video()
+                .model("veo-3.1-generate-preview")
+                .submit("A drone shot sweeping over snow-capped alpine peaks at sunrise");
+        assertGolden("video-vertex");
+    }
+
     // --- Bedrock Converse (SigV4 signing; body is asserted, signature is not).
     // AWS_REGION / AWS_SECRET_ACCESS_KEY are deterministic dummies supplied by
     // the Gradle test task (Java cannot setenv at runtime); the signature is
