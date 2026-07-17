@@ -5,12 +5,16 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
 
 
 final class JdkHttpTransport implements HttpTransport {
-    private final HttpClient client = HttpClient.newHttpClient();
+    //
+    //
+    private final HttpClient client =
+            HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();
 
     @Override
     public Result postJson(String url, String body, Map<String, String> headers) {

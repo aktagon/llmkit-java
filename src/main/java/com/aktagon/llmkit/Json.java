@@ -22,8 +22,10 @@ import com.google.gson.JsonParser;
 
 
 
+
+
 public final class Json {
-    public static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
+    private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
 
     private Json() {}
 
@@ -35,7 +37,7 @@ public final class Json {
         }
     }
 
-    public static String serialize(JsonElement element) {
+    static String serialize(JsonElement element) {
         return GSON.toJson(element);
     }
 
@@ -80,14 +82,14 @@ public final class Json {
                 && found.getAsJsonPrimitive().isNumber() ? found.getAsLong() : 0L;
     }
 
-    public static double doubleAt(JsonElement root, String path) {
+    static double doubleAt(JsonElement root, String path) {
         JsonElement found = at(root, path);
         return found != null && found.isJsonPrimitive()
                 && found.getAsJsonPrimitive().isNumber() ? found.getAsDouble() : 0.0;
     }
 
 
-    public static JsonObject object() {
+    static JsonObject object() {
         return new JsonObject();
     }
 }

@@ -58,8 +58,12 @@ public final class Event {
     }
 
 
+
+
     Event withTool(String tool, Map<String, JsonElement> args) {
-        return new Event(op, phase, provider, model, tool, args, result, usage, err, durationMillis);
+        Map<String, JsonElement> sealed =
+                java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(args));
+        return new Event(op, phase, provider, model, tool, sealed, result, usage, err, durationMillis);
     }
 
 

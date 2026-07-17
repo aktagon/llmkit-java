@@ -166,6 +166,15 @@ public final class Agent {
                     try {
                         content = tool.handler.run(call.input() != null ? call.input() : new com.google.gson.JsonObject());
                     } catch (Exception e) {
+                        //
+                        //
+                        //
+                        for (Throwable t = e; t != null; t = t.getCause()) {
+                            if (t instanceof InterruptedException) {
+                                Thread.currentThread().interrupt();
+                                break;
+                            }
+                        }
                         content = "error: " + e.getMessage();
                     }
                 } else {
