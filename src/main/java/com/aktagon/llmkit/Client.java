@@ -87,6 +87,18 @@ public final class Client {
 
 
 
+    public Transcription transcription() {
+        return Transcription.root(provider, apiKey, baseUrlOverride, http);
+    }
+
+
+
+
+
+
+
+
+
 
 
 

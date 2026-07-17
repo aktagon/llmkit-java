@@ -28,13 +28,26 @@ interface HttpTransport {
 
 
 
+
+
+
+
+
     Result postMultipart(
             String url,
             Map<String, String> fields,
             String fileField,
             String filename,
+            String fileContentType,
             byte[] data,
             Map<String, String> headers);
+
+
+
+
+
+
+    Result postBytes(String url, byte[] body, Map<String, String> headers);
 
 
 
