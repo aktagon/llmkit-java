@@ -60,6 +60,11 @@ public final class Client {
     }
 
 
+    public Image image() {
+        return Image.root(provider, apiKey, baseUrlOverride, http);
+    }
+
+
 
 
 
