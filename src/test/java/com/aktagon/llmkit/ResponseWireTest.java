@@ -162,4 +162,48 @@ class ResponseWireTest {
     void imageVertex() throws Exception {
         driveImage("image-vertex", ProviderName.VERTEX, "imagen-3.0-generate-002");
     }
+
+    /**
+     * Speech variant: feed an anchored TTS reply (an Inworld base64-envelope
+     * body) through the real {@code Speech.generate} path and assert the
+     * decoded {@code SpeechResponse} projects to the media discriminant
+     * {@code {kind, mimeType, byteLen}} (RWR-004) — the same body must
+     * decode to the same audio across all six SDKs.
+     */
+    private void driveSpeech(String shape, ProviderName provider, String model, String voice) throws Exception {
+        String body = TestPaths.read(TestPaths.testdata("wire/response/v1/bodies/" + shape + ".json"));
+        CapturingTransport transport = new CapturingTransport().withResponse(200, body);
+        Client client = new Client(provider, "key", transport);
+
+        var response = client.speech().model(model).voice(voice).generate("ping");
+
+        JsonObject content = new JsonObject();
+        content.addProperty("byteLen", response.audio().bytes().length);
+        content.addProperty("kind", "speech");
+        content.addProperty("mimeType", response.audio().mimeType());
+
+        JsonObject usage = new JsonObject();
+        usage.addProperty("cacheRead", response.usage().cacheRead());
+        usage.addProperty("cacheWrite", response.usage().cacheWrite());
+        usage.addProperty("cost", response.usage().cost());
+        usage.addProperty("input", response.usage().input());
+        usage.addProperty("output", response.usage().output());
+        usage.addProperty("reasoning", response.usage().reasoning());
+
+        JsonObject projection = new JsonObject();
+        projection.add("content", content);
+        projection.add("error", JsonNull.INSTANCE);
+        projection.addProperty("finishReason", response.finishReason());
+        projection.add("usage", usage);
+
+        TestPaths.writeResponseArtifact(shape, projection);
+        JsonElement golden =
+                Json.parse(TestPaths.read(TestPaths.testdata("wire/response/v1/" + shape + ".json")));
+        assertEquals(golden, projection, shape + " projection differs from shared golden");
+    }
+
+    @Test
+    void speechInworld() throws Exception {
+        driveSpeech("speech-inworld", ProviderName.INWORLD, "inworld-tts-2", "Dennis");
+    }
 }

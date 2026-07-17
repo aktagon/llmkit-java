@@ -407,6 +407,26 @@ class RequestWireTest {
         assertGolden("image-edit-google-flash");
     }
 
+    // --- Speech generation (TTS). Inputs mirror the WIRE_SPEECH_* wire_inputs
+    // constants; the two shapes are the flat-JSON Inworld body (Basic auth)
+    // and the flat-JSON OpenAI body.
+
+    @Test
+    void speechInworld() throws Exception {
+        client(ProviderName.INWORLD).speech()
+                .model("inworld-tts-2").voice("Dennis")
+                .generate("Hello from llmkit.");
+        assertGolden("speech-inworld");
+    }
+
+    @Test
+    void speechOpenAI() throws Exception {
+        client(ProviderName.OPENAI).speech()
+                .model("gpt-4o-mini-tts").voice("alloy")
+                .generate("Hello from llmkit.");
+        assertGolden("speech-openai");
+    }
+
     // --- Bedrock Converse (SigV4 signing; body is asserted, signature is not).
     // AWS_REGION / AWS_SECRET_ACCESS_KEY are deterministic dummies supplied by
     // the Gradle test task (Java cannot setenv at runtime); the signature is
