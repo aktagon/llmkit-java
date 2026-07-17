@@ -7,6 +7,8 @@ import com.aktagon.llmkit.providers.generated.Response;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -205,5 +207,51 @@ class ResponseWireTest {
     @Test
     void speechInworld() throws Exception {
         driveSpeech("speech-inworld", ProviderName.INWORLD, "inworld-tts-2", "Dennis");
+    }
+
+    /**
+     * Transcription variant: feed an anchored OpenAI verbose_json reply through
+     * the real synchronous {@code transcribe} path and assert the decoded
+     * {@code TranscriptionResponse} projects to the transcript discriminant
+     * {@code {kind, segments, text}} (ADR-065 / ADR-048) — the same body must
+     * decode to the same transcript across all six SDKs.
+     */
+    private void driveTranscription(String shape, ProviderName provider, String model) throws Exception {
+        String body = TestPaths.read(TestPaths.testdata("wire/response/v1/bodies/" + shape + ".json"));
+        CapturingTransport transport = new CapturingTransport().withResponse(200, body);
+        Client client = new Client(provider, "key", transport);
+
+        var response = client.transcription()
+                .model(model)
+                .transcribe(List.of(Part.audioBytes("audio/mpeg", "fake-audio".getBytes(StandardCharsets.UTF_8))));
+
+        JsonObject content = new JsonObject();
+        content.addProperty("kind", "transcript");
+        content.addProperty("segments", response.segments().size());
+        content.addProperty("text", response.text());
+
+        JsonObject usage = new JsonObject();
+        usage.addProperty("cacheRead", response.usage().cacheRead());
+        usage.addProperty("cacheWrite", response.usage().cacheWrite());
+        usage.addProperty("cost", response.usage().cost());
+        usage.addProperty("input", response.usage().input());
+        usage.addProperty("output", response.usage().output());
+        usage.addProperty("reasoning", response.usage().reasoning());
+
+        JsonObject projection = new JsonObject();
+        projection.add("content", content);
+        projection.add("error", JsonNull.INSTANCE);
+        projection.addProperty("finishReason", "");
+        projection.add("usage", usage);
+
+        TestPaths.writeResponseArtifact(shape, projection);
+        JsonElement golden =
+                Json.parse(TestPaths.read(TestPaths.testdata("wire/response/v1/" + shape + ".json")));
+        assertEquals(golden, projection, shape + " projection differs from shared golden");
+    }
+
+    @Test
+    void transcriptionOpenAI() throws Exception {
+        driveTranscription("transcription-openai", ProviderName.OPENAI, "whisper-1");
     }
 }

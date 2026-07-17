@@ -3,9 +3,14 @@ package com.aktagon.llmkit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.aktagon.llmkit.providers.generated.ProviderName;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -30,7 +35,10 @@ class RequestWireTest {
     }
 
     private void assertGolden(String fixture) throws IOException {
-        JsonElement body = Json.parse(transport.capturedBody);
+        assertGolden(fixture, Json.parse(transport.capturedBody));
+    }
+
+    private void assertGolden(String fixture, JsonElement body) throws IOException {
         TestPaths.writeRequestArtifact(fixture, body);
         JsonElement golden =
                 Json.parse(TestPaths.read(TestPaths.testdata("wire/request/v1/" + fixture + ".json")));
@@ -561,6 +569,135 @@ class RequestWireTest {
                 .model("veo-3.1-generate-preview")
                 .submit("A drone shot sweeping over snow-capped alpine peaks at sunrise");
         assertGolden("video-vertex");
+    }
+
+    // --- Transcription (ADR-048 / ADR-051; the Part container). Inputs
+    // mirror the WIRE_TRANSCRIPTION_* wire_inputs constants.
+
+    private static final String TRANSCRIPTION_AUDIO_URL = "https://storage.example.com/meeting-2026-06-24.mp3";
+    private static final String TRANSCRIPTION_OPENAI_MODEL = "whisper-1";
+    private static final String TRANSCRIPTION_OPENAI_MIME = "audio/mpeg";
+
+    // ADR-048: AssemblyAI transcription submit body {audio_url}. The async
+    // TranscriptionJob is discarded; only the outbound submit bytes are
+    // asserted. The upload hop is bytes-only and is not exercised here (a URL
+    // part skips it).
+    @Test
+    void transcriptionAssemblyAI() throws Exception {
+        Client c = client(ProviderName.ASSEMBLYAI);
+        transport.withResponse(200, "{\"id\":\"transcript_abc123\"}");
+        c.transcription().submit(List.of(Part.audio(TRANSCRIPTION_AUDIO_URL)));
+        assertGolden("transcription-assemblyai");
+    }
+
+    // ADR-051: OpenAI SYNCHRONOUS transcription is the first multipart/form-data
+    // request body in the SDK. The golden is the canonical multipart descriptor
+    // (OQ-3); the driver decodes its ACTUAL encoded multipart body (captured
+    // bytes + boundary from the Content-Type header) into ordered fields and
+    // asserts value-equal to the golden.
+    @Test
+    void transcriptionOpenAI() throws Exception {
+        Client c = client(ProviderName.OPENAI);
+        transport.withResponse(200, "{\"text\":\"Hello world.\"}");
+        c.transcription()
+                .model(TRANSCRIPTION_OPENAI_MODEL)
+                .transcribe(List.of(
+                        Part.audioBytes(TRANSCRIPTION_OPENAI_MIME, "fake-audio".getBytes(StandardCharsets.UTF_8))));
+        JsonElement descriptor =
+                multipartToDescriptor(transport.capturedBody, transport.capturedHeaders.get("content-type"));
+        assertGolden("transcription-openai", descriptor);
+    }
+
+    /**
+     * Decodes an encoded {@code multipart/form-data} body into the canonical
+     * descriptor the cross-SDK comparator asserts (ADR-051 OQ-3): an ordered
+     * list of form fields. Text fields emit {@code {name, value}}; the file
+     * part keeps its filename + content-type but its bytes become the fixed
+     * sentinel {@code "<audio-bytes>"}. Parses the ACTUAL captured bytes +
+     * boundary, keeping the descriptor independent of the golden. Port of the
+     * Rust {@code multipart_to_descriptor} (request_wire.rs).
+     */
+    static JsonElement multipartToDescriptor(String body, String contentType) {
+        String boundary = "";
+        int boundaryIdx = contentType.indexOf("boundary=");
+        if (boundaryIdx >= 0) {
+            boundary = contentType.substring(boundaryIdx + "boundary=".length()).trim();
+        }
+        String delim = "--" + boundary;
+        JsonArray fields = new JsonArray();
+        for (String rawSeg : body.split(Pattern.quote(delim), -1)) {
+            String seg = rawSeg;
+            if (seg.startsWith("\r\n")) {
+                seg = seg.substring(2);
+            }
+            if (seg.isEmpty() || seg.startsWith("--")) {
+                continue; // preamble or closing delimiter
+            }
+            int sep = seg.indexOf("\r\n\r\n");
+            if (sep < 0) {
+                continue;
+            }
+            String headerBlock = seg.substring(0, sep);
+            String value = seg.substring(sep + 4);
+            if (value.endsWith("\r\n")) {
+                value = value.substring(0, value.length() - 2);
+            }
+            String name = "";
+            String filename = null;
+            String partContentType = null;
+            for (String header : headerBlock.split("\r\n")) {
+                String lower = header.toLowerCase(Locale.ROOT);
+                if (lower.startsWith("content-disposition:")) {
+                    name = extractQuoted(header, "name=");
+                    filename = extractQuotedOrNull(header, "filename=");
+                } else if (lower.startsWith("content-type:")) {
+                    int colon = header.indexOf(':');
+                    partContentType = header.substring(colon + 1).trim();
+                }
+            }
+            JsonObject field = new JsonObject();
+            if (filename != null) {
+                field.addProperty("name", name);
+                field.addProperty("filename", filename);
+                field.addProperty("contentType", partContentType != null ? partContentType : "");
+                field.addProperty("bytes", "<audio-bytes>");
+            } else {
+                field.addProperty("name", name);
+                field.addProperty("value", value);
+            }
+            fields.add(field);
+        }
+        JsonObject descriptor = new JsonObject();
+        descriptor.addProperty("_encoding", "multipart/form-data");
+        descriptor.add("fields", fields);
+        return descriptor;
+    }
+
+    /**
+     * Pulls the quoted value following {@code key} (e.g. {@code
+     * name="model"} -> "model"). Leftmost match, so {@code name=} on the file
+     * part resolves the standalone field name, not the tail of {@code
+     * filename=}.
+     */
+    private static String extractQuoted(String haystack, String key) {
+        String value = extractQuotedOrNull(haystack, key);
+        return value != null ? value : "";
+    }
+
+    private static String extractQuotedOrNull(String haystack, String key) {
+        int start = haystack.indexOf(key);
+        if (start < 0) {
+            return null;
+        }
+        int quoteStart = start + key.length();
+        if (quoteStart >= haystack.length() || haystack.charAt(quoteStart) != '"') {
+            return null;
+        }
+        int quoteEnd = haystack.indexOf('"', quoteStart + 1);
+        if (quoteEnd < 0) {
+            return null;
+        }
+        return haystack.substring(quoteStart + 1, quoteEnd);
     }
 
     // --- Bedrock Converse (SigV4 signing; body is asserted, signature is not).

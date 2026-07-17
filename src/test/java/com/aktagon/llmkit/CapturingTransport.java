@@ -71,10 +71,26 @@ final class CapturingTransport implements HttpTransport {
             Map<String, String> fields,
             String fileField,
             String filename,
+            String fileContentType,
             byte[] data,
             Map<String, String> headers) {
+        // Actually ENCODE the multipart body (the same encoder JdkHttpTransport
+        // uses) so a wire test can decode the real boundary-delimited bytes,
+        // never a test-only approximation (ADR-051 OQ-3).
+        Multipart.Encoded encoded = Multipart.encode(fields, fileField, filename, fileContentType, data);
         this.capturedUrl = url;
-        this.capturedBody = new String(data, StandardCharsets.UTF_8);
+        this.capturedBody = new String(encoded.payload(), StandardCharsets.UTF_8);
+        Map<String, String> withContentType = new java.util.LinkedHashMap<>(headers);
+        withContentType.put("content-type", "multipart/form-data; boundary=" + encoded.boundary());
+        this.capturedHeaders = withContentType;
+        urls.add(url);
+        return new Result(responseStatusCode, nextBody());
+    }
+
+    @Override
+    public Result postBytes(String url, byte[] body, Map<String, String> headers) {
+        this.capturedUrl = url;
+        this.capturedBody = new String(body, StandardCharsets.UTF_8);
         this.capturedHeaders = headers;
         urls.add(url);
         return new Result(responseStatusCode, nextBody());

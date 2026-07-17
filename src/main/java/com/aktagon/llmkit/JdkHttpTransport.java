@@ -1,15 +1,12 @@
 package com.aktagon.llmkit;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
 
 /** Default transport over {@code java.net.http} (ADR-068 JAVA-003). */
 final class JdkHttpTransport implements HttpTransport {
@@ -38,28 +35,23 @@ final class JdkHttpTransport implements HttpTransport {
             Map<String, String> fields,
             String fileField,
             String filename,
+            String fileContentType,
             byte[] data,
             Map<String, String> headers) {
-        String boundary = "llmkit-boundary-" + UUID.randomUUID();
-        ByteArrayOutputStream payload = new ByteArrayOutputStream();
-        try {
-            for (Map.Entry<String, String> field : fields.entrySet()) {
-                payload.write(("--" + boundary + "\r\n"
-                        + "Content-Disposition: form-data; name=\"" + field.getKey() + "\"\r\n\r\n"
-                        + field.getValue() + "\r\n").getBytes(StandardCharsets.UTF_8));
-            }
-            payload.write(("--" + boundary + "\r\n"
-                    + "Content-Disposition: form-data; name=\"" + fileField + "\"; filename=\"" + filename + "\"\r\n"
-                    + "Content-Type: application/octet-stream\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-            payload.write(data);
-            payload.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            throw new TransportException(e.getMessage(), e);
-        }
+        Multipart.Encoded encoded = Multipart.encode(fields, fileField, filename, fileContentType, data);
         HttpRequest.Builder builder = requestBuilder(url);
-        builder.setHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
+        builder.setHeader("Content-Type", "multipart/form-data; boundary=" + encoded.boundary());
         applyHeaders(builder, headers);
-        builder.POST(HttpRequest.BodyPublishers.ofByteArray(payload.toByteArray()));
+        builder.POST(HttpRequest.BodyPublishers.ofByteArray(encoded.payload()));
+        return send(builder);
+    }
+
+    @Override
+    public Result postBytes(String url, byte[] body, Map<String, String> headers) {
+        HttpRequest.Builder builder = requestBuilder(url);
+        builder.setHeader("Content-Type", "application/octet-stream");
+        applyHeaders(builder, headers);
+        builder.POST(HttpRequest.BodyPublishers.ofByteArray(body));
         return send(builder);
     }
 
