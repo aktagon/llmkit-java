@@ -536,7 +536,7 @@ public final class Image {
                 JsonObject entry = entryElement.getAsJsonObject();
                 JsonElement b64Element = entry.get("b64_json");
                 if (b64Element != null && b64Element.isJsonPrimitive() && !b64Element.getAsString().isEmpty()) {
-                    byte[] decoded = Base64.getDecoder().decode(b64Element.getAsString());
+                    byte[] decoded = decodeBase64(b64Element.getAsString(), "image b64_json");
                     String mime = "image/png";
                     JsonElement mimeElement = entry.get("mime_type");
                     if (mimeElement != null && mimeElement.isJsonPrimitive() && !mimeElement.getAsString().isEmpty()) {
@@ -591,7 +591,7 @@ public final class Image {
                 if (b64Element == null || !b64Element.isJsonPrimitive() || b64Element.getAsString().isEmpty()) {
                     continue;
                 }
-                byte[] decoded = Base64.getDecoder().decode(b64Element.getAsString());
+                byte[] decoded = decodeBase64(b64Element.getAsString(), "image bytesBase64Encoded");
                 String mime = "image/png";
                 JsonElement mimeElement = entry.get("mimeType");
                 if (mimeElement != null && mimeElement.isJsonPrimitive() && !mimeElement.getAsString().isEmpty()) {
@@ -632,7 +632,7 @@ public final class Image {
                             if (dataElement != null
                                     && dataElement.isJsonPrimitive()
                                     && !dataElement.getAsString().isEmpty()) {
-                                byte[] decoded = Base64.getDecoder().decode(dataElement.getAsString());
+                                byte[] decoded = decodeBase64(dataElement.getAsString(), "image inlineData");
                                 String mime = "";
                                 JsonElement mimeElement = inline.get("mimeType");
                                 if (mimeElement != null && mimeElement.isJsonPrimitive()) {
@@ -663,6 +663,15 @@ public final class Image {
      * root). Used to label vector-model output when the provider echoes no
      * mime type.
      */
+    /** Decode provider-supplied base64, mapping malformed input into the error taxonomy. */
+    private static byte[] decodeBase64(String value, String what) {
+        try {
+            return Base64.getDecoder().decode(value);
+        } catch (IllegalArgumentException e) {
+            throw new DecodingException("invalid base64 in " + what + ": " + e.getMessage(), e);
+        }
+    }
+
     private static boolean looksLikeSVG(byte[] data) {
         String text = new String(data, StandardCharsets.UTF_8).stripLeading();
         return text.startsWith("<?xml") || text.startsWith("<svg");
