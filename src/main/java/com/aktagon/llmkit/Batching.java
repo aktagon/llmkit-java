@@ -160,6 +160,7 @@ final class Batching {
                 Map.of("purpose", batch.filePurpose),
                 "file",
                 "batch_input.jsonl",
+                "application/octet-stream",
                 data,
                 headers);
         if (result.statusCode() < 200 || result.statusCode() >= 300) {
