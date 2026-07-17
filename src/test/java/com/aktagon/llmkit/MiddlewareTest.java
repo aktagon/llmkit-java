@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.aktagon.llmkit.providers.generated.ImageResponse;
 import com.aktagon.llmkit.providers.generated.ProviderName;
 import com.aktagon.llmkit.providers.generated.Response;
 import java.util.ArrayList;
@@ -175,5 +176,62 @@ class MiddlewareTest {
         assertTrue(post.isPresent());
         assertNull(post.get().err);
         assertTrue(events.stream().anyMatch(e -> e.op == MiddlewareOp.LLM_REQUEST));
+    }
+
+    // --- Image generation: pre + post observation, and pre-phase veto ---
+
+    private static final String IMAGE_RESPONSE =
+            "{\"candidates\":[{\"content\":{\"parts\":[{\"inlineData\":{\"mimeType\":\"image/png\","
+                    + "\"data\":\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGM4YWQEAALyAS2s"
+                    + "aifrAAAAAElFTkSuQmCC\"}}]}}],"
+                    + "\"usageMetadata\":{\"promptTokenCount\":9,\"candidatesTokenCount\":1290}}";
+
+    @Test
+    void imageGenerationFiresPreAndPost() {
+        List<Event> events = new ArrayList<>();
+        MiddlewareFn hook = event -> {
+            events.add(event);
+            return null;
+        };
+        CapturingTransport transport = new CapturingTransport().withResponse(200, IMAGE_RESPONSE);
+
+        ImageResponse image = new Client(ProviderName.GOOGLE, "key", transport)
+                .image().model("gemini-3.1-flash-image-preview").addMiddleware(hook)
+                .generate("A lighthouse on a rocky coastline at dusk");
+
+        assertEquals(1, image.images().size());
+        assertEquals(2, events.size());
+        assertEquals(MiddlewareOp.IMAGE_GENERATION, events.get(0).op);
+        assertEquals(MiddlewarePhase.PRE, events.get(0).phase);
+        assertEquals("google", events.get(0).provider);
+        assertNull(events.get(0).usage);
+        assertEquals(MiddlewarePhase.POST, events.get(1).phase);
+        assertEquals(9, events.get(1).usage.input());
+        assertEquals(1290, events.get(1).usage.output());
+        assertNull(events.get(1).err);
+    }
+
+    @Test
+    void preVetoAbortsImageGeneration() {
+        List<Event> events = new ArrayList<>();
+        RuntimeException blocked = new RuntimeException("policy");
+        MiddlewareFn veto = event -> blocked;
+        MiddlewareFn observer = event -> {
+            events.add(event);
+            return null;
+        };
+        CapturingTransport transport = new CapturingTransport().withResponse(200, IMAGE_RESPONSE);
+
+        MiddlewareVetoException thrown = org.junit.jupiter.api.Assertions.assertThrows(
+                MiddlewareVetoException.class,
+                () -> new Client(ProviderName.GOOGLE, "key", transport)
+                        .image().model("gemini-3.1-flash-image-preview").addMiddleware(veto).addMiddleware(observer)
+                        .generate("This must not reach the provider."));
+
+        assertEquals(blocked, thrown.getCause());
+        // The veto is first in registration order, so the observer never fires,
+        // and no request was sent.
+        assertTrue(events.isEmpty());
+        assertNull(transport.capturedBody);
     }
 }
