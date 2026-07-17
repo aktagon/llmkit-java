@@ -125,6 +125,44 @@ class UploadTest {
     }
 
     @Test
+    void emptyBytesUploadIsSetNotMisdiagnosed() {
+        // bytes(new byte[0]) is a legitimate empty file, not "bytes unset".
+        CapturingTransport transport = new CapturingTransport()
+                .withResponse(200, "{\"id\":\"file_empty\",\"filename\":\"empty.txt\",\"mime_type\":\"text/plain\"}");
+        Client client = new Client(ProviderName.ANTHROPIC, "test-key", transport);
+
+        File file = client.upload().bytes(new byte[0]).filename("empty.txt").run();
+
+        assertEquals("file_empty", file.id());
+        assertTrue(transport.capturedBody.contains("filename=\"empty.txt\""), transport.capturedBody);
+    }
+
+    @Test
+    void unreadablePathIsAValidationError() {
+        Client client = new Client(ProviderName.ANTHROPIC, "test-key", new CapturingTransport());
+
+        ValidationException err = assertThrows(
+                ValidationException.class,
+                () -> client.upload().path("/nonexistent/llmkit-upload-missing.pdf").run());
+
+        assertEquals("path", err.field());
+    }
+
+    @Test
+    void bytesAreCopiedNotAliased() {
+        CapturingTransport transport = new CapturingTransport()
+                .withResponse(200, "{\"id\":\"file_copy\",\"filename\":\"data.txt\",\"mime_type\":\"text/plain\"}");
+        Client client = new Client(ProviderName.ANTHROPIC, "test-key", transport);
+
+        byte[] payload = "original".getBytes(StandardCharsets.UTF_8);
+        Upload upload = client.upload().bytes(payload).filename("data.txt");
+        payload[0] = 'X'; // caller mutation after chaining must not leak in
+
+        upload.run();
+        assertTrue(transport.capturedBody.contains("original"), transport.capturedBody);
+    }
+
+    @Test
     void unsupportedProviderThrows() {
         Client client = new Client(ProviderName.OLLAMA, "test-key", new CapturingTransport());
         assertThrows(

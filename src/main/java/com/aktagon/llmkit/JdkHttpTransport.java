@@ -5,12 +5,16 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
 
 /** Default transport over {@code java.net.http} (ADR-068 JAVA-003). */
 final class JdkHttpTransport implements HttpTransport {
-    private final HttpClient client = HttpClient.newHttpClient();
+    // Connect timeout mirrors Go's DefaultTransport 30s dial timeout; no
+    // per-request timeout (Go has none — long generations may stream slowly).
+    private final HttpClient client =
+            HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();
 
     @Override
     public Result postJson(String url, String body, Map<String, String> headers) {

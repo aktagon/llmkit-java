@@ -172,14 +172,19 @@ public final class Speech {
         if ("rawBody".equals(encoding)) {
             bytes = body;
         } else {
+            String b64 = "";
             try {
                 JsonElement raw = Json.parse(new String(body, StandardCharsets.UTF_8));
-                String b64 = Json.stringAt(raw, "audioContent");
-                if (!b64.isEmpty()) {
-                    bytes = Base64.getDecoder().decode(b64);
-                }
+                b64 = Json.stringAt(raw, "audioContent");
             } catch (DecodingException ignored) {
                 // Body was not JSON; leave bytes empty (mirrors Swift's `try?`).
+            }
+            if (!b64.isEmpty()) {
+                try {
+                    bytes = Base64.getDecoder().decode(b64);
+                } catch (IllegalArgumentException e) {
+                    throw new DecodingException("invalid base64 in speech audioContent: " + e.getMessage(), e);
+                }
             }
         }
         return new SpeechResponse(new AudioData(fallbackMime, bytes), Usage.zero(), "");
