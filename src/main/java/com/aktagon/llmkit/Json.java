@@ -17,12 +17,17 @@ import com.google.gson.JsonParser;
 
 
 
-final class Json {
-    static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
+
+
+
+
+
+public final class Json {
+    public static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
 
     private Json() {}
 
-    static JsonElement parse(String text) {
+    public static JsonElement parse(String text) {
         try {
             return JsonParser.parseString(text);
         } catch (RuntimeException e) {
@@ -30,7 +35,7 @@ final class Json {
         }
     }
 
-    static String serialize(JsonElement element) {
+    public static String serialize(JsonElement element) {
         return GSON.toJson(element);
     }
 
@@ -39,7 +44,7 @@ final class Json {
 
 
 
-    static JsonElement at(JsonElement root, String path) {
+    public static JsonElement at(JsonElement root, String path) {
         JsonElement current = root;
         for (String segment : path.split("\\.")) {
             int bracket = segment.indexOf('[');
@@ -64,25 +69,25 @@ final class Json {
         return current;
     }
 
-    static String stringAt(JsonElement root, String path) {
+    public static String stringAt(JsonElement root, String path) {
         JsonElement found = at(root, path);
         return found != null && found.isJsonPrimitive() ? found.getAsString() : "";
     }
 
-    static long longAt(JsonElement root, String path) {
+    public static long longAt(JsonElement root, String path) {
         JsonElement found = at(root, path);
         return found != null && found.isJsonPrimitive()
                 && found.getAsJsonPrimitive().isNumber() ? found.getAsLong() : 0L;
     }
 
-    static double doubleAt(JsonElement root, String path) {
+    public static double doubleAt(JsonElement root, String path) {
         JsonElement found = at(root, path);
         return found != null && found.isJsonPrimitive()
                 && found.getAsJsonPrimitive().isNumber() ? found.getAsDouble() : 0.0;
     }
 
 
-    static JsonObject object() {
+    public static JsonObject object() {
         return new JsonObject();
     }
 }

@@ -140,6 +140,30 @@ public final class Client {
 
 
 
+    public Models models() {
+        return Models.root(provider, apiKey, baseUrlOverride, http);
+    }
+
+
+
+
+
+
+    public Providers providers() {
+        return new Providers(provider);
+    }
+
+
+    public Upload upload() {
+        return Upload.root(provider, apiKey, baseUrlOverride, http);
+    }
+
+
+
+
+
+
+
 
 
 
