@@ -80,6 +80,18 @@ public final class Client {
     }
 
     /**
+     * The transcription (speech-to-text) builder (ADR-048 / ADR-051). {@code
+     * submit} starts an asynchronous job and returns a live {@link
+     * TranscriptionJob} (AssemblyAI); {@code transcribe} runs a synchronous
+     * request and returns the transcript directly (OpenAI). The two shapes
+     * dispatch on the generated transcription config, never the provider
+     * name.
+     */
+    public Transcription transcription() {
+        return Transcription.root(provider, apiKey, baseUrlOverride, http);
+    }
+
+    /**
      * Reports whether an explicit request for {@code capability} will not
      * hard-fail pre-flight on this client's provider (ADR-030). Gated
      * capabilities (caching, batching, file upload, image generation) dispatch
