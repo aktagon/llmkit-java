@@ -65,6 +65,16 @@ public final class Client {
     }
 
 
+    public Speech speech() {
+        return Speech.root(provider, apiKey, baseUrlOverride, http);
+    }
+
+
+    public Music music() {
+        return Music.root(provider, apiKey, baseUrlOverride, http);
+    }
+
+
 
 
 
