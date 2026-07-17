@@ -274,17 +274,25 @@ final class Batching {
                 if (line.isEmpty()) {
                     continue;
                 }
-                String responseText;
-                if (batch.resultBodyPath.isEmpty()) {
-                    responseText = line;
-                } else {
-                    JsonElement inner = Json.at(Json.parse(line), batch.resultBodyPath);
-                    if (inner == null) {
-                        throw new DecodingException("batch result wrapper missing body path");
+                //
+                //
+                //
+                //
+                try {
+                    String responseText;
+                    if (batch.resultBodyPath.isEmpty()) {
+                        responseText = line;
+                    } else {
+                        JsonElement inner = Json.at(Json.parse(line), batch.resultBodyPath);
+                        if (inner == null) {
+                            continue;
+                        }
+                        responseText = Json.serialize(inner);
                     }
-                    responseText = Json.serialize(inner);
+                    responses.add(ResponseParser.parse(spec, responseText.getBytes(StandardCharsets.UTF_8)));
+                } catch (DecodingException e) {
+                    continue;
                 }
-                responses.add(ResponseParser.parse(spec, responseText.getBytes(StandardCharsets.UTF_8)));
             }
             return responses;
         }
