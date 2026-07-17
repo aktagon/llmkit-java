@@ -74,6 +74,11 @@ public final class Client {
         return Music.root(provider, apiKey, baseUrlOverride, http);
     }
 
+    /** The video-generation builder (asynchronous; {@code submit} returns a live {@link VideoJob}). */
+    public Video video() {
+        return Video.root(provider, apiKey, baseUrlOverride, http);
+    }
+
     /**
      * Reports whether an explicit request for {@code capability} will not
      * hard-fail pre-flight on this client's provider (ADR-030). Gated
