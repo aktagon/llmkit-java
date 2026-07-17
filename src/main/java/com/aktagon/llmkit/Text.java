@@ -226,6 +226,7 @@ public final class Text {
      * BUG-028 usage opt-in applied where the provider requires it).
      */
     public Response stream(String userPrompt, java.util.function.Consumer<String> onDelta) {
+        rejectNonDefaultProtocol("stream");
         Providers.Spec config = Providers.config(provider);
         String resolvedModel = resolveModel(config);
         return Streaming.run(
@@ -240,6 +241,7 @@ public final class Text {
      * op and threads caching into each per-item body (BUG-004).
      */
     public BatchJob batch(String... prompts) {
+        rejectNonDefaultProtocol("batch");
         Providers.Spec config = Providers.config(provider);
         String resolvedModel = resolveModel(config);
 
@@ -266,6 +268,22 @@ public final class Text {
      * The chosen model, or the provider default; throws when neither exists
      * (ADR-031 honest no-default contract).
      */
+    /**
+     * Enforce that a chat-protocol opt-in (ADR-055, e.g. Responses) is only
+     * honored on the sync prompt terminal: the stream and batch execution
+     * modes raise loudly rather than silently sending the default Chat
+     * Completions envelope the caller explicitly opted out of. Mirrors Go's
+     * {@code rejectNonDefaultProtocol}; uniform across the six SDKs.
+     */
+    private void rejectNonDefaultProtocol(String terminal) {
+        if (options.proto == null || options.proto.isEmpty()) {
+            return;
+        }
+        throw new ValidationException(
+                "protocol",
+                "protocol (e.g. Responses) is only supported on the prompt terminal, not " + terminal + " (ADR-055)");
+    }
+
     private String resolveModel(Providers.Spec config) {
         if (model != null) {
             return model;
