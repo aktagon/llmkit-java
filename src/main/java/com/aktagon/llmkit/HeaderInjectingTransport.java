@@ -1,0 +1,71 @@
+package com.aktagon.llmkit;
+
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * Transport decorator carrying one {@link Client#addHeader} custom header
+ * (ADR-052). Injecting at the transport seam reaches every send path —
+ * chat, stream, media, upload, batch, catalogue, poll — with one seam.
+ * Collision-safe: the header is added only when the request does not already
+ * carry it (case-insensitive; HTTP header names are case-insensitive), so
+ * SDK-set auth/signing/beta headers are never clobbered — matching Go's
+ * {@code mergeCallerHeaders} and Swift's {@code applyCustomHeaders}.
+ * Repeated {@code addHeader} calls nest decorators, so calls accumulate.
+ */
+final class HeaderInjectingTransport implements HttpTransport {
+    private final HttpTransport delegate;
+    private final String name;
+    private final String value;
+
+    HeaderInjectingTransport(HttpTransport delegate, String name, String value) {
+        this.delegate = delegate;
+        this.name = name;
+        this.value = value;
+    }
+
+    private Map<String, String> inject(Map<String, String> headers) {
+        String lower = name.toLowerCase(Locale.ROOT);
+        for (String key : headers.keySet()) {
+            if (key.toLowerCase(Locale.ROOT).equals(lower)) {
+                return headers;
+            }
+        }
+        Map<String, String> merged = new LinkedHashMap<>(headers);
+        merged.put(name, value);
+        return merged;
+    }
+
+    @Override
+    public Result postJson(String url, String body, Map<String, String> headers) {
+        return delegate.postJson(url, body, inject(headers));
+    }
+
+    @Override
+    public Result getText(String url, Map<String, String> headers) {
+        return delegate.getText(url, inject(headers));
+    }
+
+    @Override
+    public Result postMultipart(
+            String url,
+            Map<String, String> fields,
+            String fileField,
+            String filename,
+            String fileContentType,
+            byte[] data,
+            Map<String, String> headers) {
+        return delegate.postMultipart(url, fields, fileField, filename, fileContentType, data, inject(headers));
+    }
+
+    @Override
+    public Result postBytes(String url, byte[] body, Map<String, String> headers) {
+        return delegate.postBytes(url, body, inject(headers));
+    }
+
+    @Override
+    public StreamResult postJsonStreaming(String url, String body, Map<String, String> headers) {
+        return delegate.postJsonStreaming(url, body, inject(headers));
+    }
+}
