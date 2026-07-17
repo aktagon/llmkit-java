@@ -64,6 +64,16 @@ public final class Client {
         return Image.root(provider, apiKey, baseUrlOverride, http);
     }
 
+    /** The speech-generation (text-to-speech) builder. */
+    public Speech speech() {
+        return Speech.root(provider, apiKey, baseUrlOverride, http);
+    }
+
+    /** The music-generation builder. */
+    public Music music() {
+        return Music.root(provider, apiKey, baseUrlOverride, http);
+    }
+
     /**
      * Reports whether an explicit request for {@code capability} will not
      * hard-fail pre-flight on this client's provider (ADR-030). Gated
