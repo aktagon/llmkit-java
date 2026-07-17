@@ -152,6 +152,22 @@ final class RequestBuilder {
 
         //
         //
+        //
+        //
+        //
+        //
+        if (Transforms.hasFileParts(msgs)) {
+            Request.FileUploadDef upload = Request.fileUploadConfig(config.name);
+            if (upload != null && !upload.betaHeader.isEmpty()) {
+                String existing = headers.get("anthropic-beta");
+                headers.put(
+                        "anthropic-beta",
+                        existing != null ? appendBeta(existing, upload.betaHeader) : upload.betaHeader);
+            }
+        }
+
+        //
+        //
         if ("ChatResponsesOpenAI".equals(wireShape) && body.has("max_tokens")) {
             JsonElement value = body.get("max_tokens");
             body.remove("max_tokens");

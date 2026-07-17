@@ -19,6 +19,8 @@ public final class Text {
     private final String model;
     private final String system;
     private final PromptOptions options;
+    private final List<InputImage> inputImages;
+    private final List<FileRef> inputFiles;
 
     private Text(
             ProviderName provider,
@@ -27,7 +29,9 @@ public final class Text {
             HttpTransport http,
             String model,
             String system,
-            PromptOptions options) {
+            PromptOptions options,
+            List<InputImage> inputImages,
+            List<FileRef> inputFiles) {
         this.provider = provider;
         this.apiKey = apiKey;
         this.baseUrlOverride = baseUrlOverride;
@@ -35,20 +39,25 @@ public final class Text {
         this.model = model;
         this.system = system;
         this.options = options;
+        this.inputImages = inputImages;
+        this.inputFiles = inputFiles;
     }
 
     static Text root(ProviderName provider, String apiKey, String baseUrlOverride, HttpTransport http) {
-        return new Text(provider, apiKey, baseUrlOverride, http, null, null, new PromptOptions());
+        return new Text(
+                provider, apiKey, baseUrlOverride, http, null, null, new PromptOptions(), List.of(), List.of());
     }
 
 
     public Text model(String model) {
-        return new Text(provider, apiKey, baseUrlOverride, http, model, system, options);
+        return new Text(
+                provider, apiKey, baseUrlOverride, http, model, system, options, inputImages, inputFiles);
     }
 
 
     public Text system(String system) {
-        return new Text(provider, apiKey, baseUrlOverride, http, model, system, options);
+        return new Text(
+                provider, apiKey, baseUrlOverride, http, model, system, options, inputImages, inputFiles);
     }
 
 
@@ -136,6 +145,46 @@ public final class Text {
 
 
 
+    public Text image(String mimeType, byte[] data) {
+        List<InputImage> images = new java.util.ArrayList<>(inputImages);
+        images.add(new InputImage(
+                "data:" + mimeType + ";base64," + java.util.Base64.getEncoder().encodeToString(data),
+                mimeType, ""));
+        return new Text(
+                provider, apiKey, baseUrlOverride, http, model, system, options,
+                List.copyOf(images), inputFiles);
+    }
+
+
+
+
+
+
+    public Text file(String id) {
+        List<FileRef> files = new java.util.ArrayList<>(inputFiles);
+        files.add(new FileRef(id, "", ""));
+        return new Text(
+                provider, apiKey, baseUrlOverride, http, model, system, options,
+                inputImages, List.copyOf(files));
+    }
+
+
+
+
+
+
+    private List<Msg> userMsgs(String prompt) {
+        if (inputImages.isEmpty() && inputFiles.isEmpty()) {
+            return List.of(new Msg.Text("user", prompt));
+        }
+        return List.of(new Msg.Media("user", prompt, inputImages, inputFiles));
+    }
+
+
+
+
+
+
 
     public Response prompt(String userPrompt) {
         Providers.Spec config = Providers.config(provider);
@@ -149,7 +198,7 @@ public final class Text {
         try {
             RequestBuilder.Built built = RequestBuilder.buildBody(
                     config, resolved.wireShape(), apiKey, resolvedModel, system,
-                    List.of(new Msg.Text("user", userPrompt)), List.of(), options);
+                    userMsgs(userPrompt), List.of(), options);
             CachingRuntime.apply(built.body(), config, resolvedModel, apiKey, options, http, baseUrlOverride);
             String url = RequestBuilder.buildUrl(config, resolved.endpoint(), apiKey, resolvedModel, baseUrlOverride);
 
@@ -181,7 +230,7 @@ public final class Text {
         String resolvedModel = resolveModel(config);
         return Streaming.run(
                 config, apiKey, resolvedModel, system,
-                List.of(new Msg.Text("user", userPrompt)), options, http, baseUrlOverride, onDelta);
+                userMsgs(userPrompt), options, http, baseUrlOverride, onDelta);
     }
 
 
@@ -201,7 +250,7 @@ public final class Text {
         try {
             BatchJob job = Batching.submit(
                     config, apiKey, http, baseUrlOverride, resolvedModel, system,
-                    java.util.Arrays.asList(prompts), options);
+                    java.util.Arrays.asList(prompts), inputImages, inputFiles, options);
             Middleware.firePost(
                     options.middleware, baseEvent.toPost("", null, null, Middleware.elapsedMillis(startNanos)));
             return job;
@@ -233,6 +282,7 @@ public final class Text {
     private Text withOptions(java.util.function.Consumer<PromptOptions> mutate) {
         PromptOptions copy = options.copy();
         mutate.accept(copy);
-        return new Text(provider, apiKey, baseUrlOverride, http, model, system, copy);
+        return new Text(
+                provider, apiKey, baseUrlOverride, http, model, system, copy, inputImages, inputFiles);
     }
 }

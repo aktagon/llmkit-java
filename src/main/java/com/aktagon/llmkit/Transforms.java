@@ -25,6 +25,19 @@ import java.util.Map;
 final class Transforms {
     private Transforms() {}
 
+
+
+
+
+    static boolean hasFileParts(List<Msg> msgs) {
+        for (Msg msg : msgs) {
+            if (msg instanceof Msg.Media media && !media.files().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     //
 
 
@@ -78,9 +91,158 @@ final class Transforms {
                     message.addProperty("content", text.text());
                 }
                 messages.add(message);
+            } else if (msg instanceof Msg.Media media) {
+                JsonArray content = bedrock
+                        ? bedrockContentParts(media.images(), media.text())
+                        : flatContentParts(media.images(), media.files(), media.text(), wireShape);
+                JsonObject message = new JsonObject();
+                message.addProperty("role", mapRole(media.role(), config));
+                message.add("content", content);
+                messages.add(message);
             }
         }
         return messages;
+    }
+
+
+
+
+
+
+
+
+
+    private static JsonArray flatContentParts(
+            List<InputImage> images, List<FileRef> files, String text, String wireShape) {
+        boolean isAnthropic = "ChatAnthropic".equals(wireShape);
+        JsonArray parts = new JsonArray();
+
+        for (FileRef file : files) {
+            JsonObject block = new JsonObject();
+            if (isAnthropic) {
+                block.addProperty("type", "document");
+                JsonObject source = new JsonObject();
+                source.addProperty("type", "file");
+                source.addProperty("file_id", file.id());
+                block.add("source", source);
+            } else {
+                block.addProperty("type", "file");
+                JsonObject fileObject = new JsonObject();
+                fileObject.addProperty("file_id", file.id());
+                block.add("file", fileObject);
+            }
+            parts.add(block);
+        }
+
+        for (InputImage image : images) {
+            JsonObject block = new JsonObject();
+            if (isAnthropic) {
+                block.addProperty("type", "image");
+                JsonObject source = new JsonObject();
+                if (image.url().startsWith("data:")) {
+                    String[] parsed = parseDataUri(image.url());
+                    source.addProperty("type", "base64");
+                    source.addProperty("media_type", parsed[0]);
+                    source.addProperty("data", parsed[1]);
+                } else {
+                    source.addProperty("type", "url");
+                    source.addProperty("url", image.url());
+                }
+                block.add("source", source);
+            } else {
+                block.addProperty("type", "image_url");
+                JsonObject imageUrl = new JsonObject();
+                imageUrl.addProperty("url", image.url());
+                imageUrl.addProperty("detail", image.detail().isEmpty() ? "auto" : image.detail());
+                block.add("image_url", imageUrl);
+            }
+            parts.add(block);
+        }
+
+        JsonObject textBlock = new JsonObject();
+        textBlock.addProperty("type", "text");
+        textBlock.addProperty("text", text);
+        parts.add(textBlock);
+        return parts;
+    }
+
+
+
+
+
+
+    private static JsonArray googleParts(List<InputImage> images, List<FileRef> files, String text) {
+        JsonArray parts = new JsonArray();
+        for (FileRef file : files) {
+            JsonObject fileData = new JsonObject();
+            fileData.addProperty("file_uri", file.uri());
+            fileData.addProperty("mime_type", file.mimeType());
+            JsonObject part = new JsonObject();
+            part.add("file_data", fileData);
+            parts.add(part);
+        }
+        for (InputImage image : images) {
+            if (!image.url().startsWith("data:")) {
+                continue;
+            }
+            String[] parsed = parseDataUri(image.url());
+            JsonObject inlineData = new JsonObject();
+            inlineData.addProperty("mime_type", parsed[0]);
+            inlineData.addProperty("data", parsed[1]);
+            JsonObject part = new JsonObject();
+            part.add("inline_data", inlineData);
+            parts.add(part);
+        }
+        JsonObject textPart = new JsonObject();
+        textPart.addProperty("text", text);
+        parts.add(textPart);
+        return parts;
+    }
+
+
+
+
+
+
+    private static JsonArray bedrockContentParts(List<InputImage> images, String text) {
+        JsonArray parts = new JsonArray();
+        for (InputImage image : images) {
+            String[] parsed = parseDataUri(image.url());
+            String mime = parsed[0].isEmpty() ? image.mimeType() : parsed[0];
+            JsonObject source = new JsonObject();
+            source.addProperty("bytes", parsed[1]);
+            JsonObject imageBlock = new JsonObject();
+            imageBlock.addProperty("format", bedrockImageFormat(mime));
+            imageBlock.add("source", source);
+            JsonObject block = new JsonObject();
+            block.add("image", imageBlock);
+            parts.add(block);
+        }
+        JsonObject textBlock = new JsonObject();
+        textBlock.addProperty("text", text);
+        parts.add(textBlock);
+        return parts;
+    }
+
+
+
+
+
+    private static String[] parseDataUri(String url) {
+        int comma = url.indexOf(',');
+        if (!url.startsWith("data:") || comma < 0) {
+            return new String[] {"", url};
+        }
+        String header = url.substring(5, comma); // after "data:"
+        int semicolon = header.indexOf(';');
+        String mime = semicolon >= 0 ? header.substring(0, semicolon) : header;
+        return new String[] {mime, url.substring(comma + 1)};
+    }
+
+
+    private static String bedrockImageFormat(String mime) {
+        int slash = mime.lastIndexOf('/');
+        return slash >= 0 ? mime.substring(slash + 1) : mime;
     }
 
     private static JsonArray googleContents(List<Msg> msgs, Providers.Spec config) {
@@ -110,6 +272,11 @@ final class Transforms {
                 JsonObject content = new JsonObject();
                 content.addProperty("role", mapRole(text.role(), config));
                 content.add("parts", parts);
+                contents.add(content);
+            } else if (msg instanceof Msg.Media media) {
+                JsonObject content = new JsonObject();
+                content.addProperty("role", mapRole(media.role(), config));
+                content.add("parts", googleParts(media.images(), media.files(), media.text()));
                 contents.add(content);
             }
         }
