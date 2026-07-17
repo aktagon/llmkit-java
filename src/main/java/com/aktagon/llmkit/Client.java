@@ -135,6 +135,30 @@ public final class Client {
     }
 
     /**
+     * The model catalogue builder (ADR-019). {@code list}/{@code get} walk
+     * the compiled-in slice; {@code provider(p).list()}/{@code get(id)} and
+     * {@code live()} fetch live from the provider's {@code /v1/models}
+     * endpoint.
+     */
+    public Models models() {
+        return Models.root(provider, apiKey, baseUrlOverride, http);
+    }
+
+    /**
+     * The providers-namespace builder (ADR-019 / ADR-040 PSR-005). {@code
+     * list()} returns the bound provider's public metadata, iff it declares a
+     * live catalogue endpoint.
+     */
+    public Providers providers() {
+        return new Providers(provider);
+    }
+
+    /** The Files API upload builder (ADR-060, CR-004). */
+    public Upload upload() {
+        return Upload.root(provider, apiKey, baseUrlOverride, http);
+    }
+
+    /**
      * Reports whether an explicit request for {@code capability} will not
      * hard-fail pre-flight on this client's provider (ADR-030). Gated
      * capabilities (caching, batching, file upload, image generation) dispatch
