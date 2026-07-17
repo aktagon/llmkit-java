@@ -59,6 +59,11 @@ public final class Client {
         return new Agent(provider, apiKey, baseUrlOverride, http);
     }
 
+    /** The image-generation builder. */
+    public Image image() {
+        return Image.root(provider, apiKey, baseUrlOverride, http);
+    }
+
     /**
      * Reports whether an explicit request for {@code capability} will not
      * hard-fail pre-flight on this client's provider (ADR-030). Gated
