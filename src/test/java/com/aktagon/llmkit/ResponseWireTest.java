@@ -2,13 +2,17 @@ package com.aktagon.llmkit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.aktagon.llmkit.providers.generated.ModelsParsers;
 import com.aktagon.llmkit.providers.generated.ProviderName;
 import com.aktagon.llmkit.providers.generated.Response;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.List;
+import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -253,5 +257,59 @@ class ResponseWireTest {
     @Test
     void transcriptionOpenAI() throws Exception {
         driveTranscription("transcription-openai", ProviderName.OPENAI, "whisper-1");
+    }
+
+    /**
+     * Catalogue variant (ADR-067 Fix B): feed an anchored {@code /models}
+     * reply ({@code bodies/models-<provider>.json}, a real ADR-019 capture)
+     * through the handwritten parse seam and assert the decoded {@code
+     * ParsedModelsPage} projects to the catalogue discriminant {@code
+     * {kind:"models", count, firstId, lastId, nextCursor, first{...}}} — the
+     * same body must decode to the same model list + pagination cursor
+     * across all six SDKs. URL/auth assembly is a separate request-side
+     * golden — this member is the parse seam only.
+     */
+    private void driveModels(
+            String shape, Function<byte[], ModelsParsers.ParsedModelsPage> parse) throws IOException {
+        byte[] body = Files.readAllBytes(TestPaths.testdata("wire/response/v1/bodies/" + shape + ".json"));
+        ModelsParsers.ParsedModelsPage page = parse.apply(body);
+        ModelsParsers.ParsedModelRecord first = page.records.isEmpty() ? null : page.records.get(0);
+
+        JsonObject firstObject = new JsonObject();
+        firstObject.addProperty("contextWindow", first != null ? first.contextWindow : 0);
+        firstObject.addProperty("displayName", first != null ? first.displayName : "");
+        firstObject.addProperty("maxOutput", first != null ? first.maxOutput : 0);
+
+        JsonObject content = new JsonObject();
+        content.addProperty("count", page.records.size());
+        content.add("first", firstObject);
+        content.addProperty("firstId", first != null ? first.id : "");
+        content.addProperty("kind", "models");
+        content.addProperty("lastId", page.records.isEmpty() ? "" : page.records.get(page.records.size() - 1).id);
+        content.addProperty("nextCursor", page.nextCursor);
+
+        JsonObject projection = new JsonObject();
+        projection.add("content", content);
+        projection.add("error", JsonNull.INSTANCE);
+
+        TestPaths.writeResponseArtifact(shape, projection);
+        JsonElement golden =
+                Json.parse(TestPaths.read(TestPaths.testdata("wire/response/v1/" + shape + ".json")));
+        assertEquals(golden, projection, shape + " projection differs from shared golden");
+    }
+
+    @Test
+    void modelsAnthropic() throws Exception {
+        driveModels("models-anthropic", ModelsParsers::parseAnthropicModelsResponse);
+    }
+
+    @Test
+    void modelsOpenAI() throws Exception {
+        driveModels("models-openai", ModelsParsers::parseOpenAICohortModelsResponse);
+    }
+
+    @Test
+    void modelsGoogle() throws Exception {
+        driveModels("models-google", ModelsParsers::parseGoogleModelsResponse);
     }
 }
