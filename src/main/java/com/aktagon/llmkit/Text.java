@@ -226,6 +226,7 @@ public final class Text {
 
 
     public Response stream(String userPrompt, java.util.function.Consumer<String> onDelta) {
+        rejectNonDefaultProtocol("stream");
         Providers.Spec config = Providers.config(provider);
         String resolvedModel = resolveModel(config);
         return Streaming.run(
@@ -240,6 +241,7 @@ public final class Text {
 
 
     public BatchJob batch(String... prompts) {
+        rejectNonDefaultProtocol("batch");
         Providers.Spec config = Providers.config(provider);
         String resolvedModel = resolveModel(config);
 
@@ -265,6 +267,22 @@ public final class Text {
 
 
 
+
+
+
+
+
+
+
+
+    private void rejectNonDefaultProtocol(String terminal) {
+        if (options.proto == null || options.proto.isEmpty()) {
+            return;
+        }
+        throw new ValidationException(
+                "protocol",
+                "protocol (e.g. Responses) is only supported on the prompt terminal, not " + terminal + " (ADR-055)");
+    }
 
     private String resolveModel(Providers.Spec config) {
         if (model != null) {
