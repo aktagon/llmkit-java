@@ -59,6 +59,24 @@ public final class Client {
     }
 
     /**
+     * Add a custom HTTP header sent on every request this client makes
+     * (ADR-052) — e.g. a gateway credential riding beside the provider key.
+     * Collision-safe: a header the SDK already sets (auth, signing, beta) is
+     * never clobbered — the custom value is skipped, compared
+     * case-insensitively. Calls accumulate; returns a new {@code Client} for
+     * chaining. Mirrors Go {@code AddHeader} / TS {@code addHeader} / Swift
+     * {@code addHeader} / Python and Rust {@code add_header}.
+     */
+    public Client addHeader(String name, String value) {
+        return new Client(
+                provider,
+                apiKey,
+                baseUrlOverride,
+                new HeaderInjectingTransport(http, name, value),
+                defaultMiddleware);
+    }
+
+    /**
      * Enable opt-in telemetry on this client (ADR-054/ADR-059). The export
      * hook rides the middleware seam, so every capability builder that
      * carries one (text/agent/image/music/video) emits one OTEL span on the
