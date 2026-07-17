@@ -71,6 +71,8 @@ final class RequestBuilder {
             java.util.List<Msg> msgs,
             java.util.List<Tool> tools,
             PromptOptions options) {
+        validateOptions(config, options);
+
         JsonObject body = Json.object();
         Map<String, String> headers = buildAuthHeaders(config, apiKey);
 
@@ -305,6 +307,59 @@ final class RequestBuilder {
     }
 
     // --- Options ---
+
+    /**
+     * Reject options the provider's supported table lacks (mirror of Go's
+     * {@code validateOptions}) — silently dropping a requested knob would
+     * misrepresent the call. A provider with no supported table skips
+     * validation, matching Go's nil-table behavior.
+     */
+    static void validateOptions(Providers.Spec config, PromptOptions options) {
+        java.util.List<Options.SupportedDef> supported = Options.supported(config.name);
+        if (supported.isEmpty()) {
+            return;
+        }
+        if (options.topK != null) {
+            requireSupported(supported, Options.Key.TOP_K, "top_k", config.slug);
+        }
+        if (options.seed != null) {
+            requireSupported(supported, Options.Key.SEED, "seed", config.slug);
+        }
+        if (options.frequencyPenalty != null) {
+            requireSupported(supported, Options.Key.FREQUENCY_PENALTY, "frequency_penalty", config.slug);
+        }
+        if (options.presencePenalty != null) {
+            requireSupported(supported, Options.Key.PRESENCE_PENALTY, "presence_penalty", config.slug);
+        }
+        if (options.thinkingBudget != null) {
+            requireSupported(supported, Options.Key.THINKING_BUDGET, "thinking_budget", config.slug);
+        }
+        if (options.reasoningEffort != null && !options.reasoningEffort.isEmpty()) {
+            requireSupported(supported, Options.Key.REASONING_EFFORT, "reasoning_effort", config.slug);
+            // Value check against the ontology-defined allowedValues
+            // (provider-level overrides), mirroring Go.
+            for (Options.OptionOverrideDef override : Options.optionOverrides(config.name)) {
+                if (override.key == Options.Key.REASONING_EFFORT
+                        && !override.allowedValues.isEmpty()
+                        && !override.allowedValues.contains(options.reasoningEffort)) {
+                    throw new ValidationException(
+                            "reasoning_effort",
+                            "invalid value \"" + options.reasoningEffort + "\", must be one of: "
+                                    + String.join(",", override.allowedValues));
+                }
+            }
+        }
+    }
+
+    private static void requireSupported(
+            java.util.List<Options.SupportedDef> supported, Options.Key key, String field, String slug) {
+        for (Options.SupportedDef def : supported) {
+            if (def.key == key) {
+                return;
+            }
+        }
+        throw new ValidationException(field, "not supported by " + slug);
+    }
 
     /**
      * Applies generation parameters to {@code body} and returns the accumulated
