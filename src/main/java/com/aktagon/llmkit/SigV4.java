@@ -33,6 +33,8 @@ final class SigV4 {
 
 
 
+
+
     static Map<String, String> sign(
             String method,
             String url,
@@ -48,12 +50,14 @@ final class SigV4 {
         String amzdate = AMZ_DATE.format(now);
 
         URI uri = URI.create(url);
-        String host = uri.getHost() != null ? uri.getHost() : "";
+        String host = uri.getAuthority() != null ? uri.getAuthority() : "";
         String payloadHash = sha256Hex(body);
 
         //
         List<Map.Entry<String, String>> signed = new ArrayList<>();
-        signed.add(Map.entry("content-type", contentType));
+        if (!contentType.isEmpty()) {
+            signed.add(Map.entry("content-type", contentType));
+        }
         signed.add(Map.entry("host", host));
         signed.add(Map.entry("x-amz-content-sha256", payloadHash));
         signed.add(Map.entry("x-amz-date", amzdate));
