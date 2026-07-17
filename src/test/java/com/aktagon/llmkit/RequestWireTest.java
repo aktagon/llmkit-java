@@ -236,6 +236,101 @@ class RequestWireTest {
         assertGolden("tooldef-bedrock");
     }
 
+    // --- Media Parts on the text path (ADR-060: vision image + file refs) ---
+
+    // The shared 1x1 PNG the other SDKs feed, decoded to bytes for .image(...).
+    private static final String IMAGE_BASE64 =
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGM4YWQEAALyAS2saifrAAAAAElFTkSuQmCC";
+
+    private static byte[] imageBytes() {
+        return java.util.Base64.getDecoder().decode(IMAGE_BASE64);
+    }
+
+    @Test
+    void openAITextImage() throws Exception {
+        client(ProviderName.OPENAI).text()
+                .model("gpt-4o").image("image/png", imageBytes())
+                .prompt("Describe the attached image in one sentence.");
+        assertGolden("openai-text-image");
+    }
+
+    @Test
+    void anthropicTextImage() throws Exception {
+        client(ProviderName.ANTHROPIC).text()
+                .model("claude-opus-4-8").image("image/png", imageBytes())
+                .prompt("Describe the attached image in one sentence.");
+        assertGolden("anthropic-text-image");
+    }
+
+    @Test
+    void googleTextImage() throws Exception {
+        client(ProviderName.GOOGLE).text()
+                .model("gemini-2.5-flash").image("image/png", imageBytes())
+                .prompt("Describe the attached image in one sentence.");
+        assertGolden("google-text-image");
+    }
+
+    @Test
+    void bedrockTextImage() throws Exception {
+        client(ProviderName.BEDROCK).text()
+                .model("anthropic.claude-sonnet-4-20250514-v1:0").image("image/png", imageBytes())
+                .prompt("Describe the attached image in one sentence.");
+        assertGolden("bedrock-text-image");
+    }
+
+    @Test
+    void openAITextDocument() throws Exception {
+        client(ProviderName.OPENAI).text()
+                .model("gpt-4o").file("file-9aXr2bQ7m1Tn")
+                .prompt("Summarize the attached document in three sentences.");
+        assertGolden("openai-text-document");
+    }
+
+    @Test
+    void anthropicTextDocument() throws Exception {
+        client(ProviderName.ANTHROPIC).text()
+                .model("claude-opus-4-8").file("file_011CMZq8h5VnVe8jL3qK7p2R")
+                .prompt("Summarize the attached document in three sentences.");
+        assertGolden("anthropic-text-document");
+        // BUG-017: a file-referencing Anthropic request must carry the
+        // files-api beta; golden-locked across all SDKs via
+        // anthropic-text-document.headers.json.
+        assertEquals("files-api-2025-04-14", transport.capturedHeaders.get("anthropic-beta"));
+        TestPaths.writeRequestHeaders("anthropic-text-document", transport.capturedHeaders);
+    }
+
+    @Test
+    void anthropicSchemaDocument() throws Exception {
+        String schema =
+                "{\"type\":\"object\",\"properties\":{\"summary\":{\"type\":\"string\"}},"
+                        + "\"additionalProperties\":false}";
+        client(ProviderName.ANTHROPIC).text()
+                .model("claude-opus-4-8").schema(schema).file("file_011CMZq8h5VnVe8jL3qK7p2R")
+                .prompt("Summarize the attached document as structured data.");
+        assertGolden("anthropic-schema-document");
+        // BUG-017 compose path: the structured-output beta and the files-api
+        // beta compose into one comma-separated anthropic-beta, deduped.
+        assertEquals(
+                "structured-outputs-2025-11-13,files-api-2025-04-14",
+                transport.capturedHeaders.get("anthropic-beta"));
+        TestPaths.writeRequestHeaders("anthropic-schema-document", transport.capturedHeaders);
+    }
+
+    @Test
+    void batchMultimodalAnthropic() throws Exception {
+        Client c = client(ProviderName.ANTHROPIC);
+        transport.withResponse(200, "{\"id\":\"batch_1\"}");
+        c.text()
+                .model("claude-sonnet-4-6")
+                .file("file_011CMZq8h5VnVe8jL3qK7p2R")
+                .image("image/png", imageBytes())
+                .batch("Summarize the attached document and describe the image in one sentence.");
+        assertGolden("batch-multimodal-anthropic");
+        // The batch CREATE request lifts the per-item files-api beta (BUG-017).
+        assertEquals("files-api-2025-04-14", transport.capturedHeaders.get("anthropic-beta"));
+        TestPaths.writeRequestHeaders("batch-multimodal-anthropic", transport.capturedHeaders);
+    }
+
     // --- Caching (Anthropic explicit cache_control on the system prefix) ---
 
     private static final String CACHING_SYSTEM = "a long stable system prefix";
