@@ -29,9 +29,9 @@ public final class Tool {
     public final Handler handler;
 
     public Tool(String name, String description, JsonElement schema, Handler handler) {
-        this.name = name;
-        this.description = description;
-        this.schema = schema;
-        this.handler = handler;
+        this.name = java.util.Objects.requireNonNull(name, "name");
+        this.description = java.util.Objects.requireNonNull(description, "description");
+        this.schema = java.util.Objects.requireNonNull(schema, "schema");
+        this.handler = java.util.Objects.requireNonNull(handler, "handler");
     }
 }

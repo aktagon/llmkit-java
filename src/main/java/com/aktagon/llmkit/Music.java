@@ -388,7 +388,7 @@ public final class Music {
                 if (b64.isEmpty()) {
                     continue;
                 }
-                byte[] decoded = Base64.getDecoder().decode(b64);
+                byte[] decoded = decodeBase64(b64, "audio bytesBase64Encoded");
                 String mime = fallbackMime;
                 JsonElement mimeElement = entry.get("mimeType");
                 if (mimeElement != null && mimeElement.isJsonPrimitive() && !mimeElement.getAsString().isEmpty()) {
@@ -433,7 +433,7 @@ public final class Music {
                     JsonObject inline = inlineElement.getAsJsonObject();
                     JsonElement dataElement = inline.get("data");
                     if (dataElement != null && dataElement.isJsonPrimitive() && !dataElement.getAsString().isEmpty()) {
-                        byte[] decoded = Base64.getDecoder().decode(dataElement.getAsString());
+                        byte[] decoded = decodeBase64(dataElement.getAsString(), "audio inlineData");
                         String mime = fallbackMime;
                         JsonElement mimeElement = inline.get("mimeType");
                         if (mimeElement != null && mimeElement.isJsonPrimitive() && !mimeElement.getAsString().isEmpty()) {
@@ -477,6 +477,15 @@ public final class Music {
      * non-hex digit (matching Go's {@code hex.DecodeString} error -> no
      * audio).
      */
+    /** Decode provider-supplied base64, mapping malformed input into the error taxonomy. */
+    private static byte[] decodeBase64(String value, String what) {
+        try {
+            return Base64.getDecoder().decode(value);
+        } catch (IllegalArgumentException e) {
+            throw new DecodingException("invalid base64 in " + what + ": " + e.getMessage(), e);
+        }
+    }
+
     private static byte[] hexDecode(String hex) {
         try {
             return HexFormat.of().parseHex(hex);

@@ -57,9 +57,13 @@ public final class Event {
         return new Event(op, MiddlewarePhase.PRE, provider, model, "", Map.of(), "", null, null, null);
     }
 
-    /** Copy with the {@code tool}/{@code args} fields set (TOOL_CALL, pre phase). */
+    /** Copy with the {@code tool}/{@code args} fields set (TOOL_CALL, pre phase).
+     * The args map is sealed here (ordered, unmodifiable copy) so no middleware
+     * hook can mutate what later hooks observe. */
     Event withTool(String tool, Map<String, JsonElement> args) {
-        return new Event(op, phase, provider, model, tool, args, result, usage, err, durationMillis);
+        Map<String, JsonElement> sealed =
+                java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(args));
+        return new Event(op, phase, provider, model, tool, sealed, result, usage, err, durationMillis);
     }
 
     /** Copy transitioned to the post phase, carrying the operation's outcome. */
