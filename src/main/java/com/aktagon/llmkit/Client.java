@@ -75,6 +75,11 @@ public final class Client {
     }
 
 
+    public Video video() {
+        return Video.root(provider, apiKey, baseUrlOverride, http);
+    }
+
+
 
 
 
