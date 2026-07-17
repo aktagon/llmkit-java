@@ -16,9 +16,9 @@ import java.util.Map;
  * generated {@code Providers.Spec} + option tables. Selected by config facts
  * ({@code chatWireShape}, {@code systemPlacement}, {@code authScheme},
  * {@code wrapsOptionsIn}), never by provider name — a port of Swift's
- * {@code RequestBuilder} / Rust's {@code request.rs::build_request} covering the
- * Phase 2 ChatCompletion surface (options, structured output, the Responses
- * protocol; media Parts / tools / SigV4 land in later phases).
+ * {@code RequestBuilder} / Rust's {@code request.rs::build_request} covering
+ * options, structured output, the Responses protocol, and media Parts on the
+ * text path (ADR-060, BUG-017 files-api beta composition).
  */
 final class RequestBuilder {
     private RequestBuilder() {}
@@ -148,6 +148,22 @@ final class RequestBuilder {
 
         if (options.schema != null) {
             addStructuredOutput(body, headers, options.schema, config.name);
+        }
+
+        // BUG-017: a text request referencing an uploaded file emits an
+        // Anthropic {"type":"document","source":{"type":"file",...}} block,
+        // which the Messages API rejects unless the files-api beta rides
+        // along. Compose it with any existing anthropic-beta (e.g. the
+        // structured-output beta) — comma-separated, deduped — never
+        // overwriting.
+        if (Transforms.hasFileParts(msgs)) {
+            Request.FileUploadDef upload = Request.fileUploadConfig(config.name);
+            if (upload != null && !upload.betaHeader.isEmpty()) {
+                String existing = headers.get("anthropic-beta");
+                headers.put(
+                        "anthropic-beta",
+                        existing != null ? appendBeta(existing, upload.betaHeader) : upload.betaHeader);
+            }
         }
 
         // ADR-055 Responses body fixup: the output-token cap is named
