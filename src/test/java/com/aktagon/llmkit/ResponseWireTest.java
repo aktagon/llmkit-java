@@ -106,4 +106,60 @@ class ResponseWireTest {
     void streamGoogle() throws Exception {
         driveStream("stream-google", ProviderName.GOOGLE);
     }
+
+    /**
+     * Image variant: feed an anchored image-generation reply through the real
+     * {@code Image.generate} path and assert the decoded {@code ImageResponse}
+     * projects to the media discriminant {@code {kind, mimeType, byteLen,
+     * count}} (RWR-004) — the same body must decode to the same images across
+     * all six SDKs (BUG-024).
+     */
+    private void driveImage(String shape, ProviderName provider, String model) throws Exception {
+        String body = TestPaths.read(TestPaths.testdata("wire/response/v1/bodies/" + shape + ".json"));
+        CapturingTransport transport = new CapturingTransport().withResponse(200, body);
+        Client client = new Client(provider, "key", transport);
+
+        var response = client.image().model(model).generate("a cat");
+        var first = response.images().isEmpty() ? null : response.images().get(0);
+
+        JsonObject content = new JsonObject();
+        content.addProperty("byteLen", first != null ? first.bytes().length : 0);
+        content.addProperty("count", response.images().size());
+        content.addProperty("kind", "image");
+        content.addProperty("mimeType", first != null ? first.mimeType() : "");
+
+        JsonObject usage = new JsonObject();
+        usage.addProperty("cacheRead", response.usage().cacheRead());
+        usage.addProperty("cacheWrite", response.usage().cacheWrite());
+        usage.addProperty("cost", response.usage().cost());
+        usage.addProperty("input", response.usage().input());
+        usage.addProperty("output", response.usage().output());
+        usage.addProperty("reasoning", response.usage().reasoning());
+
+        JsonObject projection = new JsonObject();
+        projection.add("content", content);
+        projection.add("error", JsonNull.INSTANCE);
+        projection.addProperty("finishReason", response.finishReason());
+        projection.add("usage", usage);
+
+        TestPaths.writeResponseArtifact(shape, projection);
+        JsonElement golden =
+                Json.parse(TestPaths.read(TestPaths.testdata("wire/response/v1/" + shape + ".json")));
+        assertEquals(golden, projection, shape + " projection differs from shared golden");
+    }
+
+    @Test
+    void imageGoogle() throws Exception {
+        driveImage("image-google", ProviderName.GOOGLE, "gemini-3.1-flash-image-preview");
+    }
+
+    @Test
+    void imageOpenAI() throws Exception {
+        driveImage("image-openai", ProviderName.OPENAI, "gpt-image-1");
+    }
+
+    @Test
+    void imageVertex() throws Exception {
+        driveImage("image-vertex", ProviderName.VERTEX, "imagen-3.0-generate-002");
+    }
 }

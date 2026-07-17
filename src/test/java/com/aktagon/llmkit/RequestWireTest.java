@@ -363,6 +363,50 @@ class RequestWireTest {
         assertGolden("caching-batch-anthropic");
     }
 
+    // --- Image generation (JSON bodies only; multipart edits are a WIRE-008
+    // documented exclusion). Inputs mirror the WIRE_IMAGE_* wire_inputs constants.
+
+    @Test
+    void imageGenGoogleFlash() throws Exception {
+        client(ProviderName.GOOGLE).image()
+                .model("gemini-3.1-flash-image-preview").aspectRatio("16:9").imageSize("2K")
+                .generate("A lighthouse on a rocky coastline at dusk");
+        assertGolden("image-gen-google-flash");
+    }
+
+    @Test
+    void imageGenGooglePro() throws Exception {
+        client(ProviderName.GOOGLE).image()
+                .model("gemini-3-pro-image-preview").aspectRatio("4:3").imageSize("1K").includeText()
+                .generate("A watercolor map of the Baltic Sea");
+        assertGolden("image-gen-google-pro");
+    }
+
+    @Test
+    void imageGenOpenAI() throws Exception {
+        client(ProviderName.OPENAI).image()
+                .model("gpt-image-2").imageSize("1024x1024").quality("low")
+                .outputFormat("png").background("opaque").count(1)
+                .generate("A minimalist line drawing of a sailboat");
+        assertGolden("image-gen-openai");
+    }
+
+    @Test
+    void imageGenRecraft() throws Exception {
+        client(ProviderName.RECRAFT).image()
+                .model("recraftv3").imageSize("1024x1024").count(1)
+                .generate("A minimalist line drawing of a sailboat");
+        assertGolden("image-gen-recraft");
+    }
+
+    @Test
+    void imageEditGoogleFlash() throws Exception {
+        client(ProviderName.GOOGLE).image()
+                .model("gemini-3.1-flash-image-preview").image("image/png", imageBytes())
+                .generate("Recolor the square to deep blue");
+        assertGolden("image-edit-google-flash");
+    }
+
     // --- Bedrock Converse (SigV4 signing; body is asserted, signature is not).
     // AWS_REGION / AWS_SECRET_ACCESS_KEY are deterministic dummies supplied by
     // the Gradle test task (Java cannot setenv at runtime); the signature is
