@@ -207,6 +207,29 @@ final class RequestBuilder {
         if (!"SigV4".equals(config.authScheme)) {
             return http.postJson(url, Json.serialize(body), headers);
         }
+        String payload = Json.serialize(body);
+        Map<String, String> merged = sigV4Headers(
+                config, "POST", url,
+                payload.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                "application/json", apiKey, headers);
+        return http.postJson(url, payload, merged);
+    }
+
+    /**
+     * Resolve the SigV4 credentials from the environment, sign the request,
+     * and merge the caller's headers over the signed set. The single assembly
+     * seam for every SigV4 request — the chat/media POSTs and the Bedrock
+     * video poll GET (which passes an empty {@code contentType}: a bodyless
+     * GET sends no Content-Type, so none may be signed).
+     */
+    static Map<String, String> sigV4Headers(
+            Providers.Spec config,
+            String method,
+            String url,
+            byte[] payload,
+            String contentType,
+            String apiKey,
+            Map<String, String> headers) {
         String region = System.getenv(config.regionEnvVar);
         if (region == null) {
             throw new ValidationException("provider", "missing env var " + config.regionEnvVar);
@@ -218,13 +241,11 @@ final class RequestBuilder {
         String sessionToken = config.sessionTokenEnvVar.isEmpty()
                 ? ""
                 : java.util.Objects.requireNonNullElse(System.getenv(config.sessionTokenEnvVar), "");
-        String payload = Json.serialize(body);
         Map<String, String> signed = SigV4.sign(
-                "POST", url, payload.getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                apiKey, secretKey, sessionToken, region, config.serviceName, "application/json");
+                method, url, payload, apiKey, secretKey, sessionToken, region, config.serviceName, contentType);
         Map<String, String> merged = new LinkedHashMap<>(signed);
         merged.putAll(headers);
-        return http.postJson(url, payload, merged);
+        return merged;
     }
 
     /**

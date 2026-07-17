@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * Binds the video capability to the Job engine's four seams (ADR-062). Video's
@@ -411,22 +410,8 @@ final class VideoPoll {
             HttpTransport.Result result;
             switch (arm) {
                 case SIGV4 -> {
-                    String region = System.getenv(spec.regionEnvVar);
-                    if (region == null) {
-                        throw new ValidationException("provider", "missing env var " + spec.regionEnvVar);
-                    }
-                    String secretKey = System.getenv(spec.secretKeyEnvVar);
-                    if (secretKey == null) {
-                        throw new ValidationException("provider", "missing env var " + spec.secretKeyEnvVar);
-                    }
-                    String sessionToken = spec.sessionTokenEnvVar.isEmpty()
-                            ? ""
-                            : Objects.requireNonNullElse(System.getenv(spec.sessionTokenEnvVar), "");
-                    Map<String, String> signed = SigV4.sign(
-                            "GET", pollUrl, new byte[0], apiKey, secretKey, sessionToken, region, spec.serviceName,
-                            "application/json");
-                    Map<String, String> merged = new LinkedHashMap<>(signed);
-                    merged.putAll(headers);
+                    Map<String, String> merged = RequestBuilder.sigV4Headers(
+                            spec, "GET", pollUrl, new byte[0], "", apiKey, headers);
                     result = http.getText(pollUrl, merged);
                 }
                 case VERTEX_POST -> {

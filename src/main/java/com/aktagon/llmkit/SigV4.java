@@ -28,10 +28,12 @@ final class SigV4 {
     private SigV4() {}
 
     /**
-     * Compute the SigV4 headers for a POST. {@code contentType} and Host are
-     * folded into the signed set alongside the {@code x-amz-*} headers,
-     * matching Go. The returned Host/content-type entries are informational —
-     * the JDK transport sets both itself with identical values.
+     * Compute the SigV4 headers for a request. {@code contentType} is folded
+     * into the signed set only when non-empty (a bodyless GET sends no
+     * Content-Type, so signing one would make AWS's recomputed canonical
+     * request mismatch — matching Go, which signs only headers present on the
+     * request). Host is signed as the URL authority (host:port when the port
+     * is explicit), the exact value the JDK transport derives from the URI.
      */
     static Map<String, String> sign(
             String method,
@@ -48,12 +50,14 @@ final class SigV4 {
         String amzdate = AMZ_DATE.format(now);
 
         URI uri = URI.create(url);
-        String host = uri.getHost() != null ? uri.getHost() : "";
+        String host = uri.getAuthority() != null ? uri.getAuthority() : "";
         String payloadHash = sha256Hex(body);
 
         // The signed header set (lowercased names, sorted). Values are trimmed.
         List<Map.Entry<String, String>> signed = new ArrayList<>();
-        signed.add(Map.entry("content-type", contentType));
+        if (!contentType.isEmpty()) {
+            signed.add(Map.entry("content-type", contentType));
+        }
         signed.add(Map.entry("host", host));
         signed.add(Map.entry("x-amz-content-sha256", payloadHash));
         signed.add(Map.entry("x-amz-date", amzdate));
