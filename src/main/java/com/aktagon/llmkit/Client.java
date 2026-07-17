@@ -5,6 +5,8 @@ import com.aktagon.llmkit.providers.generated.Caching;
 import com.aktagon.llmkit.providers.generated.ImageGenDef;
 import com.aktagon.llmkit.providers.generated.ProviderName;
 import com.aktagon.llmkit.providers.generated.Request;
+import java.util.ArrayList;
+import java.util.List;
 
 
 
@@ -18,6 +20,7 @@ public final class Client {
     private final String apiKey;
     private final String baseUrlOverride;
     private final HttpTransport http;
+    private final List<MiddlewareFn> defaultMiddleware;
 
 
     public Client(ProviderName provider, String apiKey) {
@@ -26,14 +29,20 @@ public final class Client {
 
 
     Client(ProviderName provider, String apiKey, HttpTransport http) {
-        this(provider, apiKey, null, http);
+        this(provider, apiKey, null, http, List.of());
     }
 
-    private Client(ProviderName provider, String apiKey, String baseUrlOverride, HttpTransport http) {
+    private Client(
+            ProviderName provider,
+            String apiKey,
+            String baseUrlOverride,
+            HttpTransport http,
+            List<MiddlewareFn> defaultMiddleware) {
         this.provider = provider;
         this.apiKey = apiKey;
         this.baseUrlOverride = baseUrlOverride;
         this.http = http;
+        this.defaultMiddleware = defaultMiddleware;
     }
 
 
@@ -46,22 +55,48 @@ public final class Client {
 
 
     public Client baseUrl(String url) {
-        return new Client(provider, apiKey, url, http);
+        return new Client(provider, apiKey, url, http, defaultMiddleware);
+    }
+
+
+
+
+
+
+
+
+
+    public Client addTelemetry(Telemetry telemetry) {
+        List<MiddlewareFn> next = new ArrayList<>(defaultMiddleware);
+        next.add(TelemetryRuntime.makeMiddleware(telemetry));
+        return new Client(provider, apiKey, baseUrlOverride, http, next);
     }
 
 
     public Text text() {
-        return Text.root(provider, apiKey, baseUrlOverride, http);
+        Text builder = Text.root(provider, apiKey, baseUrlOverride, http);
+        for (MiddlewareFn hook : defaultMiddleware) {
+            builder = builder.addMiddleware(hook);
+        }
+        return builder;
     }
 
 
     public Agent agent() {
-        return new Agent(provider, apiKey, baseUrlOverride, http);
+        Agent agent = new Agent(provider, apiKey, baseUrlOverride, http);
+        for (MiddlewareFn hook : defaultMiddleware) {
+            agent.addMiddleware(hook);
+        }
+        return agent;
     }
 
 
     public Image image() {
-        return Image.root(provider, apiKey, baseUrlOverride, http);
+        Image builder = Image.root(provider, apiKey, baseUrlOverride, http);
+        for (MiddlewareFn hook : defaultMiddleware) {
+            builder = builder.addMiddleware(hook);
+        }
+        return builder;
     }
 
 
@@ -71,12 +106,20 @@ public final class Client {
 
 
     public Music music() {
-        return Music.root(provider, apiKey, baseUrlOverride, http);
+        Music builder = Music.root(provider, apiKey, baseUrlOverride, http);
+        for (MiddlewareFn hook : defaultMiddleware) {
+            builder = builder.addMiddleware(hook);
+        }
+        return builder;
     }
 
 
     public Video video() {
-        return Video.root(provider, apiKey, baseUrlOverride, http);
+        Video builder = Video.root(provider, apiKey, baseUrlOverride, http);
+        for (MiddlewareFn hook : defaultMiddleware) {
+            builder = builder.addMiddleware(hook);
+        }
+        return builder;
     }
 
 
