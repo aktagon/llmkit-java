@@ -88,7 +88,10 @@ final class Streaming {
                 http.postJsonStreaming(url, Json.serialize(body), built.headers());
 
         if (result.statusCode() < 200 || result.statusCode() >= 300) {
-            String raw = result.lines().collect(Collectors.joining("\n"));
+            String raw;
+            try (java.util.stream.Stream<String> errorLines = result.lines()) {
+                raw = errorLines.collect(Collectors.joining("\n"));
+            }
             throw ResponseParser.parseError(
                     config, result.statusCode(), raw.getBytes(StandardCharsets.UTF_8));
         }
@@ -102,87 +105,97 @@ final class Streaming {
         long usageOutput = 0;
         String currentEvent = "";
 
-        Iterator<String> lines = result.lines().iterator();
-        while (lines.hasNext()) {
-            String line = lines.next();
-            String event = strip(line, "event: ");
-            if (event != null) {
-                currentEvent = event;
-                continue;
-            }
-            String data = strip(line, "data: ");
-            if (data == null) {
-                continue;
-            }
-
-            // Data-level done sentinel (e.g. OpenAI [DONE]) is literal, not JSON.
-            if (!stream.doneSignal.isEmpty() && data.equals(stream.doneSignal)) {
-                return assemble(fullText.toString(), usageInput, usageOutput, finishReason);
-            }
-
-            JsonElement parsed;
-            try {
-                parsed = Json.parse(data);
-            } catch (DecodingException e) {
-                parsed = null;
-            }
-
-            // ADR-013: capture the stream-time finish reason before any event-
-            // level done return.
-            if (parsed != null && !finishPath.isEmpty()
-                    && (finishEvent.isEmpty() || finishEvent.equals(currentEvent))) {
-                String value = Json.stringAt(parsed, finishPath);
-                if (!value.isEmpty() && !"FINISH_REASON_UNSPECIFIED".equals(value)) {
-                    finishReason = value;
+        // The lines Stream owns the response subscription: close it on every
+        // exit (the done-sentinel early returns fire on essentially every
+        // successful stream before the body is exhausted) or the connection
+        // leaks in the shared HttpClient. A mid-stream network failure
+        // surfaces from the iterator as UncheckedIOException; rewrap so the
+        // typed-error contract (LlmKitException) holds on this path too.
+        try (java.util.stream.Stream<String> lineStream = result.lines()) {
+            Iterator<String> lines = lineStream.iterator();
+            while (lines.hasNext()) {
+                String line = lines.next();
+                String event = strip(line, "event: ");
+                if (event != null) {
+                    currentEvent = event;
+                    continue;
                 }
-            }
+                String data = strip(line, "data: ");
+                if (data == null) {
+                    continue;
+                }
 
-            if (stream.usesEventTypes && !stream.doneEvent.isEmpty() && currentEvent.equals(stream.doneEvent)) {
-                return assemble(fullText.toString(), usageInput, usageOutput, finishReason);
-            }
+                // Data-level done sentinel (e.g. OpenAI [DONE]) is literal, not JSON.
+                if (!stream.doneSignal.isEmpty() && data.equals(stream.doneSignal)) {
+                    return assemble(fullText.toString(), usageInput, usageOutput, finishReason);
+                }
 
-            if (parsed == null) {
-                currentEvent = "";
-                continue;
-            }
+                JsonElement parsed;
+                try {
+                    parsed = Json.parse(data);
+                } catch (DecodingException e) {
+                    parsed = null;
+                }
 
-            if (stream.usesEventTypes) {
-                if (currentEvent.equals(stream.contentEvent)) {
+                // ADR-013: capture the stream-time finish reason before any event-
+                // level done return.
+                if (parsed != null && !finishPath.isEmpty()
+                        && (finishEvent.isEmpty() || finishEvent.equals(currentEvent))) {
+                    String value = Json.stringAt(parsed, finishPath);
+                    if (!value.isEmpty() && !"FINISH_REASON_UNSPECIFIED".equals(value)) {
+                        finishReason = value;
+                    }
+                }
+
+                if (stream.usesEventTypes && !stream.doneEvent.isEmpty() && currentEvent.equals(stream.doneEvent)) {
+                    return assemble(fullText.toString(), usageInput, usageOutput, finishReason);
+                }
+
+                if (parsed == null) {
+                    currentEvent = "";
+                    continue;
+                }
+
+                if (stream.usesEventTypes) {
+                    if (currentEvent.equals(stream.contentEvent)) {
+                        String text = Json.stringAt(parsed, stream.deltaTextPath);
+                        if (!text.isEmpty()) {
+                            fullText.append(text);
+                            onDelta.accept(text);
+                        }
+                    }
+                    if (currentEvent.equals(stream.usageEvent) && !stream.usageOutputPath.isEmpty()) {
+                        usageOutput = Json.longAt(parsed, stream.usageOutputPath);
+                        if (!stream.usageInputPath.isEmpty()) {
+                            usageInput = Json.longAt(parsed, stream.usageInputPath);
+                        }
+                    }
+                } else {
                     String text = Json.stringAt(parsed, stream.deltaTextPath);
                     if (!text.isEmpty()) {
                         fullText.append(text);
                         onDelta.accept(text);
                     }
-                }
-                if (currentEvent.equals(stream.usageEvent) && !stream.usageOutputPath.isEmpty()) {
-                    usageOutput = Json.longAt(parsed, stream.usageOutputPath);
                     if (!stream.usageInputPath.isEmpty()) {
-                        usageInput = Json.longAt(parsed, stream.usageInputPath);
+                        long value = Json.longAt(parsed, stream.usageInputPath);
+                        if (value > 0) {
+                            usageInput = value;
+                        }
+                    }
+                    if (!stream.usageOutputPath.isEmpty()) {
+                        long value = Json.longAt(parsed, stream.usageOutputPath);
+                        if (value > 0) {
+                            usageOutput = value;
+                        }
                     }
                 }
-            } else {
-                String text = Json.stringAt(parsed, stream.deltaTextPath);
-                if (!text.isEmpty()) {
-                    fullText.append(text);
-                    onDelta.accept(text);
-                }
-                if (!stream.usageInputPath.isEmpty()) {
-                    long value = Json.longAt(parsed, stream.usageInputPath);
-                    if (value > 0) {
-                        usageInput = value;
-                    }
-                }
-                if (!stream.usageOutputPath.isEmpty()) {
-                    long value = Json.longAt(parsed, stream.usageOutputPath);
-                    if (value > 0) {
-                        usageOutput = value;
-                    }
-                }
+                currentEvent = "";
             }
-            currentEvent = "";
-        }
 
-        return assemble(fullText.toString(), usageInput, usageOutput, finishReason);
+            return assemble(fullText.toString(), usageInput, usageOutput, finishReason);
+        } catch (java.io.UncheckedIOException e) {
+            throw new TransportException("stream interrupted: " + e.getMessage(), e);
+        }
     }
 
     private static Response assemble(String text, long input, long output, String finishReason) {
