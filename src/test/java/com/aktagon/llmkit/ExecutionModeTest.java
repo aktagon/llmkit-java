@@ -108,6 +108,30 @@ class ExecutionModeTest {
         assertEquals("batch_1", timeout.id());
     }
 
+    @Test
+    void erroredResultLineYieldsPartialResults() {
+        // One item errored: its line carries no body at the configured
+        // result path. The completed batch must still return the successful
+        // subset (Go-reference behavior), not throw away hours of work.
+        String good = "{\"custom_id\":\"req-0\",\"response\":{\"body\":{\"choices\":"
+                + "[{\"message\":{\"role\":\"assistant\",\"content\":\"Helsinki\"}}],"
+                + "\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":1}}}}";
+        String errored = "{\"custom_id\":\"req-1\",\"error\":{\"message\":\"model overloaded\"}}";
+        CapturingTransport transport = new CapturingTransport()
+                .enqueue("{\"id\":\"file-in-1\"}")
+                .enqueue("{\"id\":\"batch_1\"}")
+                .enqueue("{\"id\":\"batch_1\",\"status\":\"completed\",\"output_file_id\":\"file-out-1\"}")
+                .enqueue(good + "\n" + errored);
+
+        List<Response> responses = new Client(ProviderName.OPENAI, "key", transport)
+                .text().model("gpt-4o-mini")
+                .batch("What is the capital of Finland?", "What is the capital of Sweden?")
+                .await();
+
+        assertEquals(1, responses.size());
+        assertEquals("Helsinki", responses.get(0).text());
+    }
+
     // --- ADR-055: a chat-protocol opt-in is prompt-terminal-only ---
 
     @Test
