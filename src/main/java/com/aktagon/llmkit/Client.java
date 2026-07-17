@@ -66,6 +66,24 @@ public final class Client {
 
 
 
+
+    public Client addHeader(String name, String value) {
+        return new Client(
+                provider,
+                apiKey,
+                baseUrlOverride,
+                new HeaderInjectingTransport(http, name, value),
+                defaultMiddleware);
+    }
+
+
+
+
+
+
+
+
+
     public Client addTelemetry(Telemetry telemetry) {
         List<MiddlewareFn> next = new ArrayList<>(defaultMiddleware);
         next.add(TelemetryRuntime.makeMiddleware(telemetry));
