@@ -107,4 +107,26 @@ class ExecutionModeTest {
         assertEquals("openai", timeout.provider());
         assertEquals("batch_1", timeout.id());
     }
+
+    // --- ADR-055: a chat-protocol opt-in is prompt-terminal-only ---
+
+    @Test
+    void streamRejectsNonDefaultProtocol() {
+        CapturingTransport transport = new CapturingTransport();
+        ValidationException e = assertThrows(
+                ValidationException.class,
+                () -> new Client(ProviderName.OPENAI, "key", transport)
+                        .text().protocol("responses").model("gpt-4o-mini").stream("ping", delta -> {}));
+        assertEquals("protocol", e.field());
+    }
+
+    @Test
+    void batchRejectsNonDefaultProtocol() {
+        CapturingTransport transport = new CapturingTransport();
+        ValidationException e = assertThrows(
+                ValidationException.class,
+                () -> new Client(ProviderName.OPENAI, "key", transport)
+                        .text().protocol("responses").model("gpt-4o-mini").batch("q1"));
+        assertEquals("protocol", e.field());
+    }
 }
