@@ -31,6 +31,13 @@ final class CapturingTransport implements HttpTransport {
         return this;
     }
 
+    /** Canned response as raw bytes (e.g. OpenAI's binary TTS reply, never JSON). */
+    CapturingTransport withResponseBytes(int statusCode, byte[] body) {
+        this.responseStatusCode = statusCode;
+        this.responseBody = body;
+        return this;
+    }
+
     CapturingTransport enqueue(String body) {
         responseSequence.add(body.getBytes(StandardCharsets.UTF_8));
         return this;
