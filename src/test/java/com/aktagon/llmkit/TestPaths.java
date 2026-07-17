@@ -100,4 +100,16 @@ final class TestPaths {
         Files.writeString(
                 directory.resolve("java.json"), NULL_SERIALIZING.toJson(projection), StandardCharsets.UTF_8);
     }
+
+    /**
+     * Write a telemetry-wire artifact to
+     * {@code target/wire/telemetry/<fixture>/java.json} (the OTLP payload
+     * verbatim), mirroring the other SDK drivers' outputs for the cross-SDK
+     * telemetry comparator (ADR-054 TEL-011).
+     */
+    static void writeTelemetryArtifact(String fixture, String payload) throws IOException {
+        Path directory = repoRoot().resolve("target/wire/telemetry").resolve(fixture);
+        Files.createDirectories(directory);
+        Files.writeString(directory.resolve("java.json"), payload, StandardCharsets.UTF_8);
+    }
 }
