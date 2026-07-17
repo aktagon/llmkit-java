@@ -234,7 +234,12 @@ final class VideoPoll {
                 if (b64.isEmpty()) {
                     throw new DecodingException("video generation: operation done but carried no video bytes");
                 }
-                byte[] decoded = java.util.Base64.getDecoder().decode(b64);
+                byte[] decoded;
+                try {
+                    decoded = java.util.Base64.getDecoder().decode(b64);
+                } catch (IllegalArgumentException e) {
+                    throw new DecodingException("invalid base64 in video bytesBase64Encoded: " + e.getMessage(), e);
+                }
                 yield new VideoResponse(
                         List.of(new VideoData(vmime, "", decoded, 0)), Usage.zero(), "", "", null);
             }

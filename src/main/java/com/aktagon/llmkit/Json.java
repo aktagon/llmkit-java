@@ -20,10 +20,12 @@ import com.google.gson.JsonParser;
  * <p>Public (not the usual package-private runtime-helper visibility)
  * because the generated {@code ModelsParsers} lives in the sibling
  * {@code providers.generated} package and reuses this same waist rather than
- * hand-rolling its own JSON access (ADR-019 catalogue parsers).
+ * hand-rolling its own JSON access (ADR-019 catalogue parsers). This class is
+ * an internal seam kept public only for those generated parsers and for
+ * tool-schema construction ({@link #parse}) — not a stable API.
  */
 public final class Json {
-    public static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
+    private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
 
     private Json() {}
 
@@ -35,7 +37,7 @@ public final class Json {
         }
     }
 
-    public static String serialize(JsonElement element) {
+    static String serialize(JsonElement element) {
         return GSON.toJson(element);
     }
 
@@ -80,14 +82,14 @@ public final class Json {
                 && found.getAsJsonPrimitive().isNumber() ? found.getAsLong() : 0L;
     }
 
-    public static double doubleAt(JsonElement root, String path) {
+    static double doubleAt(JsonElement root, String path) {
         JsonElement found = at(root, path);
         return found != null && found.isJsonPrimitive()
                 && found.getAsJsonPrimitive().isNumber() ? found.getAsDouble() : 0.0;
     }
 
     /** An empty insertion-ordered object (the request-body builder's root). */
-    public static JsonObject object() {
+    static JsonObject object() {
         return new JsonObject();
     }
 }
