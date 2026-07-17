@@ -5,6 +5,8 @@ import com.aktagon.llmkit.providers.generated.Caching;
 import com.aktagon.llmkit.providers.generated.ImageGenDef;
 import com.aktagon.llmkit.providers.generated.ProviderName;
 import com.aktagon.llmkit.providers.generated.Request;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * The entry point to the SDK. Immutable; builders reached from it clone on
@@ -18,6 +20,7 @@ public final class Client {
     private final String apiKey;
     private final String baseUrlOverride;
     private final HttpTransport http;
+    private final List<MiddlewareFn> defaultMiddleware;
 
     /** Create a client for a provider. */
     public Client(ProviderName provider, String apiKey) {
@@ -26,14 +29,20 @@ public final class Client {
 
     /** Transport-injecting constructor (tests supply a capturing fake). */
     Client(ProviderName provider, String apiKey, HttpTransport http) {
-        this(provider, apiKey, null, http);
+        this(provider, apiKey, null, http, List.of());
     }
 
-    private Client(ProviderName provider, String apiKey, String baseUrlOverride, HttpTransport http) {
+    private Client(
+            ProviderName provider,
+            String apiKey,
+            String baseUrlOverride,
+            HttpTransport http,
+            List<MiddlewareFn> defaultMiddleware) {
         this.provider = provider;
         this.apiKey = apiKey;
         this.baseUrlOverride = baseUrlOverride;
         this.http = http;
+        this.defaultMiddleware = defaultMiddleware;
     }
 
     /** Convenience constructor for OpenAI. */
@@ -46,22 +55,48 @@ public final class Client {
      * account/project/region-in-URL providers (ADR-035) and the test transport.
      */
     public Client baseUrl(String url) {
-        return new Client(provider, apiKey, url, http);
+        return new Client(provider, apiKey, url, http, defaultMiddleware);
+    }
+
+    /**
+     * Enable opt-in telemetry on this client (ADR-054/ADR-059). The export
+     * hook rides the middleware seam, so every capability builder that
+     * carries one (text/agent/image/music/video) emits one OTEL span on the
+     * post phase. The honest contract (TEL-017) is upheld by {@link
+     * Telemetry}'s constructor: an enabled-but-no-sink config cannot be
+     * built. Returns a new {@code Client} for chaining.
+     */
+    public Client addTelemetry(Telemetry telemetry) {
+        List<MiddlewareFn> next = new ArrayList<>(defaultMiddleware);
+        next.add(TelemetryRuntime.makeMiddleware(telemetry));
+        return new Client(provider, apiKey, baseUrlOverride, http, next);
     }
 
     /** The text-generation builder. */
     public Text text() {
-        return Text.root(provider, apiKey, baseUrlOverride, http);
+        Text builder = Text.root(provider, apiKey, baseUrlOverride, http);
+        for (MiddlewareFn hook : defaultMiddleware) {
+            builder = builder.addMiddleware(hook);
+        }
+        return builder;
     }
 
     /** A fresh stateful tool-loop agent (the one stateful builder). */
     public Agent agent() {
-        return new Agent(provider, apiKey, baseUrlOverride, http);
+        Agent agent = new Agent(provider, apiKey, baseUrlOverride, http);
+        for (MiddlewareFn hook : defaultMiddleware) {
+            agent.addMiddleware(hook);
+        }
+        return agent;
     }
 
     /** The image-generation builder. */
     public Image image() {
-        return Image.root(provider, apiKey, baseUrlOverride, http);
+        Image builder = Image.root(provider, apiKey, baseUrlOverride, http);
+        for (MiddlewareFn hook : defaultMiddleware) {
+            builder = builder.addMiddleware(hook);
+        }
+        return builder;
     }
 
     /** The speech-generation (text-to-speech) builder. */
@@ -71,12 +106,20 @@ public final class Client {
 
     /** The music-generation builder. */
     public Music music() {
-        return Music.root(provider, apiKey, baseUrlOverride, http);
+        Music builder = Music.root(provider, apiKey, baseUrlOverride, http);
+        for (MiddlewareFn hook : defaultMiddleware) {
+            builder = builder.addMiddleware(hook);
+        }
+        return builder;
     }
 
     /** The video-generation builder (asynchronous; {@code submit} returns a live {@link VideoJob}). */
     public Video video() {
-        return Video.root(provider, apiKey, baseUrlOverride, http);
+        Video builder = Video.root(provider, apiKey, baseUrlOverride, http);
+        for (MiddlewareFn hook : defaultMiddleware) {
+            builder = builder.addMiddleware(hook);
+        }
+        return builder;
     }
 
     /**
