@@ -274,17 +274,25 @@ final class Batching {
                 if (line.isEmpty()) {
                     continue;
                 }
-                String responseText;
-                if (batch.resultBodyPath.isEmpty()) {
-                    responseText = line;
-                } else {
-                    JsonElement inner = Json.at(Json.parse(line), batch.resultBodyPath);
-                    if (inner == null) {
-                        throw new DecodingException("batch result wrapper missing body path");
+                // A malformed or errored item line (e.g. Anthropic
+                // result.type=errored, which carries no result.message at the
+                // configured body path) must not destroy the completed batch:
+                // skip it and return the successful subset, mirroring Go.
+                try {
+                    String responseText;
+                    if (batch.resultBodyPath.isEmpty()) {
+                        responseText = line;
+                    } else {
+                        JsonElement inner = Json.at(Json.parse(line), batch.resultBodyPath);
+                        if (inner == null) {
+                            continue;
+                        }
+                        responseText = Json.serialize(inner);
                     }
-                    responseText = Json.serialize(inner);
+                    responses.add(ResponseParser.parse(spec, responseText.getBytes(StandardCharsets.UTF_8)));
+                } catch (DecodingException e) {
+                    continue;
                 }
-                responses.add(ResponseParser.parse(spec, responseText.getBytes(StandardCharsets.UTF_8)));
             }
             return responses;
         }
