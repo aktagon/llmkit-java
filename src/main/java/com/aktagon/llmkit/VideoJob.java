@@ -12,9 +12,7 @@ import com.aktagon.llmkit.providers.generated.VideoResponse;
 
 
 public final class VideoJob {
-
-    public final VideoHandle handle;
-
+    private final VideoHandle handle;
     private final String apiKey;
     private final HttpTransport http;
     private final String baseUrlOverride;
@@ -27,6 +25,11 @@ public final class VideoJob {
         this.apiKey = apiKey;
         this.http = http;
         this.baseUrlOverride = baseUrlOverride;
+    }
+
+
+    public VideoHandle handle() {
+        return handle;
     }
 
 

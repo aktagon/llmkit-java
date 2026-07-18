@@ -24,33 +24,27 @@ import java.util.function.Consumer;
 
 
 
-public final class Telemetry {
 
 
 
 
 
 
-    public final Consumer<byte[]> export;
 
 
 
 
-
-    public final boolean captureContent;
-
+public record Telemetry(Consumer<byte[]> export, boolean captureContent) {
     public Telemetry(Consumer<byte[]> export) {
         this(export, false);
     }
 
-    public Telemetry(Consumer<byte[]> export, boolean captureContent) {
+    public Telemetry {
         if (export == null) {
             throw new ValidationException(
                     "telemetry.export",
                     "export is required when telemetry is enabled (use Telemetry.httpExport for a batteries POST)");
         }
-        this.export = export;
-        this.captureContent = captureContent;
     }
 
     private static final HttpClient HTTP_CLIENT =

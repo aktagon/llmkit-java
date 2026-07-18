@@ -11,46 +11,30 @@ import java.util.Map;
 
 
 
-public final class Event {
-    public final MiddlewareOp op;
-    public final MiddlewarePhase phase;
-    public final String provider;
-    public final String model;
 
-    public final String tool;
 
-    public final Map<String, JsonElement> args;
 
-    public final String result;
 
-    public final Usage usage;
 
-    public final String err;
 
-    public final Long durationMillis;
 
-    Event(
-            MiddlewareOp op,
-            MiddlewarePhase phase,
-            String provider,
-            String model,
-            String tool,
-            Map<String, JsonElement> args,
-            String result,
-            Usage usage,
-            String err,
-            Long durationMillis) {
-        this.op = op;
-        this.phase = phase;
-        this.provider = provider;
-        this.model = model;
-        this.tool = tool;
-        this.args = args;
-        this.result = result;
-        this.usage = usage;
-        this.err = err;
-        this.durationMillis = durationMillis;
-    }
+
+
+
+
+
+
+public record Event(
+        MiddlewareOp op,
+        MiddlewarePhase phase,
+        String provider,
+        String model,
+        String tool,
+        Map<String, JsonElement> args,
+        String result,
+        Usage usage,
+        String err,
+        Long durationMillis) {
 
 
     static Event of(MiddlewareOp op, String provider, String model) {

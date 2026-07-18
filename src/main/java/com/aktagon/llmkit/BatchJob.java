@@ -13,9 +13,7 @@ import java.util.List;
 
 
 public final class BatchJob {
-
-    public final BatchHandle handle;
-
+    private final BatchHandle handle;
     private final String apiKey;
     private final HttpTransport http;
     private final String baseUrlOverride;
@@ -28,6 +26,11 @@ public final class BatchJob {
         this.apiKey = apiKey;
         this.http = http;
         this.baseUrlOverride = baseUrlOverride;
+    }
+
+
+    public BatchHandle handle() {
+        return handle;
     }
 
 

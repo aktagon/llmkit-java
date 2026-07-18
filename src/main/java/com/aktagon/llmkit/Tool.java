@@ -1,6 +1,7 @@
 package com.aktagon.llmkit;
 
 import com.google.gson.JsonElement;
+import java.util.Objects;
 
 
 
@@ -8,7 +9,18 @@ import com.google.gson.JsonElement;
 
 
 
-public final class Tool {
+
+
+
+
+
+
+
+
+
+
+
+public record Tool(String name, String description, JsonElement schema, Handler handler) {
 
 
 
@@ -16,22 +28,10 @@ public final class Tool {
         String run(JsonElement args) throws Exception;
     }
 
-
-    public final String name;
-
-
-    public final String description;
-
-
-
-    public final JsonElement schema;
-
-    public final Handler handler;
-
-    public Tool(String name, String description, JsonElement schema, Handler handler) {
-        this.name = java.util.Objects.requireNonNull(name, "name");
-        this.description = java.util.Objects.requireNonNull(description, "description");
-        this.schema = java.util.Objects.requireNonNull(schema, "schema");
-        this.handler = java.util.Objects.requireNonNull(handler, "handler");
+    public Tool {
+        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(description, "description");
+        Objects.requireNonNull(schema, "schema");
+        Objects.requireNonNull(handler, "handler");
     }
 }
