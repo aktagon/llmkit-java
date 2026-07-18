@@ -79,8 +79,27 @@ public final class Models {
     public List<ModelInfo> list() {
         List<ModelInfo> out = new ArrayList<>();
         for (Catalogue.CompiledModelDef def : Catalogue.COMPILED_IN_MODELS) {
-            if (capFilter == null || def.capabilities.contains(capFilter)) {
-                out.add(compiledToModelInfo(def));
+            out.add(compiledToModelInfo(def));
+        }
+        return applyCapFilter(out, capFilter);
+    }
+
+
+
+
+
+
+
+
+
+    static List<ModelInfo> applyCapFilter(List<ModelInfo> models, Capability capFilter) {
+        if (capFilter == null) {
+            return models;
+        }
+        List<ModelInfo> out = new ArrayList<>();
+        for (ModelInfo m : models) {
+            if (m.capabilities().contains(capFilter)) {
+                out.add(m);
             }
         }
         return out;
@@ -95,6 +114,7 @@ public final class Models {
         }
         return null;
     }
+
 
 
 
@@ -123,20 +143,13 @@ public final class Models {
                 errors.put(providerNameSlug(info.id()), new ProviderError(mapped.kind(), mapped.getMessage()));
             }
         }
-        List<ModelInfo> filtered = all;
-        if (capFilter != null) {
-            filtered = new ArrayList<>();
-            for (ModelInfo m : all) {
-                if (m.capabilities().contains(capFilter)) {
-                    filtered.add(m);
-                }
-            }
-        }
-        filtered.sort((a, b) -> {
+        //
+        //
+        all.sort((a, b) -> {
             int cmp = providerNameSlug(a.provider()).compareTo(providerNameSlug(b.provider()));
             return cmp != 0 ? cmp : a.id().compareTo(b.id());
         });
-        return new LiveResult(filtered, errors);
+        return new LiveResult(all, errors);
     }
 
     private static ModelInfo compiledToModelInfo(Catalogue.CompiledModelDef def) {

@@ -60,6 +60,9 @@ public final class ScopedModels {
 
 
 
+
+
+
     public List<ModelInfo> list() {
         Catalogue.CatalogueConfig cfg = Catalogue.catalogueConfig(target);
         if (cfg == null) {
@@ -74,7 +77,7 @@ public final class ScopedModels {
             List<ModelsParsers.ParsedModelRecord> records = paginate(pcfg, cfg);
             Middleware.firePost(
                     middleware, baseEvent.toPost("", null, null, Middleware.elapsedMillis(startNanos)));
-            return enrich(records);
+            return Models.applyCapFilter(enrich(records), capFilter);
         } catch (RuntimeException e) {
             Middleware.firePost(
                     middleware, baseEvent.toPost("", null, e.getMessage(), Middleware.elapsedMillis(startNanos)));
