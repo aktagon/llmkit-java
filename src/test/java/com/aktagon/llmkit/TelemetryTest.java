@@ -94,4 +94,40 @@ class TelemetryTest {
         }
         return out;
     }
+
+    @Test
+    void httpExportPostsPayloadWithHeadersToTracesPath() throws Exception {
+        List<String> requestLines = new ArrayList<>();
+        Map<String, String> received = new LinkedHashMap<>();
+        byte[][] receivedBody = new byte[1][];
+        com.sun.net.httpserver.HttpServer server =
+                com.sun.net.httpserver.HttpServer.create(
+                        new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            requestLines.add(exchange.getRequestMethod() + " " + exchange.getRequestURI());
+            received.put("content-type", exchange.getRequestHeaders().getFirst("Content-Type"));
+            received.put("x-otlp-key", exchange.getRequestHeaders().getFirst("x-otlp-key"));
+            receivedBody[0] = exchange.getRequestBody().readAllBytes();
+            exchange.sendResponseHeaders(200, -1);
+            exchange.close();
+        });
+        server.start();
+        try {
+            String endpoint = "http://127.0.0.1:" + server.getAddress().getPort();
+            byte[] payload = "{\"resourceSpans\":[]}".getBytes(StandardCharsets.UTF_8);
+
+            Telemetry.httpExport(endpoint, Map.of("x-otlp-key", "collector-secret"))
+                    .accept(payload);
+
+            assertEquals(
+                    List.of("POST " + com.aktagon.llmkit.providers.generated.TelemetryGen.TRACES_PATH),
+                    requestLines);
+            assertEquals("application/json", received.get("content-type"));
+            assertEquals("collector-secret", received.get("x-otlp-key"));
+            assertEquals(new String(payload, StandardCharsets.UTF_8),
+                    new String(receivedBody[0], StandardCharsets.UTF_8));
+        } finally {
+            server.stop(0);
+        }
+    }
 }

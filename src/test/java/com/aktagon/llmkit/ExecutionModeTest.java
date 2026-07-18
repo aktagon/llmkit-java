@@ -23,6 +23,33 @@ class ExecutionModeTest {
     // --- Agent tool loop ---
 
     @Test
+    void agentStopsAtMaxToolIterations() {
+        // The model asks for the tool on every turn (the canned body is the
+        // fallback response, so it repeats), so a cap of 2 must abort the loop.
+        String toolCall = "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"tool_calls\":"
+                + "[{\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"get_weather\","
+                + "\"arguments\":\"{\\\"city\\\":\\\"Helsinki\\\"}\"}}]}}],"
+                + "\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":5}}";
+        CapturingTransport transport = new CapturingTransport().withResponse(200, toolCall);
+
+        Tool tool = new Tool(
+                "get_weather",
+                "Get the current weather for a city.",
+                Json.parse("{\"type\":\"object\",\"properties\":{\"city\":{\"type\":\"string\"}}}"),
+                args -> "sunny, 21C");
+
+        ValidationException thrown = assertThrows(
+                ValidationException.class,
+                () -> new Client(ProviderName.OPENAI, "key", transport)
+                        .agent().addTool(tool).maxToolIterations(2)
+                        .prompt("What is the weather in Helsinki?"));
+        assertEquals("max_tool_iterations", thrown.field());
+        assertEquals(
+                "validation: max_tool_iterations - max tool iterations (2) reached",
+                thrown.getMessage());
+    }
+
+    @Test
     void agentRunsToolThenAnswers() {
         // Turn 1: the model asks to call get_weather; turn 2: it answers.
         String toolCall = "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"tool_calls\":"
