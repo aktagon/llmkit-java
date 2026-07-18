@@ -115,7 +115,12 @@ class ModelsTest {
         assertEquals("gemini-2.5-flash", models.get(0).id());
         assertEquals(2, transport.urls.size());
         assertTrue(transport.urls.get(0).contains("key=test-key"));
-        assertTrue(transport.urls.get(1).contains("pageToken=opaque-cursor-xyz"));
+        // Order is contract, not cosmetics: the QueryParamKey splice precedes
+        // the cursor param, matching the cross-SDK catalogue-wire golden
+        // (?key=...&pageToken=..., CR-003 alignment / HANDOFF-036 Part C).
+        assertEquals(
+                "https://mock.test/v1beta/models?key=test-key&pageToken=opaque-cursor-xyz",
+                transport.urls.get(1));
     }
 
     @Test
