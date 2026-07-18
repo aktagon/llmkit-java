@@ -120,7 +120,7 @@ public final class Speech {
         if (result.statusCode() < 200 || result.statusCode() >= 300) {
             throw ResponseParser.parseError(config, result.statusCode(), result.body());
         }
-        return parseResponse(sgCfg.audioResponseEncoding(), modelDef.outputMime(), result.body());
+        return parseResponse(config.slug, sgCfg.audioResponseEncoding(), modelDef.outputMime(), result.body());
     }
 
     //
@@ -167,24 +167,30 @@ public final class Speech {
 
 
 
-    private static SpeechResponse parseResponse(String encoding, String fallbackMime, byte[] body) {
-        byte[] bytes = new byte[0];
+
+
+    private static SpeechResponse parseResponse(
+            String providerSlug, String encoding, String fallbackMime, byte[] body) {
+        byte[] bytes;
         if ("rawBody".equals(encoding)) {
             bytes = body;
         } else {
-            String b64 = "";
+            String b64;
             try {
                 JsonElement raw = Json.parse(new String(body, StandardCharsets.UTF_8));
                 b64 = Json.stringAt(raw, "audioContent");
-            } catch (DecodingException ignored) {
-                //
+            } catch (DecodingException e) {
+                throw new DecodingException(
+                        providerSlug + " speech response: not valid JSON: " + e.getMessage(), e);
             }
-            if (!b64.isEmpty()) {
-                try {
-                    bytes = Base64.getDecoder().decode(b64);
-                } catch (IllegalArgumentException e) {
-                    throw new DecodingException("invalid base64 in speech audioContent: " + e.getMessage(), e);
-                }
+            if (b64.isEmpty()) {
+                throw new DecodingException(providerSlug + " speech response: missing or empty audioContent");
+            }
+            try {
+                bytes = Base64.getDecoder().decode(b64);
+            } catch (IllegalArgumentException e) {
+                throw new DecodingException(
+                        providerSlug + " speech response: invalid base64 in audioContent: " + e.getMessage(), e);
             }
         }
         return new SpeechResponse(new AudioData(fallbackMime, bytes), Usage.zero(), "");
