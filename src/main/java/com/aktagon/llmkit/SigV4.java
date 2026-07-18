@@ -21,11 +21,25 @@ import javax.crypto.spec.SecretKeySpec;
 
 
 
+
+
+
 final class SigV4 {
     private static final DateTimeFormatter DATESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter AMZ_DATE = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'");
 
     private SigV4() {}
+
+
+
+
+
+
+    record Parts(
+            Map<String, String> headers,
+            String canonicalRequest,
+            String stringToSign,
+            String authorization) {}
 
 
 
@@ -45,7 +59,27 @@ final class SigV4 {
             String region,
             String service,
             String contentType) {
-        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        return signParts(method, url, body, accessKey, secretKey, sessionToken,
+                        region, service, contentType, ZonedDateTime.now(ZoneOffset.UTC))
+                .headers();
+    }
+
+
+
+
+
+
+    static Parts signParts(
+            String method,
+            String url,
+            byte[] body,
+            String accessKey,
+            String secretKey,
+            String sessionToken,
+            String region,
+            String service,
+            String contentType,
+            ZonedDateTime now) {
         String datestamp = DATESTAMP.format(now);
         String amzdate = AMZ_DATE.format(now);
 
@@ -105,7 +139,7 @@ final class SigV4 {
         if (!sessionToken.isEmpty()) {
             headers.put("X-Amz-Security-Token", sessionToken);
         }
-        return headers;
+        return new Parts(headers, canonicalRequest, stringToSign, authorization);
     }
 
     private static String canonicalQueryString(URI uri) {
