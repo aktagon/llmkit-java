@@ -120,11 +120,17 @@ public final class ScopedModels {
     //
 
     private List<ModelsParsers.ParsedModelRecord> paginate(Providers.Spec pcfg, Catalogue.CatalogueConfig cfg) {
+        //
+        //
+        //
+        //
+        //
+        String baseUrl = buildCatalogueUrl(pcfg, cfg.endpoint);
         String cursor = "";
         List<ModelsParsers.ParsedModelRecord> all = new ArrayList<>();
         while (true) {
-            String endpoint = appendCursor(cfg.endpoint, cfg.cursorParam, cursor);
-            byte[] body = fetchCatalogueUrl(pcfg, endpoint);
+            String url = appendCursor(baseUrl, cfg.cursorParam, cursor);
+            byte[] body = fetchAbsoluteUrl(pcfg, url);
             ModelsParsers.ParsedModelsPage page = dispatchParser(cfg.parserKind, body);
             all.addAll(page.records);
             if (page.nextCursor.isEmpty()) {
@@ -140,7 +146,8 @@ public final class ScopedModels {
 
 
 
-    private static String appendCursor(String endpoint, String cursorParam, String cursor) {
+
+    static String appendCursor(String endpoint, String cursorParam, String cursor) {
         if (cursor.isEmpty() || cursorParam.isEmpty()) {
             return endpoint;
         }
@@ -158,8 +165,17 @@ public final class ScopedModels {
 
 
 
+    String buildCatalogueUrl(Providers.Spec pcfg, String endpoint) {
+        return RequestBuilder.buildUrl(pcfg, endpoint, apiKey, "", baseUrlOverride);
+    }
+
+
     private byte[] fetchCatalogueUrl(Providers.Spec pcfg, String endpoint) {
-        String url = RequestBuilder.buildUrl(pcfg, endpoint, apiKey, "", baseUrlOverride);
+        return fetchAbsoluteUrl(pcfg, buildCatalogueUrl(pcfg, endpoint));
+    }
+
+
+    private byte[] fetchAbsoluteUrl(Providers.Spec pcfg, String url) {
         Map<String, String> headers = RequestBuilder.buildAuthHeaders(pcfg, apiKey);
         HttpTransport.Result result = http.getText(url, headers);
         if (result.statusCode() >= 200 && result.statusCode() < 300) {
