@@ -95,11 +95,11 @@ class UploadTest {
         client.upload().addMiddleware(hook).bytes("x".getBytes(StandardCharsets.UTF_8)).filename("a.txt").run();
 
         assertEquals(2, events.size());
-        assertEquals(MiddlewareOp.UPLOAD, events.get(0).op);
-        assertEquals(MiddlewarePhase.PRE, events.get(0).phase);
-        assertEquals("anthropic", events.get(0).provider);
-        assertEquals(MiddlewarePhase.POST, events.get(1).phase);
-        assertEquals(null, events.get(1).err);
+        assertEquals(MiddlewareOp.UPLOAD, events.get(0).op());
+        assertEquals(MiddlewarePhase.PRE, events.get(0).phase());
+        assertEquals("anthropic", events.get(0).provider());
+        assertEquals(MiddlewarePhase.POST, events.get(1).phase());
+        assertEquals(null, events.get(1).err());
     }
 
     @Test

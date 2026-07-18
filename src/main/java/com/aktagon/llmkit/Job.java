@@ -96,17 +96,17 @@ final class Job {
         long deadline = lc.pollTimeoutMillis > 0 ? System.nanoTime() + lc.pollTimeoutMillis * 1_000_000 : 0;
         while (true) {
             JobStatus<T> status = pollOnce(adapter);
-            switch (status.state) {
+            switch (status.state()) {
                 case SUCCEEDED -> {
                     // pollOnce sets result iff SUCCEEDED (by construction);
                     // guard the invariant rather than assume it.
-                    if (status.result == null) {
+                    if (status.result() == null) {
                         throw new IllegalStateException(lc.noun + ": succeeded status carried no result");
                     }
-                    return status.result;
+                    return status.result();
                 }
                 case FAILED -> throw new JobFailedException(
-                        lc.noun, status.cause != null ? status.cause : new JobFailure("", "", false));
+                        lc.noun, status.cause() != null ? status.cause() : new JobFailure("", "", false));
                 case RUNNING -> { }
             }
             if (deadline != 0 && System.nanoTime() > deadline) {

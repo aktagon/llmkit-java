@@ -134,8 +134,8 @@ class TranscriptionTest {
                         + "]}"); // poll: done
         TranscriptionJob job = new Client(ProviderName.ASSEMBLYAI, "key", transport).transcription()
                 .submit(List.of(Part.audio("https://storage.example.com/meeting-2026-06-24.mp3")));
-        assertEquals("transcript_abc123", job.handle.id());
-        assertEquals(ProviderName.ASSEMBLYAI, job.handle.provider());
+        assertEquals("transcript_abc123", job.handle().id());
+        assertEquals(ProviderName.ASSEMBLYAI, job.handle().provider());
 
         // The captured submit body is the {audio_url} JSON body.
         JsonElement submitBody = Json.parse(transport.capturedBody);
@@ -165,15 +165,15 @@ class TranscriptionTest {
                 .submit(List.of(Part.audio("https://storage.example.com/clip.mp3")));
 
         JobStatus<TranscriptionResponse> first = job.poll();
-        assertEquals(JobState.RUNNING, first.state);
-        assertEquals("processing", first.rawStatus);
-        assertNull(first.result);
+        assertEquals(JobState.RUNNING, first.state());
+        assertEquals("processing", first.rawStatus());
+        assertNull(first.result());
 
         JobStatus<TranscriptionResponse> second = job.poll();
-        assertEquals(JobState.SUCCEEDED, second.state);
-        assertEquals("completed", second.rawStatus);
-        assertEquals("Done.", second.result.text());
-        assertEquals(List.of(), second.result.segments());
+        assertEquals(JobState.SUCCEEDED, second.state());
+        assertEquals("completed", second.rawStatus());
+        assertEquals("Done.", second.result().text());
+        assertEquals(List.of(), second.result().segments());
     }
 
     /**

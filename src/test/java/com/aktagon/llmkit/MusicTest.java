@@ -163,7 +163,7 @@ class MusicTest {
                 + "\"},\"base_resp\":{\"status_code\":0,\"status_msg\":\"success\"}}";
         List<MiddlewarePhase> phases = new ArrayList<>();
         MiddlewareFn hook = event -> {
-            phases.add(event.phase);
+            phases.add(event.phase());
             return null;
         };
 

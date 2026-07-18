@@ -283,11 +283,11 @@ class ModelsTest {
         List<ModelInfo> models = client.models().provider(ProviderName.OPENAI).list();
         assertEquals(1, models.size());
         assertEquals(2, events.size());
-        assertEquals(MiddlewarePhase.PRE, events.get(0).phase);
-        assertEquals(MiddlewareOp.MODELS_LIST, events.get(0).op);
-        assertEquals(MiddlewarePhase.POST, events.get(1).phase);
-        assertEquals(MiddlewareOp.MODELS_LIST, events.get(1).op);
-        assertNotNull(events.get(1).durationMillis);
+        assertEquals(MiddlewarePhase.PRE, events.get(0).phase());
+        assertEquals(MiddlewareOp.MODELS_LIST, events.get(0).op());
+        assertEquals(MiddlewarePhase.POST, events.get(1).phase());
+        assertEquals(MiddlewareOp.MODELS_LIST, events.get(1).op());
+        assertNotNull(events.get(1).durationMillis());
     }
 
 }

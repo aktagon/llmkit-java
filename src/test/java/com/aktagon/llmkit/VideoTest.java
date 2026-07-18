@@ -38,7 +38,7 @@ class VideoTest {
         VideoJob job = new Client(ProviderName.GROK, "key", transport).video()
                 .model("grok-imagine-video")
                 .submit("A drone shot sweeping over snow-capped alpine peaks at sunrise");
-        assertEquals("vid_alpine", job.handle.id());
+        assertEquals("vid_alpine", job.handle().id());
 
         job.pollIntervalMillis = 1;
         VideoResponse response = job.await();
@@ -62,14 +62,14 @@ class VideoTest {
                 .submit("A city skyline at night");
 
         JobStatus<VideoResponse> first = job.poll();
-        assertEquals(JobState.RUNNING, first.state);
-        assertEquals("processing", first.rawStatus);
-        assertEquals(null, first.result);
+        assertEquals(JobState.RUNNING, first.state());
+        assertEquals("processing", first.rawStatus());
+        assertEquals(null, first.result());
 
         JobStatus<VideoResponse> second = job.poll();
-        assertEquals(JobState.SUCCEEDED, second.state);
-        assertEquals("done", second.rawStatus);
-        assertEquals("https://xai.example/vid_1.mp4", second.result.videos().get(0).url());
+        assertEquals(JobState.SUCCEEDED, second.state());
+        assertEquals("done", second.rawStatus());
+        assertEquals("https://xai.example/vid_1.mp4", second.result().videos().get(0).url());
     }
 
     // --- Image-to-video (BUG-010): the seed frame inlines at image.url ---
@@ -141,7 +141,7 @@ class VideoTest {
         VideoJob job = new Client(ProviderName.MINIMAX, "key", transport).video()
                 .model("MiniMax-Hailuo-2.3")
                 .submit("A drone shot sweeping over snow-capped alpine peaks at sunrise");
-        assertEquals("mm_1", job.handle.id());
+        assertEquals("mm_1", job.handle().id());
 
         job.pollIntervalMillis = 1;
         VideoResponse response = job.await();
@@ -158,7 +158,7 @@ class VideoTest {
                 .model("v4.5")
                 .submit("A drone shot sweeping over snow-capped alpine peaks at sunrise");
         // The numeric handle field is read back as its integer string form.
-        assertEquals("318633193768896", job.handle.id());
+        assertEquals("318633193768896", job.handle().id());
         assertEquals("key", transport.capturedHeaders.get("API-KEY"));
         assertFalse(transport.capturedHeaders.get("Ai-trace-id").isEmpty());
     }

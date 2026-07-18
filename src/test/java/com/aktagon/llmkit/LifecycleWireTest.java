@@ -29,16 +29,16 @@ class LifecycleWireTest {
 
     private void assertGolden(String fixture, JobStatus<List<Response>> status) throws Exception {
         JsonElement cause = JsonNull.INSTANCE;
-        if (status.cause != null) {
+        if (status.cause() != null) {
             JsonObject causeObject = new JsonObject();
-            causeObject.addProperty("status", status.cause.status());
-            causeObject.addProperty("timedOut", status.cause.timedOut());
+            causeObject.addProperty("status", status.cause().status());
+            causeObject.addProperty("timedOut", status.cause().timedOut());
             cause = causeObject;
         }
         JsonObject projection = new JsonObject();
-        projection.addProperty("state", status.state.label());
-        projection.addProperty("hasResult", status.result != null);
-        projection.addProperty("rawStatus", status.rawStatus);
+        projection.addProperty("state", status.state().label());
+        projection.addProperty("hasResult", status.result() != null);
+        projection.addProperty("rawStatus", status.rawStatus());
         projection.add("cause", cause);
 
         TestPaths.writeLifecycleArtifact(fixture, projection);
