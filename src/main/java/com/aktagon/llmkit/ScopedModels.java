@@ -120,11 +120,17 @@ public final class ScopedModels {
     // --- HTTP internals ---
 
     private List<ModelsParsers.ParsedModelRecord> paginate(Providers.Spec pcfg, Catalogue.CatalogueConfig cfg) {
+        // Build the full URL FIRST, then splice the cursor: the QueryParamKey
+        // `?key=` must precede the cursor param so a Google multi-page URL
+        // reads `?key=...&pageToken=...`, byte-identical to the other five
+        // SDKs' catalogue-wire golden (CR-003 alignment; HANDOFF-036 Part C
+        // caught Java on the wrong side of the order when it was enrolled).
+        String baseUrl = buildCatalogueUrl(pcfg, cfg.endpoint);
         String cursor = "";
         List<ModelsParsers.ParsedModelRecord> all = new ArrayList<>();
         while (true) {
-            String endpoint = appendCursor(cfg.endpoint, cfg.cursorParam, cursor);
-            byte[] body = fetchCatalogueUrl(pcfg, endpoint);
+            String url = appendCursor(baseUrl, cfg.cursorParam, cursor);
+            byte[] body = fetchAbsoluteUrl(pcfg, url);
             ModelsParsers.ParsedModelsPage page = dispatchParser(cfg.parserKind, body);
             all.addAll(page.records);
             if (page.nextCursor.isEmpty()) {
@@ -138,9 +144,10 @@ public final class ScopedModels {
      * Splices the pagination cursor into the URL using the cursor query-param
      * name carried by the generated {@code CatalogueConfig} (ADR-067 Fix A).
      * An empty cursor or an empty cursorParam (PaginationNone) leaves the URL
-     * unchanged.
+     * unchanged. Package-private: the catalogue-wire driver
+     * ({@code CatalogueWireTest}) exercises this exact seam.
      */
-    private static String appendCursor(String endpoint, String cursorParam, String cursor) {
+    static String appendCursor(String endpoint, String cursorParam, String cursor) {
         if (cursor.isEmpty() || cursorParam.isEmpty()) {
             return endpoint;
         }
@@ -153,13 +160,22 @@ public final class ScopedModels {
     }
 
     /**
-     * Fetches one catalogue URL, reusing the same URL/header assembly the
-     * chat request path uses ({@link RequestBuilder#buildUrl} /
-     * {@link RequestBuilder#buildAuthHeaders}) rather than a duplicate
-     * catalogue-specific builder.
+     * The full catalogue URL for an endpoint, reusing the same URL assembly
+     * the chat request path uses ({@link RequestBuilder#buildUrl}) rather
+     * than a duplicate catalogue-specific builder. Package-private: the
+     * catalogue-wire driver ({@code CatalogueWireTest}) exercises this seam.
      */
+    String buildCatalogueUrl(Providers.Spec pcfg, String endpoint) {
+        return RequestBuilder.buildUrl(pcfg, endpoint, apiKey, "", baseUrlOverride);
+    }
+
+    /** Fetches one catalogue endpoint (URL assembly + auth headers + GET). */
     private byte[] fetchCatalogueUrl(Providers.Spec pcfg, String endpoint) {
-        String url = RequestBuilder.buildUrl(pcfg, endpoint, apiKey, "", baseUrlOverride);
+        return fetchAbsoluteUrl(pcfg, buildCatalogueUrl(pcfg, endpoint));
+    }
+
+    /** GET an already-assembled catalogue URL with the provider's auth headers. */
+    private byte[] fetchAbsoluteUrl(Providers.Spec pcfg, String url) {
         Map<String, String> headers = RequestBuilder.buildAuthHeaders(pcfg, apiKey);
         HttpTransport.Result result = http.getText(url, headers);
         if (result.statusCode() >= 200 && result.statusCode() < 300) {
