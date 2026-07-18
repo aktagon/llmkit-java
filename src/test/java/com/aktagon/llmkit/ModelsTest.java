@@ -3,7 +3,6 @@ package com.aktagon.llmkit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -14,6 +13,7 @@ import com.aktagon.llmkit.providers.generated.ProviderInfo;
 import com.aktagon.llmkit.providers.generated.ProviderName;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -48,13 +48,16 @@ class ModelsTest {
 
     @Test
     void getReturnsKnownModel() {
-        ModelInfo got = new Client(ProviderName.ANTHROPIC, "test-key").models().get("claude-opus-4-7");
-        assertEquals("claude-opus-4-7", got.id());
+        Optional<ModelInfo> got =
+                new Client(ProviderName.ANTHROPIC, "test-key").models().get("claude-opus-4-7");
+        assertEquals("claude-opus-4-7", got.orElseThrow().id());
     }
 
     @Test
-    void getReturnsNullForUnknownId() {
-        assertNull(new Client(ProviderName.ANTHROPIC, "test-key").models().get("nonexistent-model-xyz"));
+    void getReturnsEmptyForUnknownId() {
+        assertEquals(
+                Optional.empty(),
+                new Client(ProviderName.ANTHROPIC, "test-key").models().get("nonexistent-model-xyz"));
     }
 
     // --- Providers-namespace (BUG-003 gate) ---
