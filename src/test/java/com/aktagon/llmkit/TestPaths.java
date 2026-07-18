@@ -115,6 +115,18 @@ final class TestPaths {
     }
 
     /**
+     * Write a SigV4-wire artifact to
+     * {@code target/wire/sigv4/<fixture>/java.json} (the {canonicalRequest,
+     * stringToSign, authorization} projection), mirroring the other SDK
+     * drivers' outputs for the cross-SDK SigV4 comparator (CR-002).
+     */
+    static void writeSigV4Artifact(String fixture, String json) throws IOException {
+        Path directory = repoRoot().resolve("target/wire/sigv4").resolve(fixture);
+        Files.createDirectories(directory);
+        Files.writeString(directory.resolve("java.json"), json, StandardCharsets.UTF_8);
+    }
+
+    /**
      * Write a telemetry-wire artifact to
      * {@code target/wire/telemetry/<fixture>/java.json} (the OTLP payload
      * verbatim), mirroring the other SDK drivers' outputs for the cross-SDK

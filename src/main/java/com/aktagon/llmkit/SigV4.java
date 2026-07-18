@@ -18,14 +18,28 @@ import javax.crypto.spec.SecretKeySpec;
  * AWS Signature Version 4 signing for Bedrock (the SigV4 auth scheme). A port
  * of {@code go/sigv4.go} / Swift's {@code SigV4}, using {@code javax.crypto}
  * HMAC-SHA256 — stdlib, no dependency (ADR-068 JAVA-003). Returns the headers
- * to add to the outbound request; the signature is not asserted by the wire
- * suite (it is time-dependent), only the body is.
+ * to add to the outbound request; the timestamp is the only non-deterministic
+ * signing input, so the CR-002 wire driver ({@code SigV4WireTest}) injects a
+ * frozen clock via {@link #signParts} and asserts the canonical request /
+ * string-to-sign / Authorization against the shared golden at
+ * {@code codegen/testdata/wire/sigv4/v1/}.
  */
 final class SigV4 {
     private static final DateTimeFormatter DATESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter AMZ_DATE = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'");
 
     private SigV4() {}
+
+    /**
+     * The intermediate signing artifacts. Production callers use only
+     * {@code headers}; the wire driver asserts the other three against the
+     * shared golden.
+     */
+    record Parts(
+            Map<String, String> headers,
+            String canonicalRequest,
+            String stringToSign,
+            String authorization) {}
 
     /**
      * Compute the SigV4 headers for a request. {@code contentType} is folded
@@ -45,7 +59,27 @@ final class SigV4 {
             String region,
             String service,
             String contentType) {
-        ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+        return signParts(method, url, body, accessKey, secretKey, sessionToken,
+                        region, service, contentType, ZonedDateTime.now(ZoneOffset.UTC))
+                .headers();
+    }
+
+    /**
+     * {@link #sign} with an injected clock (CR-002): the timestamp is the only
+     * non-deterministic signing input, so a fixed {@code now} makes the whole
+     * signature chain reproducible for the cross-SDK golden.
+     */
+    static Parts signParts(
+            String method,
+            String url,
+            byte[] body,
+            String accessKey,
+            String secretKey,
+            String sessionToken,
+            String region,
+            String service,
+            String contentType,
+            ZonedDateTime now) {
         String datestamp = DATESTAMP.format(now);
         String amzdate = AMZ_DATE.format(now);
 
@@ -105,7 +139,7 @@ final class SigV4 {
         if (!sessionToken.isEmpty()) {
             headers.put("X-Amz-Security-Token", sessionToken);
         }
-        return headers;
+        return new Parts(headers, canonicalRequest, stringToSign, authorization);
     }
 
     private static String canonicalQueryString(URI uri) {
