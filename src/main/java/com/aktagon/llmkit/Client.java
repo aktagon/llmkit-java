@@ -90,6 +90,19 @@ public final class Client {
         return new Client(provider, apiKey, baseUrlOverride, http, next);
     }
 
+    /**
+     * Internal seam: append a hook to the client-scoped default middleware
+     * (the list every capability builder — and the models/catalogue path —
+     * receives at construction). The public installer is {@link
+     * #addTelemetry}; tests use this directly to observe client-scoped fire
+     * sites. Mirrors Swift's internal {@code addMiddleware}.
+     */
+    Client addMiddleware(MiddlewareFn hook) {
+        List<MiddlewareFn> next = new ArrayList<>(defaultMiddleware);
+        next.add(hook);
+        return new Client(provider, apiKey, baseUrlOverride, http, next);
+    }
+
     /** The text-generation builder. */
     public Text text() {
         Text builder = Text.root(provider, apiKey, baseUrlOverride, http);
@@ -159,7 +172,9 @@ public final class Client {
      * endpoint.
      */
     public Models models() {
-        return Models.root(provider, apiKey, baseUrlOverride, http);
+        // Client-scoped hooks (telemetry, ADR-054) observe catalogue calls
+        // too (HANDOFF-036 A3); the Swift seam is the reference.
+        return Models.root(provider, apiKey, baseUrlOverride, http, defaultMiddleware);
     }
 
     /**

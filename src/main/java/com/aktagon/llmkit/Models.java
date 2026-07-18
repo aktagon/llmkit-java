@@ -27,22 +27,30 @@ public final class Models {
     private final String baseUrlOverride;
     private final HttpTransport http;
     private final Capability capFilter;
+    private final List<MiddlewareFn> middleware;
 
     private Models(
             ProviderName provider,
             String apiKey,
             String baseUrlOverride,
             HttpTransport http,
-            Capability capFilter) {
+            Capability capFilter,
+            List<MiddlewareFn> middleware) {
         this.provider = provider;
         this.apiKey = apiKey;
         this.baseUrlOverride = baseUrlOverride;
         this.http = http;
         this.capFilter = capFilter;
+        this.middleware = middleware;
     }
 
-    static Models root(ProviderName provider, String apiKey, String baseUrlOverride, HttpTransport http) {
-        return new Models(provider, apiKey, baseUrlOverride, http, null);
+    static Models root(
+            ProviderName provider,
+            String apiKey,
+            String baseUrlOverride,
+            HttpTransport http,
+            List<MiddlewareFn> middleware) {
+        return new Models(provider, apiKey, baseUrlOverride, http, null, middleware);
     }
 
     /**
@@ -51,7 +59,7 @@ public final class Models {
      * {@code provider(p).list()}.
      */
     public Models withCapability(Capability c) {
-        return new Models(provider, apiKey, baseUrlOverride, http, c);
+        return new Models(provider, apiKey, baseUrlOverride, http, c, middleware);
     }
 
     /**
@@ -61,7 +69,7 @@ public final class Models {
      * the target provider identity.
      */
     public ScopedModels provider(ProviderName p) {
-        return new ScopedModels(p, apiKey, baseUrlOverride, http, capFilter, false);
+        return new ScopedModels(p, apiKey, baseUrlOverride, http, capFilter, false, middleware);
     }
 
     /**
@@ -101,7 +109,8 @@ public final class Models {
         List<ModelInfo> all = new ArrayList<>();
         Map<String, ProviderError> errors = new LinkedHashMap<>();
         for (ProviderInfo info : configured) {
-            ScopedModels scoped = new ScopedModels(info.id(), apiKey, baseUrlOverride, http, capFilter, false);
+            ScopedModels scoped =
+                    new ScopedModels(info.id(), apiKey, baseUrlOverride, http, capFilter, false, middleware);
             try {
                 all.addAll(scoped.list());
             } catch (CatalogueException e) {
