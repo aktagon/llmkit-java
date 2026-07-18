@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * The catalogue builder (ADR-019). Reached via {@code client.models()}.
@@ -105,14 +106,18 @@ public final class Models {
         return out;
     }
 
-    /** Returns a compiled-in model by id, or null when no entry matches. */
-    public ModelInfo get(String id) {
+    /**
+     * Returns the compiled-in model for {@code id}, or {@link Optional#empty()}
+     * when no entry matches — the parity-faithful boundary idiom (Swift returns
+     * {@code ModelInfo?}, Rust {@code Option<ModelInfo>}; HANDOFF-036 B1).
+     */
+    public Optional<ModelInfo> get(String id) {
         for (Catalogue.CompiledModelDef def : Catalogue.COMPILED_IN_MODELS) {
             if (def.id.equals(id)) {
-                return compiledToModelInfo(def);
+                return Optional.of(compiledToModelInfo(def));
             }
         }
-        return null;
+        return Optional.empty();
     }
 
     /**
