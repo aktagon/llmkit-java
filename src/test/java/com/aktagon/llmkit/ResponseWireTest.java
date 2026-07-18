@@ -1,7 +1,9 @@
 package com.aktagon.llmkit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import com.aktagon.llmkit.providers.generated.BatchHandle;
 import com.aktagon.llmkit.providers.generated.ModelsParsers;
 import com.aktagon.llmkit.providers.generated.ProviderName;
 import com.aktagon.llmkit.providers.generated.Response;
@@ -311,5 +313,61 @@ class ResponseWireTest {
     @Test
     void modelsGoogle() throws Exception {
         driveModels("models-google", ModelsParsers::parseGoogleModelsResponse);
+    }
+
+    /**
+     * Batch results parse (HANDOFF-036 A1): a completed batch's RESULTS file —
+     * one succeeded line + one errored line (Anthropic result.type=errored
+     * carries no result.message at the configured resultBodyPath). Every SDK
+     * must SKIP the errored line and return the successful subset (count 1); a
+     * throwing parser would destroy a completed batch. Driven through the real
+     * public path: {@code BatchJob.poll()} against a two-hop scripted transport
+     * (Anthropic status "ended", then the anchored JSONL served verbatim; the
+     * .jsonl extension marks a JSONL results file, not a JSON document). Known
+     * shared assumption (PROVENANCE.md): no SDK matches results by custom_id —
+     * all assume file line order.
+     */
+    @Test
+    void batchResultsAnthropic() throws Exception {
+        String results = TestPaths.read(
+                TestPaths.testdata("wire/response/v1/bodies/batch-results-anthropic.jsonl"));
+        CapturingTransport transport = new CapturingTransport()
+                .enqueue("{\"id\":\"batch_1\",\"processing_status\":\"ended\"}")
+                .enqueue(results);
+        BatchJob job = new BatchJob(
+                new BatchHandle("batch_1", ProviderName.ANTHROPIC, false), "test-key", transport, null);
+
+        JobStatus<List<Response>> status = job.poll();
+        List<Response> responses = status.result;
+        assertNotNull(responses, "expected a succeeded result, got state " + status.state);
+
+        JsonObject first = new JsonObject();
+        if (!responses.isEmpty()) {
+            Response r = responses.get(0);
+            JsonObject usage = new JsonObject();
+            usage.addProperty("cacheRead", r.usage().cacheRead());
+            usage.addProperty("cacheWrite", r.usage().cacheWrite());
+            usage.addProperty("cost", r.usage().cost());
+            usage.addProperty("input", r.usage().input());
+            usage.addProperty("output", r.usage().output());
+            usage.addProperty("reasoning", r.usage().reasoning());
+            first.addProperty("finishReason", r.finishReason());
+            first.addProperty("text", r.text());
+            first.add("usage", usage);
+        }
+
+        JsonObject content = new JsonObject();
+        content.addProperty("count", responses.size());
+        content.add("first", first);
+        content.addProperty("kind", "batch_results");
+
+        JsonObject projection = new JsonObject();
+        projection.add("content", content);
+        projection.add("error", JsonNull.INSTANCE);
+
+        TestPaths.writeResponseArtifact("batch-results-anthropic", projection);
+        JsonElement golden = Json.parse(
+                TestPaths.read(TestPaths.testdata("wire/response/v1/batch-results-anthropic.json")));
+        assertEquals(golden, projection, "batch-results-anthropic projection differs from shared golden");
     }
 }
