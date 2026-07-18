@@ -79,8 +79,27 @@ public final class Models {
     public List<ModelInfo> list() {
         List<ModelInfo> out = new ArrayList<>();
         for (Catalogue.CompiledModelDef def : Catalogue.COMPILED_IN_MODELS) {
-            if (capFilter == null || def.capabilities.contains(capFilter)) {
-                out.add(compiledToModelInfo(def));
+            out.add(compiledToModelInfo(def));
+        }
+        return applyCapFilter(out, capFilter);
+    }
+
+    /**
+     * Records whose capabilities contain the filter; identity when null.
+     * The single capability predicate (HANDOFF-036 A4): shared by the
+     * compiled-in path ({@link #list()}), the scoped live list
+     * ({@link ScopedModels#list()}), and — through it — the live
+     * aggregate ({@link #live()}). {@code get} stays an unfiltered point
+     * lookup by id.
+     */
+    static List<ModelInfo> applyCapFilter(List<ModelInfo> models, Capability capFilter) {
+        if (capFilter == null) {
+            return models;
+        }
+        List<ModelInfo> out = new ArrayList<>();
+        for (ModelInfo m : models) {
+            if (m.capabilities().contains(capFilter)) {
+                out.add(m);
             }
         }
         return out;
@@ -102,7 +121,8 @@ public final class Models {
      * the result is 0 or 1 underlying calls; the shape leaves room for a
      * future multi-credential client without breaking callers. Errors land in
      * {@code result.errors()} as typed {@link ProviderError} (ADR-019
-     * Amendment 1). {@link #withCapability} composes post-fetch.
+     * Amendment 1). The capability filter is applied per-provider inside
+     * {@code scoped.list()} (HANDOFF-036 A4).
      */
     public LiveResult live() {
         List<ProviderInfo> configured = catalogueProvidersList(provider);
@@ -123,20 +143,13 @@ public final class Models {
                 errors.put(providerNameSlug(info.id()), new ProviderError(mapped.kind(), mapped.getMessage()));
             }
         }
-        List<ModelInfo> filtered = all;
-        if (capFilter != null) {
-            filtered = new ArrayList<>();
-            for (ModelInfo m : all) {
-                if (m.capabilities().contains(capFilter)) {
-                    filtered.add(m);
-                }
-            }
-        }
-        filtered.sort((a, b) -> {
+        // capFilter is already applied per-provider inside scoped.list()
+        // (HANDOFF-036 A4) — no aggregate re-filter needed.
+        all.sort((a, b) -> {
             int cmp = providerNameSlug(a.provider()).compareTo(providerNameSlug(b.provider()));
             return cmp != 0 ? cmp : a.id().compareTo(b.id());
         });
-        return new LiveResult(filtered, errors);
+        return new LiveResult(all, errors);
     }
 
     private static ModelInfo compiledToModelInfo(Catalogue.CompiledModelDef def) {
