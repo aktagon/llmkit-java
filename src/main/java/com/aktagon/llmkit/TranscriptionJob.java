@@ -12,9 +12,7 @@ import com.aktagon.llmkit.providers.generated.TranscriptionResponse;
  * (ADR-014).
  */
 public final class TranscriptionJob {
-    /** The persistable identity value (ADR-014 cross-process resume). */
-    public final TranscriptionHandle handle;
-
+    private final TranscriptionHandle handle;
     private final String apiKey;
     private final HttpTransport http;
     private final String baseUrlOverride;
@@ -28,6 +26,11 @@ public final class TranscriptionJob {
         this.apiKey = apiKey;
         this.http = http;
         this.baseUrlOverride = baseUrlOverride;
+    }
+
+    /** The persistable identity value (ADR-014 cross-process resume). */
+    public TranscriptionHandle handle() {
+        return handle;
     }
 
     /** One normalized poll round-trip (ADR-063 POLL-001): no loop. */
