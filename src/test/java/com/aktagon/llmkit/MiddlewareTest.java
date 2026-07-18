@@ -43,15 +43,15 @@ class MiddlewareTest {
         assertEquals("Helsinki", response.text());
         assertEquals(2, events.size());
         // Pre fires first with no usage; post fires with the observed usage.
-        assertEquals(MiddlewareOp.LLM_REQUEST, events.get(0).op);
-        assertEquals(MiddlewarePhase.PRE, events.get(0).phase);
-        assertEquals("openai", events.get(0).provider);
-        assertEquals("gpt-4o-mini", events.get(0).model);
-        assertNull(events.get(0).usage);
-        assertEquals(MiddlewarePhase.POST, events.get(1).phase);
-        assertEquals(7, events.get(1).usage.input());
-        assertEquals(2, events.get(1).usage.output());
-        assertNull(events.get(1).err);
+        assertEquals(MiddlewareOp.LLM_REQUEST, events.get(0).op());
+        assertEquals(MiddlewarePhase.PRE, events.get(0).phase());
+        assertEquals("openai", events.get(0).provider());
+        assertEquals("gpt-4o-mini", events.get(0).model());
+        assertNull(events.get(0).usage());
+        assertEquals(MiddlewarePhase.POST, events.get(1).phase());
+        assertEquals(7, events.get(1).usage().input());
+        assertEquals(2, events.get(1).usage().output());
+        assertNull(events.get(1).err());
     }
 
     // --- Prompt: pre-phase veto aborts before the network call ---
@@ -108,17 +108,17 @@ class MiddlewareTest {
 
         // Two llmRequest turns (pre+post each) plus one toolCall (pre+post).
         Optional<Event> toolPre = events.stream()
-                .filter(e -> e.op == MiddlewareOp.TOOL_CALL && e.phase == MiddlewarePhase.PRE)
+                .filter(e -> e.op() == MiddlewareOp.TOOL_CALL && e.phase() == MiddlewarePhase.PRE)
                 .findFirst();
         Optional<Event> toolPost = events.stream()
-                .filter(e -> e.op == MiddlewareOp.TOOL_CALL && e.phase == MiddlewarePhase.POST)
+                .filter(e -> e.op() == MiddlewareOp.TOOL_CALL && e.phase() == MiddlewarePhase.POST)
                 .findFirst();
         assertTrue(toolPre.isPresent());
-        assertEquals("get_weather", toolPre.get().tool);
-        assertEquals("Helsinki", toolPre.get().args.get("city").getAsString());
+        assertEquals("get_weather", toolPre.get().tool());
+        assertEquals("Helsinki", toolPre.get().args().get("city").getAsString());
         assertTrue(toolPost.isPresent());
-        assertEquals("sunny, 21C", toolPost.get().result);
-        assertTrue(events.stream().anyMatch(e -> e.op == MiddlewareOp.LLM_REQUEST && e.phase == MiddlewarePhase.POST));
+        assertEquals("sunny, 21C", toolPost.get().result());
+        assertTrue(events.stream().anyMatch(e -> e.op() == MiddlewareOp.LLM_REQUEST && e.phase() == MiddlewarePhase.POST));
     }
 
     // --- Batch: batchSubmit observation ---
@@ -136,15 +136,15 @@ class MiddlewareTest {
                 .text().model("claude-sonnet-4-6").addMiddleware(hook).batch("q1");
 
         Optional<Event> pre = events.stream()
-                .filter(e -> e.op == MiddlewareOp.BATCH_SUBMIT && e.phase == MiddlewarePhase.PRE)
+                .filter(e -> e.op() == MiddlewareOp.BATCH_SUBMIT && e.phase() == MiddlewarePhase.PRE)
                 .findFirst();
         Optional<Event> post = events.stream()
-                .filter(e -> e.op == MiddlewareOp.BATCH_SUBMIT && e.phase == MiddlewarePhase.POST)
+                .filter(e -> e.op() == MiddlewareOp.BATCH_SUBMIT && e.phase() == MiddlewarePhase.POST)
                 .findFirst();
         assertTrue(pre.isPresent());
-        assertEquals("anthropic", pre.get().provider);
+        assertEquals("anthropic", pre.get().provider());
         assertTrue(post.isPresent());
-        assertNull(post.get().err);
+        assertNull(post.get().err());
     }
 
     // --- Caching: cacheCreate observation (Google resource caching) ---
@@ -166,16 +166,16 @@ class MiddlewareTest {
                 .caching().cacheTtl(1800).addMiddleware(hook).prompt("hi");
 
         Optional<Event> pre = events.stream()
-                .filter(e -> e.op == MiddlewareOp.CACHE_CREATE && e.phase == MiddlewarePhase.PRE)
+                .filter(e -> e.op() == MiddlewareOp.CACHE_CREATE && e.phase() == MiddlewarePhase.PRE)
                 .findFirst();
         Optional<Event> post = events.stream()
-                .filter(e -> e.op == MiddlewareOp.CACHE_CREATE && e.phase == MiddlewarePhase.POST)
+                .filter(e -> e.op() == MiddlewareOp.CACHE_CREATE && e.phase() == MiddlewarePhase.POST)
                 .findFirst();
         assertTrue(pre.isPresent());
-        assertEquals("google", pre.get().provider);
+        assertEquals("google", pre.get().provider());
         assertTrue(post.isPresent());
-        assertNull(post.get().err);
-        assertTrue(events.stream().anyMatch(e -> e.op == MiddlewareOp.LLM_REQUEST));
+        assertNull(post.get().err());
+        assertTrue(events.stream().anyMatch(e -> e.op() == MiddlewareOp.LLM_REQUEST));
     }
 
     // --- Image generation: pre + post observation, and pre-phase veto ---
@@ -201,14 +201,14 @@ class MiddlewareTest {
 
         assertEquals(1, image.images().size());
         assertEquals(2, events.size());
-        assertEquals(MiddlewareOp.IMAGE_GENERATION, events.get(0).op);
-        assertEquals(MiddlewarePhase.PRE, events.get(0).phase);
-        assertEquals("google", events.get(0).provider);
-        assertNull(events.get(0).usage);
-        assertEquals(MiddlewarePhase.POST, events.get(1).phase);
-        assertEquals(9, events.get(1).usage.input());
-        assertEquals(1290, events.get(1).usage.output());
-        assertNull(events.get(1).err);
+        assertEquals(MiddlewareOp.IMAGE_GENERATION, events.get(0).op());
+        assertEquals(MiddlewarePhase.PRE, events.get(0).phase());
+        assertEquals("google", events.get(0).provider());
+        assertNull(events.get(0).usage());
+        assertEquals(MiddlewarePhase.POST, events.get(1).phase());
+        assertEquals(9, events.get(1).usage().input());
+        assertEquals(1290, events.get(1).usage().output());
+        assertNull(events.get(1).err());
     }
 
     @Test

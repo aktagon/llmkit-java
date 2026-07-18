@@ -82,7 +82,7 @@ class ExecutionModeTest {
 
         BatchJob job = new Client(ProviderName.OPENAI, "key", transport)
                 .text().model("gpt-4o-mini").batch("What is the capital of Finland?");
-        assertEquals("batch_1", job.handle.id());
+        assertEquals("batch_1", job.handle().id());
 
         List<Response> responses = job.await();
         assertEquals(1, responses.size());

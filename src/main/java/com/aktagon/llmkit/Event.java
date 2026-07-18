@@ -4,60 +4,44 @@ import com.google.gson.JsonElement;
 import java.util.Map;
 
 /**
- * The observation record passed to each middleware hook (ADR-001). Fields
+ * The observation record passed to each middleware hook (ADR-001). Components
  * beyond op/provider/model/phase are populated only for the ops that carry
  * them, mirroring the generated {@code Event} struct in the other five SDKs.
  * Immutable; the runtime builds a pre-phase instance via {@link #of} and a
  * post-phase instance via {@link #toPost}/{@link #withTool} rather than
- * mutating one in place.
+ * mutating one in place. A record with accessor access ({@code event.usage()},
+ * matching {@code resp.usage()}) per the HANDOFF-036 B2 convention.
+ *
+ * @param op the operation being observed
+ * @param phase pre or post
+ * @param provider the provider slug
+ * @param model the model id ("" when the op has none)
+ * @param tool set only for {@link MiddlewareOp#TOOL_CALL}
+ * @param args set only for {@link MiddlewareOp#TOOL_CALL}, pre phase
+ * @param result set only for {@link MiddlewareOp#TOOL_CALL}, post phase
+ * @param usage set for {@link MiddlewareOp#LLM_REQUEST}, post phase
+ * @param err set in the post phase when the operation failed
+ * @param durationMillis set in the post phase (wall-clock duration of the
+ *     operation, in millis)
  */
-public final class Event {
-    public final MiddlewareOp op;
-    public final MiddlewarePhase phase;
-    public final String provider;
-    public final String model;
-    /** Set only for {@link MiddlewareOp#TOOL_CALL}. */
-    public final String tool;
-    /** Set only for {@link MiddlewareOp#TOOL_CALL}, pre phase. */
-    public final Map<String, JsonElement> args;
-    /** Set only for {@link MiddlewareOp#TOOL_CALL}, post phase. */
-    public final String result;
-    /** Set for {@link MiddlewareOp#LLM_REQUEST}, post phase. */
-    public final Usage usage;
-    /** Set in the post phase when the operation failed. */
-    public final String err;
-    /** Set in the post phase (wall-clock duration of the operation, in millis). */
-    public final Long durationMillis;
-
-    Event(
-            MiddlewareOp op,
-            MiddlewarePhase phase,
-            String provider,
-            String model,
-            String tool,
-            Map<String, JsonElement> args,
-            String result,
-            Usage usage,
-            String err,
-            Long durationMillis) {
-        this.op = op;
-        this.phase = phase;
-        this.provider = provider;
-        this.model = model;
-        this.tool = tool;
-        this.args = args;
-        this.result = result;
-        this.usage = usage;
-        this.err = err;
-        this.durationMillis = durationMillis;
-    }
+public record Event(
+        MiddlewareOp op,
+        MiddlewarePhase phase,
+        String provider,
+        String model,
+        String tool,
+        Map<String, JsonElement> args,
+        String result,
+        Usage usage,
+        String err,
+        Long durationMillis) {
 
     /** A minimal pre-phase event for {@code op}/{@code provider}/{@code model}. */
     static Event of(MiddlewareOp op, String provider, String model) {
         return new Event(op, MiddlewarePhase.PRE, provider, model, "", Map.of(), "", null, null, null);
     }
 
-    /** Copy with the {@code tool}/{@code args} fields set (TOOL_CALL, pre phase).
+    /** Copy with the {@code tool}/{@code args} components set (TOOL_CALL, pre phase).
      * The args map is sealed here (ordered, unmodifiable copy) so no middleware
      * hook can mutate what later hooks observe. */
     Event withTool(String tool, Map<String, JsonElement> args) {

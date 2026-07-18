@@ -338,8 +338,8 @@ class ResponseWireTest {
                 new BatchHandle("batch_1", ProviderName.ANTHROPIC, false), "test-key", transport, null);
 
         JobStatus<List<Response>> status = job.poll();
-        List<Response> responses = status.result;
-        assertNotNull(responses, "expected a succeeded result, got state " + status.state);
+        List<Response> responses = status.result();
+        assertNotNull(responses, "expected a succeeded result, got state " + status.state());
 
         JsonObject first = new JsonObject();
         if (!responses.isEmpty()) {
