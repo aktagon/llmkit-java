@@ -41,18 +41,28 @@ final class TelemetryRuntime {
 
 
 
-    static String buildPayload(Event event) {
+
+
+    static String buildPayloadAt(Event event, String traceId, String spanId, String startNano, String endNano) {
         String op = TelemetryGen.operationName(event.op());
         if (op == null) {
             op = event.op().label();
         }
         long input = event.usage() != null ? event.usage().input() : 0;
         long output = event.usage() != null ? event.usage().output() : 0;
-        String errorType = event.err() != null ? classifyError(event.err()) : "";
-        String now = String.valueOf(Math.max(0, System.currentTimeMillis()) * 1_000_000L);
+        String errorType = event.errType() != null ? event.errType() : "";
         return buildOTLPTraces(
                 op, event.provider(), event.model(), input, output, errorType,
-                randHex(16), randHex(8), now, now);
+                traceId, spanId, startNano, endNano);
+    }
+
+
+
+
+
+    static String buildPayload(Event event) {
+        String now = String.valueOf(Math.max(0, System.currentTimeMillis()) * 1_000_000L);
+        return buildPayloadAt(event, randHex(16), randHex(8), now, now);
     }
 
 
@@ -83,7 +93,7 @@ final class TelemetryRuntime {
         }
         boolean hasError = errorType != null && !errorType.isEmpty();
         if (hasError) {
-            attributes.add(stringAttr(TelemetryGen.OTEL_ATTR_ERR, errorType));
+            attributes.add(stringAttr(TelemetryGen.OTEL_ATTR_ERR_TYPE, errorType));
         }
 
         JsonObject span = new JsonObject();
@@ -144,27 +154,6 @@ final class TelemetryRuntime {
         attr.addProperty("key", key);
         attr.add("value", valueObj);
         return attr;
-    }
-
-
-
-
-
-
-
-
-
-    static String classifyError(String err) {
-        if (err == null || err.isEmpty()) {
-            return "";
-        }
-        if (err.startsWith("validation:")) {
-            return "validation_error";
-        }
-        if (err.startsWith("transport:") || err.startsWith("decoding:") || err.startsWith("middleware veto:")) {
-            return "error";
-        }
-        return "api_error";
     }
 
 
