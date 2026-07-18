@@ -6,6 +6,13 @@ Synchronous API on Java 17+, one dependency (Gson).
 
 Also available for Go, TypeScript, Python, Rust, and Swift.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/aktagon/llmkit-java/master/assets/logos/llmkit-languages.svg" alt="Go, TypeScript, Python, Rust, Swift, Java" height="26">
+</p>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/aktagon/llmkit-java/master/assets/logos/llmkit-providers.svg" alt="Anthropic, OpenAI, Google, and 26 more providers" height="26">
+</p>
+
 ## Install
 
 Maven Central publication of `com.aktagon:llmkit` arrives with 1.0.0. Until then, build from source:
