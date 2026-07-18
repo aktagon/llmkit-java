@@ -56,9 +56,12 @@ public final class ScopedModels {
     /**
      * Single-provider live HTTP. Paginates per the catalogue config until the
      * parser reports no next cursor, then enriches each record with the
-     * ontology-derived capability list. Middleware fires once per call (not
-     * once per page) — pre fires before the first request, post fires after
-     * the final page (or the first error).
+     * ontology-derived capability list and applies the chain's capability
+     * filter ({@code withCapability} composes with {@code provider(p).list()}
+     * — HANDOFF-036 A4; {@link #get(String)} stays an unfiltered point lookup
+     * by id). Middleware fires once per call (not once per page) — pre fires
+     * before the first request, post fires after the final page (or the first
+     * error).
      */
     public List<ModelInfo> list() {
         Catalogue.CatalogueConfig cfg = Catalogue.catalogueConfig(target);
@@ -74,7 +77,7 @@ public final class ScopedModels {
             List<ModelsParsers.ParsedModelRecord> records = paginate(pcfg, cfg);
             Middleware.firePost(
                     middleware, baseEvent.toPost("", null, null, Middleware.elapsedMillis(startNanos)));
-            return enrich(records);
+            return Models.applyCapFilter(enrich(records), capFilter);
         } catch (RuntimeException e) {
             Middleware.firePost(
                     middleware, baseEvent.toPost("", null, e.getMessage(), Middleware.elapsedMillis(startNanos)));

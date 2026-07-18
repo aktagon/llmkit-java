@@ -234,6 +234,29 @@ class ModelsTest {
         assertTrue(err.message().contains("connection refused"), err.message());
     }
     @Test
+    void scopedListAppliesCapabilityFilter() {
+        // HANDOFF-036 A4: withCapability composes with provider(p).list() -
+        // the scoped live list returns only models whose ontology-derived
+        // capabilities contain the filter.
+        String body = "{\"object\":\"list\",\"data\":["
+                + "{\"id\":\"gpt-4o-mini\",\"object\":\"model\",\"created\":1715367049,\"owned_by\":\"system\"},"
+                + "{\"id\":\"gpt-image-1\",\"object\":\"model\",\"created\":1715367049,\"owned_by\":\"system\"}]}";
+        CapturingTransport transport = new CapturingTransport().withResponse(200, body);
+        Client client = new Client(ProviderName.OPENAI, "test-key", transport)
+                .baseUrl("https://mock.test");
+
+        List<ModelInfo> unfiltered = client.models().provider(ProviderName.OPENAI).list();
+        assertEquals(2, unfiltered.size());
+
+        List<ModelInfo> filtered = client.models()
+                .withCapability(Capability.IMAGE_GENERATION)
+                .provider(ProviderName.OPENAI)
+                .list();
+        assertEquals(1, filtered.size());
+        assertEquals("gpt-image-1", filtered.get(0).id());
+    }
+
+    @Test
     void scopedListFiresClientMiddleware() {
         // HANDOFF-036 A3: client-scoped hooks (the addTelemetry seam) observe
         // catalogue calls - pre fires before the HTTP call, post fires after
