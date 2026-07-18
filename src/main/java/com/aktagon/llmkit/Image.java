@@ -163,7 +163,7 @@ public final class Image {
         } catch (RuntimeException e) {
             Middleware.firePost(
                     options.middleware,
-                    baseEvent.toPost("", null, e.getMessage(), Middleware.elapsedMillis(startNanos)));
+                    baseEvent.toPost("", null, e, Middleware.elapsedMillis(startNanos)));
             throw e;
         }
     }
