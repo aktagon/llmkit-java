@@ -24,11 +24,11 @@ final class TelemetryRuntime {
      */
     static MiddlewareFn makeMiddleware(Telemetry telemetry) {
         return event -> {
-            if (event.phase != MiddlewarePhase.POST) {
+            if (event.phase() != MiddlewarePhase.POST) {
                 return null;
             }
             try {
-                telemetry.export.accept(buildPayload(event).getBytes(StandardCharsets.UTF_8));
+                telemetry.export().accept(buildPayload(event).getBytes(StandardCharsets.UTF_8));
             } catch (RuntimeException e) {
                 // fail-open (ADR-059 TEL-017).
             }
@@ -42,16 +42,16 @@ final class TelemetryRuntime {
      * them as arguments so the parity goldens can inject fixed values).
      */
     static String buildPayload(Event event) {
-        String op = TelemetryGen.operationName(event.op);
+        String op = TelemetryGen.operationName(event.op());
         if (op == null) {
-            op = event.op.label();
+            op = event.op().label();
         }
-        long input = event.usage != null ? event.usage.input() : 0;
-        long output = event.usage != null ? event.usage.output() : 0;
-        String errorType = event.err != null ? classifyError(event.err) : "";
+        long input = event.usage() != null ? event.usage().input() : 0;
+        long output = event.usage() != null ? event.usage().output() : 0;
+        String errorType = event.err() != null ? classifyError(event.err()) : "";
         String now = String.valueOf(Math.max(0, System.currentTimeMillis()) * 1_000_000L);
         return buildOTLPTraces(
-                op, event.provider, event.model, input, output, errorType,
+                op, event.provider(), event.model(), input, output, errorType,
                 randHex(16), randHex(8), now, now);
     }
 

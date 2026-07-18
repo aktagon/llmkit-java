@@ -161,10 +161,10 @@ public final class Agent {
                 Middleware.firePre(options.middleware, toolEvent);
 
                 String content;
-                Tool tool = tools.stream().filter(t -> t.name.equals(call.name())).findFirst().orElse(null);
+                Tool tool = tools.stream().filter(t -> t.name().equals(call.name())).findFirst().orElse(null);
                 if (tool != null) {
                     try {
-                        content = tool.handler.run(call.input() != null ? call.input() : new com.google.gson.JsonObject());
+                        content = tool.handler().run(call.input() != null ? call.input() : new com.google.gson.JsonObject());
                     } catch (Exception e) {
                         // Restore the interrupt flag before stringifying — the
                         // loop reports the failure to the model but must not
