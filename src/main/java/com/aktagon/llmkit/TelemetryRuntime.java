@@ -37,22 +37,32 @@ final class TelemetryRuntime {
     }
 
     /**
-     * Classifies the post-phase {@link Event} and renders it to OTLP traces
-     * JSON. Span identity + timing are stamped here (the pure builder takes
-     * them as arguments so the parity goldens can inject fixed values).
+     * The PURE event-level payload builder: span identity + timing are
+     * injected so the parity goldens can drive a real post-phase {@link Event}
+     * with fixed values. It reads {@code event.errType()} verbatim — the kind
+     * was stamped at the {@code Event.toPost} erasure seam, where the typed
+     * error still exists (ADR-071); no classification happens here.
      */
-    static String buildPayload(Event event) {
+    static String buildPayloadAt(Event event, String traceId, String spanId, String startNano, String endNano) {
         String op = TelemetryGen.operationName(event.op());
         if (op == null) {
             op = event.op().label();
         }
         long input = event.usage() != null ? event.usage().input() : 0;
         long output = event.usage() != null ? event.usage().output() : 0;
-        String errorType = event.err() != null ? classifyError(event.err()) : "";
-        String now = String.valueOf(Math.max(0, System.currentTimeMillis()) * 1_000_000L);
+        String errorType = event.errType() != null ? event.errType() : "";
         return buildOTLPTraces(
                 op, event.provider(), event.model(), input, output, errorType,
-                randHex(16), randHex(8), now, now);
+                traceId, spanId, startNano, endNano);
+    }
+
+    /**
+     * The production wrapper: fresh span identity + the wall clock around the
+     * pure builder.
+     */
+    static String buildPayload(Event event) {
+        String now = String.valueOf(Math.max(0, System.currentTimeMillis()) * 1_000_000L);
+        return buildPayloadAt(event, randHex(16), randHex(8), now, now);
     }
 
     /**
@@ -83,7 +93,7 @@ final class TelemetryRuntime {
         }
         boolean hasError = errorType != null && !errorType.isEmpty();
         if (hasError) {
-            attributes.add(stringAttr(TelemetryGen.OTEL_ATTR_ERR, errorType));
+            attributes.add(stringAttr(TelemetryGen.OTEL_ATTR_ERR_TYPE, errorType));
         }
 
         JsonObject span = new JsonObject();
@@ -144,27 +154,6 @@ final class TelemetryRuntime {
         attr.addProperty("key", key);
         attr.add("value", valueObj);
         return attr;
-    }
-
-    /**
-     * Maps a lossy {@code Event.err} message to a stable OTEL {@code
-     * error.type}. The typed error is erased at the middleware seam ({@code
-     * Event.err} is a {@code String}), so classification keys off the
-     * message prefixes {@link LlmKitException} subtypes use. Best-effort —
-     * no wire golden asserts it (the rejection golden passes {@code
-     * error.type} directly).
-     */
-    static String classifyError(String err) {
-        if (err == null || err.isEmpty()) {
-            return "";
-        }
-        if (err.startsWith("validation:")) {
-            return "validation_error";
-        }
-        if (err.startsWith("transport:") || err.startsWith("decoding:") || err.startsWith("middleware veto:")) {
-            return "error";
-        }
-        return "api_error";
     }
 
     /** A non-crypto-grade hex string of {@code nBytes} bytes for span/trace identity. */

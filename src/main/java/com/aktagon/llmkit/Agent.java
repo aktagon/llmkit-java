@@ -123,7 +123,7 @@ public final class Agent {
             } catch (RuntimeException e) {
                 Middleware.firePost(
                         options.middleware,
-                        llmEvent.toPost("", null, e.getMessage(), Middleware.elapsedMillis(llmStartNanos)));
+                        llmEvent.toPost("", null, e, Middleware.elapsedMillis(llmStartNanos)));
                 throw e;
             }
             Middleware.firePost(
