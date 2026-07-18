@@ -27,6 +27,9 @@ public final class ScopedModels {
     private final HttpTransport http;
     private final Capability capFilter;
     private final boolean rawFlag;
+    // Client-scoped hooks (telemetry, ADR-054) observe catalogue calls too
+    // (HANDOFF-036 A3); the Swift seam is the reference.
+    private final List<MiddlewareFn> middleware;
 
     ScopedModels(
             ProviderName target,
@@ -34,18 +37,20 @@ public final class ScopedModels {
             String baseUrlOverride,
             HttpTransport http,
             Capability capFilter,
-            boolean rawFlag) {
+            boolean rawFlag,
+            List<MiddlewareFn> middleware) {
         this.target = target;
         this.apiKey = apiKey;
         this.baseUrlOverride = baseUrlOverride;
         this.http = http;
         this.capFilter = capFilter;
         this.rawFlag = rawFlag;
+        this.middleware = middleware;
     }
 
     /** Opt into carrying the parsed provider-native record on each {@code ModelInfo}. */
     public ScopedModels raw() {
-        return new ScopedModels(target, apiKey, baseUrlOverride, http, capFilter, true);
+        return new ScopedModels(target, apiKey, baseUrlOverride, http, capFilter, true, middleware);
     }
 
     /**
@@ -64,15 +69,15 @@ public final class ScopedModels {
 
         Event baseEvent = Event.of(MiddlewareOp.MODELS_LIST, pcfg.slug, "");
         long startNanos = System.nanoTime();
-        Middleware.firePre(List.of(), baseEvent);
+        Middleware.firePre(middleware, baseEvent);
         try {
             List<ModelsParsers.ParsedModelRecord> records = paginate(pcfg, cfg);
             Middleware.firePost(
-                    List.of(), baseEvent.toPost("", null, null, Middleware.elapsedMillis(startNanos)));
+                    middleware, baseEvent.toPost("", null, null, Middleware.elapsedMillis(startNanos)));
             return enrich(records);
         } catch (RuntimeException e) {
             Middleware.firePost(
-                    List.of(), baseEvent.toPost("", null, e.getMessage(), Middleware.elapsedMillis(startNanos)));
+                    middleware, baseEvent.toPost("", null, e.getMessage(), Middleware.elapsedMillis(startNanos)));
             throw e;
         }
     }
@@ -95,16 +100,16 @@ public final class ScopedModels {
 
         Event baseEvent = Event.of(MiddlewareOp.MODELS_LIST, pcfg.slug, id);
         long startNanos = System.nanoTime();
-        Middleware.firePre(List.of(), baseEvent);
+        Middleware.firePre(middleware, baseEvent);
         try {
             byte[] body = fetchCatalogueUrl(pcfg, cfg.endpoint + "/" + id);
             Middleware.firePost(
-                    List.of(), baseEvent.toPost("", null, null, Middleware.elapsedMillis(startNanos)));
+                    middleware, baseEvent.toPost("", null, null, Middleware.elapsedMillis(startNanos)));
             ModelsParsers.ParsedModelRecord record = parseSingleRecord(cfg.parserKind, body);
             return enrich(List.of(record)).get(0);
         } catch (RuntimeException e) {
             Middleware.firePost(
-                    List.of(), baseEvent.toPost("", null, e.getMessage(), Middleware.elapsedMillis(startNanos)));
+                    middleware, baseEvent.toPost("", null, e.getMessage(), Middleware.elapsedMillis(startNanos)));
             throw e;
         }
     }

@@ -2,6 +2,7 @@ package com.aktagon.llmkit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -11,6 +12,7 @@ import com.aktagon.llmkit.providers.generated.ModelInfo;
 import com.aktagon.llmkit.providers.generated.ProviderError;
 import com.aktagon.llmkit.providers.generated.ProviderInfo;
 import com.aktagon.llmkit.providers.generated.ProviderName;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -231,4 +233,30 @@ class ModelsTest {
         assertEquals("unavailable", err.kind());
         assertTrue(err.message().contains("connection refused"), err.message());
     }
+    @Test
+    void scopedListFiresClientMiddleware() {
+        // HANDOFF-036 A3: client-scoped hooks (the addTelemetry seam) observe
+        // catalogue calls - pre fires before the HTTP call, post fires after
+        // with a duration.
+        String body = "{\"object\":\"list\",\"data\":[{\"id\":\"gpt-5\",\"object\":\"model\","
+                + "\"created\":1715367049,\"owned_by\":\"system\"}]}";
+        CapturingTransport transport = new CapturingTransport().withResponse(200, body);
+        List<Event> events = new ArrayList<>();
+        Client client = new Client(ProviderName.OPENAI, "test-key", transport)
+                .baseUrl("https://mock.test")
+                .addMiddleware(e -> {
+                    events.add(e);
+                    return null;
+                });
+
+        List<ModelInfo> models = client.models().provider(ProviderName.OPENAI).list();
+        assertEquals(1, models.size());
+        assertEquals(2, events.size());
+        assertEquals(MiddlewarePhase.PRE, events.get(0).phase);
+        assertEquals(MiddlewareOp.MODELS_LIST, events.get(0).op);
+        assertEquals(MiddlewarePhase.POST, events.get(1).phase);
+        assertEquals(MiddlewareOp.MODELS_LIST, events.get(1).op);
+        assertNotNull(events.get(1).durationMillis);
+    }
+
 }
