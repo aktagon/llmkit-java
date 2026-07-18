@@ -1,6 +1,6 @@
 # llmkit (Java)
 
-One Java API for Anthropic, OpenAI, Google, and 20+ other providers — including local models through Ollama and vLLM. Switch providers without rewriting your request.
+One Java API for Anthropic, OpenAI, Google, and 30+ other providers — including local models through Ollama and vLLM. Switch providers without rewriting your request.
 
 Synchronous API on Java 17+, one dependency (Gson).
 
