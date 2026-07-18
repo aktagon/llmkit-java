@@ -91,6 +91,19 @@ public final class Client {
     }
 
 
+
+
+
+
+
+
+    Client addMiddleware(MiddlewareFn hook) {
+        List<MiddlewareFn> next = new ArrayList<>(defaultMiddleware);
+        next.add(hook);
+        return new Client(provider, apiKey, baseUrlOverride, http, next);
+    }
+
+
     public Text text() {
         Text builder = Text.root(provider, apiKey, baseUrlOverride, http);
         for (MiddlewareFn hook : defaultMiddleware) {
@@ -159,7 +172,9 @@ public final class Client {
 
 
     public Models models() {
-        return Models.root(provider, apiKey, baseUrlOverride, http);
+        //
+        //
+        return Models.root(provider, apiKey, baseUrlOverride, http, defaultMiddleware);
     }
 
 
