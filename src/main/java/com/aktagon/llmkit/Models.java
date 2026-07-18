@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 
 
@@ -106,13 +107,17 @@ public final class Models {
     }
 
 
-    public ModelInfo get(String id) {
+
+
+
+
+    public Optional<ModelInfo> get(String id) {
         for (Catalogue.CompiledModelDef def : Catalogue.COMPILED_IN_MODELS) {
             if (def.id.equals(id)) {
-                return compiledToModelInfo(def);
+                return Optional.of(compiledToModelInfo(def));
             }
         }
-        return null;
+        return Optional.empty();
     }
 
 
