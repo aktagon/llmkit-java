@@ -102,6 +102,19 @@ final class TestPaths {
     }
 
     /**
+     * Write a catalogue-wire artifact to
+     * {@code target/wire/catalogue/<case>/java.json} (the {method, url,
+     * headers} projection), mirroring the other SDK drivers' outputs for the
+     * cross-SDK catalogue comparator (ADR-067 Fix B / CAT-006).
+     */
+    static void writeCatalogueArtifact(String caseName, JsonElement projection) throws IOException {
+        Path directory = repoRoot().resolve("target/wire/catalogue").resolve(caseName);
+        Files.createDirectories(directory);
+        Files.writeString(
+                directory.resolve("java.json"), Json.serialize(projection), StandardCharsets.UTF_8);
+    }
+
+    /**
      * Write a telemetry-wire artifact to
      * {@code target/wire/telemetry/<fixture>/java.json} (the OTLP payload
      * verbatim), mirroring the other SDK drivers' outputs for the cross-SDK
