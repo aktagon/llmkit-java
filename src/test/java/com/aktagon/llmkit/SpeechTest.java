@@ -53,14 +53,25 @@ class SpeechTest {
         assertEquals("", resp.finishReason());
     }
 
+    // HANDOFF-036 A5: a 2xx whose body does not parse to audio is a
+    // DecodingException naming the provider and field - never silent empty
+    // audio.
     @Test
-    void inworldEmptyAudioContentYieldsNoBytes() {
-        SpeechResponse resp = client(ProviderName.INWORLD, "{\"audioContent\":\"\"}").speech()
-                .model("inworld-tts-2").voice("Alex")
-                .generate("silence");
-
-        assertEquals("audio/wav", resp.audio().mimeType());
-        assertTrue(resp.audio().bytes().length == 0);
+    void inworldMalformed2xxIsDecodingError() {
+        String[][] cases = {
+            {"{\"usage\":{\"processedCharactersCount\":8}}", "missing or empty audioContent"},
+            {"{\"audioContent\":\"\"}", "missing or empty audioContent"},
+            {"{\"audioContent\":\"%%not-base64%%\"}", "invalid base64"},
+            {"<html>Bad Gateway</html>", "not valid JSON"},
+        };
+        for (String[] c : cases) {
+            DecodingException e = assertThrows(DecodingException.class, () ->
+                    client(ProviderName.INWORLD, c[0]).speech()
+                            .model("inworld-tts-2").voice("Alex")
+                            .generate("silence"));
+            assertTrue(e.getMessage().contains(c[1]), c[0] + " -> " + e.getMessage());
+            assertTrue(e.getMessage().contains("inworld"), "must name the provider: " + e.getMessage());
+        }
     }
 
     // --- Response parsing (rawBody shape — OpenAI) ---
@@ -84,7 +95,9 @@ class SpeechTest {
 
     @Test
     void inworldRequestBody() {
-        client(ProviderName.INWORLD, "{\"audioContent\":\"\"}").speech()
+        // A valid envelope: since HANDOFF-036 A5 a malformed 2xx throws, so
+        // the request-body assertion needs a parseable reply.
+        client(ProviderName.INWORLD, "{\"audioContent\":\"" + WAV_BASE64 + "\"}").speech()
                 .model("inworld-tts-2").voice("Dennis")
                 .generate("Hello from llmkit.");
 
