@@ -311,9 +311,9 @@ final class Transforms {
         JsonArray defs = new JsonArray();
         for (Tool tool : tools) {
             JsonObject function = new JsonObject();
-            function.addProperty("name", tool.name);
-            function.addProperty("description", tool.description);
-            function.add("parameters", tool.schema);
+            function.addProperty("name", tool.name());
+            function.addProperty("description", tool.description());
+            function.add("parameters", tool.schema());
             JsonObject entry = new JsonObject();
             entry.addProperty("type", "function");
             entry.add("function", function);
@@ -326,9 +326,9 @@ final class Transforms {
         JsonArray defs = new JsonArray();
         for (Tool tool : tools) {
             JsonObject entry = new JsonObject();
-            entry.addProperty("name", tool.name);
-            entry.addProperty("description", tool.description);
-            entry.add("input_schema", tool.schema);
+            entry.addProperty("name", tool.name());
+            entry.addProperty("description", tool.description());
+            entry.add("input_schema", tool.schema());
             defs.add(entry);
         }
         body.add("tools", defs);
@@ -338,9 +338,9 @@ final class Transforms {
         JsonArray decls = new JsonArray();
         for (Tool tool : tools) {
             JsonObject decl = new JsonObject();
-            decl.addProperty("name", tool.name);
-            decl.addProperty("description", tool.description);
-            decl.add(paramsField, tool.schema);
+            decl.addProperty("name", tool.name());
+            decl.addProperty("description", tool.description());
+            decl.add(paramsField, tool.schema());
             decls.add(decl);
         }
         JsonObject wrapper = new JsonObject();
@@ -354,10 +354,10 @@ final class Transforms {
         JsonArray defs = new JsonArray();
         for (Tool tool : tools) {
             JsonObject inputSchema = new JsonObject();
-            inputSchema.add("json", tool.schema);
+            inputSchema.add("json", tool.schema());
             JsonObject spec = new JsonObject();
-            spec.addProperty("name", tool.name);
-            spec.addProperty("description", tool.description);
+            spec.addProperty("name", tool.name());
+            spec.addProperty("description", tool.description());
             spec.add("inputSchema", inputSchema);
             JsonObject entry = new JsonObject();
             entry.add("toolSpec", spec);

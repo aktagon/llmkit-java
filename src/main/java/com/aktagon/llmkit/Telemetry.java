@@ -22,35 +22,29 @@ import java.util.function.Consumer;
  * <p>Unlike Go/TS/Python (whose nullable-callback field defers the honest-
  * contract check to first use), a null {@code export} is rejected right here
  * in the constructor — Java has a real constructor to fail fast in, so an
- * enabled-but-no-sink {@code Telemetry} never escapes into a client.
+ * enabled-but-no-sink {@code Telemetry} never escapes into a client. A record
+ * with accessor access ({@code telemetry.export()}) per the HANDOFF-036 B2
+ * convention.
+ *
+ * @param export receives the finished OTLP/HTTP proto3-JSON bytes for one
+ *     span, called synchronously on the post phase. Mandatory — see class
+ *     doc. Use {@link #httpExport} for the batteries POST, or supply your own
+ *     to bridge into an existing OTEL stack.
+ * @param captureContent gates tier-2 message payloads (default false for
+ *     privacy). Reserved — content-log emission is a deferred follow-up
+ *     (ADR-054 tier 2).
  */
-public final class Telemetry {
-    /**
-     * Receives the finished OTLP/HTTP proto3-JSON bytes for one span, called
-     * synchronously on the post phase. Mandatory — see class doc. Use {@link
-     * #httpExport} for the batteries POST, or supply your own to bridge into
-     * an existing OTEL stack.
-     */
-    public final Consumer<byte[]> export;
-
-    /**
-     * Gates tier-2 message payloads (default false for privacy). Reserved —
-     * content-log emission is a deferred follow-up (ADR-054 tier 2).
-     */
-    public final boolean captureContent;
-
+public record Telemetry(Consumer<byte[]> export, boolean captureContent) {
     public Telemetry(Consumer<byte[]> export) {
         this(export, false);
     }
 
-    public Telemetry(Consumer<byte[]> export, boolean captureContent) {
+    public Telemetry {
         if (export == null) {
             throw new ValidationException(
                     "telemetry.export",
                     "export is required when telemetry is enabled (use Telemetry.httpExport for a batteries POST)");
         }
-        this.export = export;
-        this.captureContent = captureContent;
     }
 
     private static final HttpClient HTTP_CLIENT =
