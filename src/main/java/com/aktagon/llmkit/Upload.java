@@ -169,7 +169,7 @@ public final class Upload {
             return file;
         } catch (RuntimeException e) {
             Middleware.firePost(
-                    middleware, baseEvent.toPost("", null, e.getMessage(), Middleware.elapsedMillis(startNanos)));
+                    middleware, baseEvent.toPost("", null, e, Middleware.elapsedMillis(startNanos)));
             throw e;
         }
     }
