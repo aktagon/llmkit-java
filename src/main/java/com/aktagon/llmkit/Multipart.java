@@ -19,6 +19,16 @@ final class Multipart {
 
     record Encoded(String boundary, byte[] payload) {}
 
+    /**
+     * Mirrors Go stdlib mime/multipart escapeQuotes and additionally strips
+     * CR/LF: a quote or newline in a caller-controlled field name or filename
+     * must not break out of the Content-Disposition part header
+     * (HANDOFF-036 A2).
+     */
+    private static String escapeQuotes(String s) {
+        return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "").replace("\n", "");
+    }
+
     static Encoded encode(
             Map<String, String> fields,
             String fileField,
@@ -30,11 +40,11 @@ final class Multipart {
         try {
             for (Map.Entry<String, String> field : fields.entrySet()) {
                 payload.write(("--" + boundary + "\r\n"
-                        + "Content-Disposition: form-data; name=\"" + field.getKey() + "\"\r\n\r\n"
+                        + "Content-Disposition: form-data; name=\"" + escapeQuotes(field.getKey()) + "\"\r\n\r\n"
                         + field.getValue() + "\r\n").getBytes(StandardCharsets.UTF_8));
             }
             payload.write(("--" + boundary + "\r\n"
-                    + "Content-Disposition: form-data; name=\"" + fileField + "\"; filename=\"" + filename + "\"\r\n"
+                    + "Content-Disposition: form-data; name=\"" + escapeQuotes(fileField) + "\"; filename=\"" + escapeQuotes(filename) + "\"\r\n"
                     + "Content-Type: " + fileContentType + "\r\n\r\n").getBytes(StandardCharsets.UTF_8));
             payload.write(data);
             payload.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
