@@ -80,7 +80,7 @@ public final class ScopedModels {
             return Models.applyCapFilter(enrich(records), capFilter);
         } catch (RuntimeException e) {
             Middleware.firePost(
-                    middleware, baseEvent.toPost("", null, e.getMessage(), Middleware.elapsedMillis(startNanos)));
+                    middleware, baseEvent.toPost("", null, e, Middleware.elapsedMillis(startNanos)));
             throw e;
         }
     }
@@ -112,7 +112,7 @@ public final class ScopedModels {
             return enrich(List.of(record)).get(0);
         } catch (RuntimeException e) {
             Middleware.firePost(
-                    middleware, baseEvent.toPost("", null, e.getMessage(), Middleware.elapsedMillis(startNanos)));
+                    middleware, baseEvent.toPost("", null, e, Middleware.elapsedMillis(startNanos)));
             throw e;
         }
     }

@@ -21,7 +21,8 @@ import org.junit.jupiter.api.Test;
  * operation/provider/model/usage. The wire goldens (see {@link
  * TelemetryWireTest}) assert the pure builder; these assert the middleware
  * wiring, the honest-contract constructor rejection, the fail-open, and the
- * error classification the goldens never exercise.
+ * full structural classification table (ADR-071; the telemetry-error golden
+ * exercises the api_error path end-to-end).
  */
 class TelemetryTest {
     private static final String CHAT_RESPONSE =
@@ -71,12 +72,32 @@ class TelemetryTest {
         assertEquals("telemetry.export", thrown.field());
     }
 
+    /**
+     * The structural classification contract (ADR-071), asserted through the
+     * one erasure seam ({@code Event.toPost}): {@link ApiException} ->
+     * api_error, {@link ValidationException} -> validation_error, everything
+     * else -> error; success (null error) leaves err and errType null. The
+     * err message stays the exception's message (byte-identical to the old
+     * {@code e.getMessage()} call sites).
+     */
     @Test
-    void classifyErrorPrefixes() {
-        assertEquals("validation_error", TelemetryRuntime.classifyError("validation: model - none"));
-        assertEquals("error", TelemetryRuntime.classifyError("middleware veto: policy"));
-        assertEquals("api_error", TelemetryRuntime.classifyError("openai: rate limited (429)"));
-        assertEquals("", TelemetryRuntime.classifyError(""));
+    void toPostStampsErrTypeStructurally() {
+        Event base = Event.of(MiddlewareOp.LLM_REQUEST, "openai", "gpt-4o");
+
+        Event api = base.toPost("", null, new ApiException("openai", 429, "rate limited"), 1);
+        assertEquals("api_error", api.errType());
+        assertEquals("openai: rate limited (429)", api.err());
+
+        Event validation = base.toPost("", null, new ValidationException("model", "none"), 1);
+        assertEquals("validation_error", validation.errType());
+        assertEquals("validation: model - none", validation.err());
+
+        Event transport = base.toPost("", null, new TransportException("connection reset", null), 1);
+        assertEquals("error", transport.errType());
+
+        Event success = base.toPost("", null, null, 1);
+        assertEquals(null, success.err());
+        assertEquals(null, success.errType());
     }
 
     /** Extract the single span's attributes as a flat {@code [key: stringValueOrIntValue]}. */

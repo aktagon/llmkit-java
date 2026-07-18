@@ -42,4 +42,22 @@ class TelemetryWireTest {
                 "1700000000000000000", "1700000001000000000");
         assertGolden("telemetry-rejection", payload);
     }
+
+    /**
+     * Exercises classification end-to-end (ADR-071 ETY-004): the SDK's typed
+     * API error routes through the REAL erasure seam ({@code Event.toPost}),
+     * and the stamped event renders to the shared telemetry-error golden via
+     * the pure event-level builder — no error.type is hand-fed anywhere.
+     */
+    @Test
+    void telemetryError() throws IOException {
+        Event event = Event.of(MiddlewareOp.LLM_REQUEST, "openai", "gpt-4o")
+                .toPost("", null, new ApiException("openai", 429, "rate limited"), 1000);
+        assertEquals("api_error", event.errType(), "toPost must stamp errType from the typed error");
+        String payload = TelemetryRuntime.buildPayloadAt(
+                event,
+                "5b8efff798038103d269b633813fc60c", "eee19b7ec3c1b174",
+                "1700000000000000000", "1700000001000000000");
+        assertGolden("telemetry-error", payload);
+    }
 }

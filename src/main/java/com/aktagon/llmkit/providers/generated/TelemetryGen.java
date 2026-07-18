@@ -21,7 +21,7 @@ public final class TelemetryGen {
     public static final String OTEL_ATTR_OP = "gen_ai.operation.name"; // Event.op
     public static final String OTEL_ATTR_PROVIDER = "gen_ai.system"; // Event.provider
     public static final String OTEL_ATTR_MODEL = "gen_ai.request.model"; // Event.model
-    public static final String OTEL_ATTR_ERR = "error.type"; // Event.err
+    public static final String OTEL_ATTR_ERR_TYPE = "error.type"; // Event.errType
 
     // OTEL GenAI usage attribute keys (llm:otelUsageAttribute).
     public static final String OTEL_USAGE_INPUT = "gen_ai.usage.input_tokens";
