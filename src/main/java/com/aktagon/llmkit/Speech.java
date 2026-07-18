@@ -120,7 +120,7 @@ public final class Speech {
         if (result.statusCode() < 200 || result.statusCode() >= 300) {
             throw ResponseParser.parseError(config, result.statusCode(), result.body());
         }
-        return parseResponse(sgCfg.audioResponseEncoding(), modelDef.outputMime(), result.body());
+        return parseResponse(config.slug, sgCfg.audioResponseEncoding(), modelDef.outputMime(), result.body());
     }
 
     // --- Request bodies ---
@@ -165,26 +165,32 @@ public final class Speech {
      * encoding (ADR-051 OAA-002). {@code rawBody} (OpenAI) takes the
      * response body verbatim as the audio bytes; {@code base64Envelope}
      * (Inworld) parses a JSON envelope and base64-decodes the
-     * {@code audioContent} field.
+     * {@code audioContent} field. A 2xx body that does not parse to audio
+     * is a {@link DecodingException} (HANDOFF-036 A5) — never a silent
+     * empty clip.
      */
-    private static SpeechResponse parseResponse(String encoding, String fallbackMime, byte[] body) {
-        byte[] bytes = new byte[0];
+    private static SpeechResponse parseResponse(
+            String providerSlug, String encoding, String fallbackMime, byte[] body) {
+        byte[] bytes;
         if ("rawBody".equals(encoding)) {
             bytes = body;
         } else {
-            String b64 = "";
+            String b64;
             try {
                 JsonElement raw = Json.parse(new String(body, StandardCharsets.UTF_8));
                 b64 = Json.stringAt(raw, "audioContent");
-            } catch (DecodingException ignored) {
-                // Body was not JSON; leave bytes empty (mirrors Swift's `try?`).
+            } catch (DecodingException e) {
+                throw new DecodingException(
+                        providerSlug + " speech response: not valid JSON: " + e.getMessage(), e);
             }
-            if (!b64.isEmpty()) {
-                try {
-                    bytes = Base64.getDecoder().decode(b64);
-                } catch (IllegalArgumentException e) {
-                    throw new DecodingException("invalid base64 in speech audioContent: " + e.getMessage(), e);
-                }
+            if (b64.isEmpty()) {
+                throw new DecodingException(providerSlug + " speech response: missing or empty audioContent");
+            }
+            try {
+                bytes = Base64.getDecoder().decode(b64);
+            } catch (IllegalArgumentException e) {
+                throw new DecodingException(
+                        providerSlug + " speech response: invalid base64 in audioContent: " + e.getMessage(), e);
             }
         }
         return new SpeechResponse(new AudioData(fallbackMime, bytes), Usage.zero(), "");

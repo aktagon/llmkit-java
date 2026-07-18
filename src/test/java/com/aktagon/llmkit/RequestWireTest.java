@@ -421,7 +421,12 @@ class RequestWireTest {
 
     @Test
     void speechInworld() throws Exception {
-        client(ProviderName.INWORLD).speech()
+        // The base64Envelope parser rejects a bodyless 2xx since HANDOFF-036
+        // A5, so this driver (like the other SDKs' wire drivers) feeds a valid
+        // envelope; the assertion is on the captured request bytes.
+        Client c = client(ProviderName.INWORLD);
+        transport.withResponse(200, "{\"audioContent\":\"UklGRg==\"}");
+        c.speech()
                 .model("inworld-tts-2").voice("Dennis")
                 .generate("Hello from llmkit.");
         assertGolden("speech-inworld");
