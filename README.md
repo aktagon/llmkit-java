@@ -15,31 +15,27 @@ Also available for Go, TypeScript, Python, Rust, and Swift.
 
 ## Install
 
-Maven Central publication of `com.aktagon:llmkit` arrives with 1.0.0. Until then, build from source:
-
-```bash
-git clone https://github.com/aktagon/llmkit-java.git
-cd llmkit-java
-./gradlew build   # jar in build/libs/
-```
-
-Use the jar directly, or point a [Gradle composite build](https://docs.gradle.org/current/userguide/composite_builds.html) at the clone:
+**Gradle** (`build.gradle.kts`):
 
 ```kotlin
-// settings.gradle.kts
-includeBuild("../llmkit-java")
-```
-
-The coordinates below activate once 1.0.0 is published:
-
-```kotlin
-// Coming with 1.0.0 — not yet on Maven Central.
 dependencies {
     implementation("com.aktagon:llmkit:1.0.0")
 }
 ```
 
+**Maven** (`pom.xml`):
+
+```xml
+<dependency>
+    <groupId>com.aktagon</groupId>
+    <artifactId>llmkit</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
 Requires Java 17 or later. The only runtime dependency is Gson (no transitive dependencies).
+
+Prefer to build from source? Clone and `./gradlew build` (the jar lands in `build/libs/`), or point a [Gradle composite build](https://docs.gradle.org/current/userguide/composite_builds.html) at the clone with `includeBuild("../llmkit-java")`.
 
 ## Quick Start
 
