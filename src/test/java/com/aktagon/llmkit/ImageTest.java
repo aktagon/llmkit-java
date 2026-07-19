@@ -10,15 +10,15 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import org.junit.jupiter.api.Test;
 
-/**
- * Behavior tests for the image-generation capability ({@link Image}) not
- * already covered by the wire drivers ({@link RequestWireTest} /
- * {@link ResponseWireTest}): the SVG mime-sniff (no cross-SDK wire golden
- * exercises Recraft vector output), the Vertex instances/parameters body
- * shape (no Vertex request-wire golden exists), and pre-flight validation
- * rejections. Real domain values, {@code actual == expected} (mirrors
- * Swift's ImageTests).
- */
+/*
+
+
+
+
+
+
+
+*/
 class ImageTest {
     private CapturingTransport transport;
 
@@ -27,13 +27,13 @@ class ImageTest {
         return new Client(provider, "key", transport);
     }
 
-    // --- Response parsing: SVG mime-sniff (Recraft vector models) ---
+    //
 
-    /**
-     * Recraft vector models return SVG bytes in the same {@code b64_json} slot
-     * with no echoed mime type; the parser sniffs the leading bytes to
-     * {@code image/svg+xml}.
-     */
+    /*
+
+
+
+*/
     @Test
     void dataArraySniffsSVG() {
         String svg = "<svg xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"10\" height=\"10\"/></svg>";
@@ -47,12 +47,12 @@ class ImageTest {
         assertEquals(1, resp.images().size());
         assertEquals("image/svg+xml", resp.images().get(0).mimeType());
         assertEquals(svg, new String(resp.images().get(0).bytes(), StandardCharsets.UTF_8));
-        // Recraft reports no token counts, so usage stays zero.
+        //
         assertEquals(0, resp.usage().input());
         assertEquals(0, resp.usage().output());
     }
 
-    // --- Request body: Vertex instances/parameters envelope (no wire golden) ---
+    //
 
     @Test
     void vertexBodyWrapsInstancesAndParameters() {
@@ -68,7 +68,7 @@ class ImageTest {
         assertEquals("16:9", Json.stringAt(body, "parameters.aspectRatio"));
     }
 
-    // --- Validation ---
+    //
 
     @Test
     void requiresModel() {
@@ -88,7 +88,7 @@ class ImageTest {
 
     @Test
     void rejectsUnsupportedAspectRatioOnPro() {
-        // 1:4 is a Flash-only ratio; the Pro model whitelist excludes it.
+        //
         ValidationException thrown = assertThrows(
                 ValidationException.class,
                 () -> client(ProviderName.GOOGLE, "{}").image()

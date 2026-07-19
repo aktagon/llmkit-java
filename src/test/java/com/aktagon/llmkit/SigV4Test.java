@@ -8,16 +8,16 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * Canonical-request assertions for the SigV4 signer. AWS recomputes the
- * canonical request from the headers actually received, using the client's
- * declared SignedHeaders list — so a header that is signed but never sent
- * (or sent but signed with a different value) is a guaranteed 403. These
- * tests pin the two rules that bug class hinges on: content-type is signed
- * only when the request carries one, and Host is signed as the URL
- * authority (including an explicit port) — the exact value the JDK
- * transport derives from the URI.
- */
+/*
+
+
+
+
+
+
+
+
+*/
 class SigV4Test {
 
     private static final String CHAT_URL =

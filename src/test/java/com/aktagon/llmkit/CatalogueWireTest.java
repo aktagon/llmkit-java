@@ -11,22 +11,22 @@ import com.google.gson.JsonObject;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * Cross-SDK catalogue request-URL conformance (ADR-067 Fix B / CAT-006) — the
- * Java driver. For a fixed (provider, cursor) from
- * {@code codegen/testdata/wire/catalogue/v1/inputs.json}, the catalogue-list
- * path must assemble a byte-identical {@code {method, url, headers}} across
- * all SDKs.
- *
- * <p>The driver calls the SAME URL/header-assembly seam the paginate loop uses
- * ({@link ScopedModels#buildCatalogueUrl} + {@link ScopedModels#appendCursor}
- * + {@link RequestBuilder#buildAuthHeaders}); the cursorParam comes from the
- * generated {@link Catalogue.CatalogueConfig}, not from inputs.json — so this
- * exercises the generated config. Drops
- * {@code target/wire/catalogue/<case>/java.json} for the cross-SDK comparator
- * ({@code codegen/test_cross_sdk_catalogue.py}) and asserts value-equality
- * in-driver.
- */
+/*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*/
 class CatalogueWireTest {
 
     private static ProviderName providerFromSlug(String slug) {

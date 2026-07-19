@@ -14,13 +14,13 @@ import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * The Files API (CR-004, ADR-060 parity): {@code client.upload().run()}
- * uploads bytes or a path and returns a {@link File} handle, firing the
- * {@code upload} MiddlewareOp. Asserts the multipart request body, contract
- * headers, response-path parse, validation, and the middleware fire against a
- * capturing transport. Mirrors Swift's {@code UploadTests}.
- */
+/*
+
+
+
+
+
+*/
 class UploadTest {
 
     @Test
@@ -75,7 +75,7 @@ class UploadTest {
         File file = client.upload().bytes("{}".getBytes(StandardCharsets.UTF_8)).filename("data.jsonl").run();
 
         assertEquals("file_oai", file.id());
-        // OpenAI's FileUploadDef carries {"purpose":"assistants"} as a form field.
+        //
         String body = transport.capturedBody;
         assertTrue(body.contains("name=\"purpose\""), body);
         assertTrue(body.contains("assistants"), body);
@@ -126,7 +126,7 @@ class UploadTest {
 
     @Test
     void emptyBytesUploadIsSetNotMisdiagnosed() {
-        // bytes(new byte[0]) is a legitimate empty file, not "bytes unset".
+        //
         CapturingTransport transport = new CapturingTransport()
                 .withResponse(200, "{\"id\":\"file_empty\",\"filename\":\"empty.txt\",\"mime_type\":\"text/plain\"}");
         Client client = new Client(ProviderName.ANTHROPIC, "test-key", transport);

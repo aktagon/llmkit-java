@@ -15,21 +15,21 @@ import java.util.HexFormat;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * Mock-server unit tests for the music-generation capability ({@link Music}).
- * There is no cross-SDK wire golden for music, so parity is held by these
- * unit tests (mirroring Rust's {@code music.rs} / Swift's MusicTests). Each
- * drives the real {@code client.music().generate(...)} path against a canned
- * provider reply and asserts {@code actual == expected} on the request body
- * and the decoded {@link MusicResponse}, exercising all three wire shapes
- * ({@code MusicMinimax} / {@code MusicPredict} / {@code MusicGenerateContent})
- * selected by the generated {@code musicGenConfig(provider).wireShape} —
- * never provider name.
- */
+/*
+
+
+
+
+
+
+
+
+
+*/
 class MusicTest {
-    /** A short fake MP3 the MiniMax hex path round-trips. */
+    /**/
     private static final byte[] FAKE_MP3 = {(byte) 0xFF, (byte) 0xFB, (byte) 0x90, 0x00, 0x6D, 0x70, 0x33};
-    /** A real 44-byte WAV header (base64) for the Vertex/Gemini base64 paths. */
+    /**/
     private static final String WAV_BASE64 = "UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=";
 
     private CapturingTransport transport;
@@ -43,7 +43,7 @@ class MusicTest {
         return HexFormat.of().formatHex(bytes);
     }
 
-    // --- MiniMax (MusicMinimax shape: hex audio) ---
+    //
 
     @Test
     void minimaxBodyPromptOnlyOmitsLyrics() {
@@ -81,7 +81,7 @@ class MusicTest {
         assertEquals(1, resp.audio().size());
         assertArrayEquals(FAKE_MP3, resp.audio().get(0).bytes());
         assertEquals("audio/mpeg", resp.audio().get(0).mimeType());
-        // status_msg "success" is not surfaced as a finish message.
+        //
         assertEquals("", resp.finishMessage());
     }
 
@@ -96,7 +96,7 @@ class MusicTest {
         assertEquals("invalid api key", resp.finishMessage());
     }
 
-    // --- Vertex (MusicPredict shape: instances/parameters, base64 audio) ---
+    //
 
     @Test
     void vertexBodyAndResponse() {
@@ -118,12 +118,12 @@ class MusicTest {
         client(ProviderName.VERTEX, "{\"predictions\":[]}").music()
                 .model("lyria-002").lyrics("hum along").generate("gentle piece");
 
-        // Lyria 2 has no lyrics wire-slot; lyrics fold into the prompt text.
+        //
         JsonElement body = Json.parse(transport.capturedBody);
         assertEquals("gentle piece\nhum along", Json.stringAt(body, "instances[0].prompt"));
     }
 
-    // --- Gemini (MusicGenerateContent shape: contents/parts, base64 audio) ---
+    //
 
     @Test
     void geminiBodyAndResponse() {
@@ -143,7 +143,7 @@ class MusicTest {
         assertEquals("STOP", resp.finishReason());
     }
 
-    // --- Raw opt-in + middleware ---
+    //
 
     @Test
     void rawOptInPopulatesRaw() {
@@ -185,7 +185,7 @@ class MusicTest {
         assertEquals(denied, thrown.getCause());
     }
 
-    // --- Validation ---
+    //
 
     @Test
     void requiresModel() {

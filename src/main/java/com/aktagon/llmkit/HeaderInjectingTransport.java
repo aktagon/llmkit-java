@@ -4,16 +4,16 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * Transport decorator carrying one {@link Client#addHeader} custom header
- * (ADR-052). Injecting at the transport seam reaches every send path —
- * chat, stream, media, upload, batch, catalogue, poll — with one seam.
- * Collision-safe: the header is added only when the request does not already
- * carry it (case-insensitive; HTTP header names are case-insensitive), so
- * SDK-set auth/signing/beta headers are never clobbered — matching Go's
- * {@code mergeCallerHeaders} and Swift's {@code applyCustomHeaders}.
- * Repeated {@code addHeader} calls nest decorators, so calls accumulate.
- */
+/*
+
+
+
+
+
+
+
+
+*/
 final class HeaderInjectingTransport implements HttpTransport {
     private final HttpTransport delegate;
     private final String name;

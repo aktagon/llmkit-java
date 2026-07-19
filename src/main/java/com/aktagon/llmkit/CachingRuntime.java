@@ -9,23 +9,23 @@ import com.google.gson.JsonPrimitive;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
-/**
- * Prompt-caching runtime — a port of Rust's {@code caching.rs} / Swift's
- * {@code CachingRuntime.swift}. Dispatches on the generated
- * {@code Caching.Def.mode} (never on provider name): automatic caching is a
- * no-op (the provider caches transparently), explicit caching injects
- * {@code cache_control} onto the system prefix (Anthropic), and resource
- * caching creates a provider-side cached-content resource and references it
- * (Google).
- */
+/*
+
+
+
+
+
+
+
+*/
 final class CachingRuntime {
     private CachingRuntime() {}
 
-    /**
-     * Apply caching to an already-built request body when the caller opted
-     * in ({@code options.caching}). No-op when caching is off; a loud
-     * validation error when the provider declares no caching config.
-     */
+    /*
+
+
+
+*/
     static void apply(
             JsonObject body,
             Providers.Spec config,
@@ -49,12 +49,12 @@ final class CachingRuntime {
         }
     }
 
-    /**
-     * Explicit caching (Anthropic): rewrite the system prefix into a single
-     * text block carrying {@code cache_control}. Placement is config-driven
-     * — the system lives at the top level (Anthropic) or as the last system
-     * message.
-     */
+    /*
+
+
+
+
+*/
     private static void applyExplicit(JsonObject body, String controlType, Providers.Spec config) {
         switch (config.systemPlacement) {
             case "TopLevelField" -> {
@@ -104,12 +104,12 @@ final class CachingRuntime {
         return block;
     }
 
-    /**
-     * Resource caching (Google): create a {@code /cachedContents} resource
-     * holding the system instruction, then reference it by name and drop the
-     * inline system. Fires the {@code cacheCreate} middleware op around the
-     * network hop.
-     */
+    /*
+
+
+
+
+*/
     private static void applyResource(
             JsonObject body,
             Providers.Spec config,

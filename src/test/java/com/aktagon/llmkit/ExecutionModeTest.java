@@ -11,21 +11,21 @@ import com.google.gson.JsonObject;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * Behavior tests for the Phase-3 execution modes beyond the wire goldens: the
- * full agent tool loop (request, tool call, tool run, follow-up request,
- * text), the batch submit+await round-trip (multipart upload, create, poll,
- * result), and the POLL-008 timeout backstop. Real domain values,
- * {@code actual == expected}.
- */
+/*
+
+
+
+
+
+*/
 class ExecutionModeTest {
 
-    // --- Agent tool loop ---
+    //
 
     @Test
     void agentStopsAtMaxToolIterations() {
-        // The model asks for the tool on every turn (the canned body is the
-        // fallback response, so it repeats), so a cap of 2 must abort the loop.
+        //
+        //
         String toolCall = "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"tool_calls\":"
                 + "[{\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"get_weather\","
                 + "\"arguments\":\"{\\\"city\\\":\\\"Helsinki\\\"}\"}}]}}],"
@@ -51,7 +51,7 @@ class ExecutionModeTest {
 
     @Test
     void agentRunsToolThenAnswers() {
-        // Turn 1: the model asks to call get_weather; turn 2: it answers.
+        //
         String toolCall = "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"tool_calls\":"
                 + "[{\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"get_weather\","
                 + "\"arguments\":\"{\\\"city\\\":\\\"Helsinki\\\"}\"}}]}}],"
@@ -74,13 +74,13 @@ class ExecutionModeTest {
                 .agent().addTool(tool).prompt("What is the weather in Helsinki?");
 
         assertEquals("It is sunny in Helsinki.", response.text());
-        // Usage accumulates across both turns.
+        //
         assertEquals(18, response.usage().input());
         assertEquals(11, response.usage().output());
-        // The tool actually ran with the model-supplied argument.
+        //
         assertEquals("Helsinki", receivedCity.toString());
 
-        // The follow-up (second) request carried the tool result back.
+        //
         JsonElement secondBody = Json.parse(transport.capturedBody);
         JsonElement messagesElement = Json.at(secondBody, "messages");
         JsonArray messages = messagesElement.getAsJsonArray();
@@ -94,7 +94,7 @@ class ExecutionModeTest {
         assertEquals("call_1", Json.stringAt(toolResult, "tool_call_id"));
     }
 
-    // --- Batch submit + await round-trip ---
+    //
 
     @Test
     void batchSubmitAndAwait() {
@@ -118,11 +118,11 @@ class ExecutionModeTest {
         assertEquals(1, responses.get(0).usage().output());
     }
 
-    // --- POLL-008: the deadline backstop is a distinguishable typed error ---
+    //
 
     @Test
     void awaitTimesOutWithTypedError() {
-        // Every poll reports in_progress; a tiny deadline fires the backstop.
+        //
         CapturingTransport transport = new CapturingTransport()
                 .withResponse(200, "{\"id\":\"batch_1\",\"status\":\"in_progress\"}");
         BatchJob job = new Client(ProviderName.OPENAI, "key", transport)
@@ -137,9 +137,9 @@ class ExecutionModeTest {
 
     @Test
     void erroredResultLineYieldsPartialResults() {
-        // One item errored: its line carries no body at the configured
-        // result path. The completed batch must still return the successful
-        // subset (Go-reference behavior), not throw away hours of work.
+        //
+        //
+        //
         String good = "{\"custom_id\":\"req-0\",\"response\":{\"body\":{\"choices\":"
                 + "[{\"message\":{\"role\":\"assistant\",\"content\":\"Helsinki\"}}],"
                 + "\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":1}}}}";
@@ -159,7 +159,7 @@ class ExecutionModeTest {
         assertEquals("Helsinki", responses.get(0).text());
     }
 
-    // --- ADR-055: a chat-protocol opt-in is prompt-terminal-only ---
+    //
 
     @Test
     void streamRejectsNonDefaultProtocol() {

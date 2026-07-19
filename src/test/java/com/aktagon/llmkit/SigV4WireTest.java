@@ -10,16 +10,16 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import org.junit.jupiter.api.Test;
 
-/**
- * SigV4 canonical-request wire driver (CR-002): sign the two production-shaped
- * Bedrock requests with an injected clock and assert the canonical request,
- * string-to-sign, and Authorization header byte-identically against the shared
- * golden at {@code codegen/testdata/wire/sigv4/v1/<fixture>.json}. The same
- * fixed inputs are hard-coded in every SDK's driver; each test also drops
- * {@code target/wire/sigv4/<fixture>/java.json} for the cross-SDK comparator.
- */
+/*
+
+
+
+
+
+
+*/
 class SigV4WireTest {
-    /** The frozen signing clock shared by every SDK driver: 2026-07-18T00:00:00Z. */
+    /**/
     private static final ZonedDateTime NOW = ZonedDateTime.of(2026, 7, 18, 0, 0, 0, 0, ZoneOffset.UTC);
 
     private static final String ACCESS_KEY = "AKIDEXAMPLE";
@@ -43,11 +43,11 @@ class SigV4WireTest {
         }
     }
 
-    /**
-     * Mirrors the Bedrock Converse chat POST assembly: Content-Type sent and
-     * therefore signed, session token present, model id ':' literal in the
-     * path.
-     */
+    /*
+
+
+
+*/
     @Test
     void sigV4WireChatPost() throws IOException {
         byte[] body = "{\"messages\":[{\"role\":\"user\",\"content\":[{\"text\":\"Hello, Bedrock\"}]}]}"
@@ -60,13 +60,13 @@ class SigV4WireTest {
         assertGolden("sigv4-chat-post", parts);
     }
 
-    /**
-     * Mirrors the Bedrock async-invoke poll GET assembly: empty body
-     * (empty-string SHA-256 payload hash), NO Content-Type signed (the GET
-     * sends none), no session token, and the invocation ARN percent-encoded as
-     * ONE path segment ('/' as %2F, ':' literal) so the signed path equals the
-     * wire path.
-     */
+    /*
+
+
+
+
+
+*/
     @Test
     void sigV4WirePollGet() throws IOException {
         SigV4.Parts parts = SigV4.signParts(

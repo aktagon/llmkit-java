@@ -15,14 +15,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * Behavior tests for the transcription capability (ADR-048 / ADR-051) beyond
- * the wire goldens: the OpenAI SYNCHRONOUS {@code transcribe} decode (text +
- * segment timing + the multipart body shape) and the AssemblyAI ASYNCHRONOUS
- * submit -&gt; poll -&gt; result lifecycle over the shared Job engine, driven
- * by a scripted {@link CapturingTransport#enqueue}. Real domain values,
- * {@code actual == expected} (mirrors Swift's TranscriptionTests).
- */
+/*
+
+
+
+
+
+
+*/
 class TranscriptionTest {
     private CapturingTransport transport;
 
@@ -31,11 +31,11 @@ class TranscriptionTest {
         return new Client(provider, "key", transport);
     }
 
-    // --- OpenAI synchronous transcribe (multipart POST -> transcript) ---
+    //
 
     @Test
     void openAITranscribeParsesTextAndSegments() {
-        // verbose_json: offsets are SECONDS (float) -> integer milliseconds.
+        //
         transport = new CapturingTransport().withResponse(200, "{\"task\":\"transcribe\",\"language\":\"english\","
                 + "\"duration\":3.5,\"text\":\"Turn left at the harbor.\","
                 + "\"segments\":["
@@ -50,15 +50,15 @@ class TranscriptionTest {
         assertEquals(2, response.segments().size());
         assertEquals(new TranscriptSegment("Turn left", 0, 1500, ""), response.segments().get(0));
         assertEquals(new TranscriptSegment(" at the harbor.", 1500, 3500, ""), response.segments().get(1));
-        // AssemblyAI-style token axis is absent for OpenAI TTS -> usage stays zero.
+        //
         assertEquals(Usage.zero(), response.usage());
     }
 
-    /**
-     * The captured request is a multipart/form-data body carrying the model,
-     * response_format, and the audio file part with its real mime + extension
-     * — decoded here via the same descriptor decoder the wire driver asserts.
-     */
+    /*
+
+
+
+*/
     @Test
     void openAITranscribeMultipartBodyShape() {
         transport = new CapturingTransport().withResponse(200, "{\"text\":\"ok\"}");
@@ -92,10 +92,10 @@ class TranscriptionTest {
         assertEquals(expected, descriptor);
     }
 
-    /**
-     * The sync path ingests inline bytes only — a remote audio URL is rejected
-     * pre-flight (OAA-005, the inverse of AssemblyAI).
-     */
+    /*
+
+
+*/
     @Test
     void openAITranscribeRejectsRemoteURL() {
         ValidationException thrown = assertThrows(
@@ -107,7 +107,7 @@ class TranscriptionTest {
         assertTrue(thrown.getMessage().contains("inline audio bytes only"), "got: " + thrown.getMessage());
     }
 
-    /** {@code transcribe} on an asynchronous provider names the right terminal (OAA-003). */
+    /**/
     @Test
     void transcribeOnAsyncProviderRejects() {
         ValidationException thrown = assertThrows(
@@ -120,7 +120,7 @@ class TranscriptionTest {
         assertTrue(thrown.getMessage().contains("use submit"), "got: " + thrown.getMessage());
     }
 
-    // --- AssemblyAI asynchronous submit -> poll -> result lifecycle ---
+    //
 
     @Test
     void assemblyAISubmitWaitReturnsTranscript() {
@@ -137,7 +137,7 @@ class TranscriptionTest {
         assertEquals("transcript_abc123", job.handle().id());
         assertEquals(ProviderName.ASSEMBLYAI, job.handle().provider());
 
-        // The captured submit body is the {audio_url} JSON body.
+        //
         JsonElement submitBody = Json.parse(transport.capturedBody);
         assertEquals("https://storage.example.com/meeting-2026-06-24.mp3", Json.stringAt(submitBody, "audio_url"));
 
@@ -150,11 +150,11 @@ class TranscriptionTest {
         assertEquals(Usage.zero(), response.usage());
     }
 
-    /**
-     * The {@code poll()} primitive (ADR-063): one round-trip -&gt; a
-     * normalized status, running then succeeded, safe on a reconstituted
-     * handle (cross-process).
-     */
+    /*
+
+
+
+*/
     @Test
     void assemblyAIPollRunningThenSucceeded() {
         transport = new CapturingTransport()
@@ -176,10 +176,10 @@ class TranscriptionTest {
         assertEquals(List.of(), second.result().segments());
     }
 
-    /**
-     * A status=error transcript surfaces as an error (never a silent empty
-     * success); the provider error message rides through.
-     */
+    /*
+
+
+*/
     @Test
     void assemblyAIFailedPollThrows() {
         transport = new CapturingTransport()
@@ -193,7 +193,7 @@ class TranscriptionTest {
         assertTrue(thrown.getMessage().contains("audio file could not be decoded"), "got: " + thrown.getMessage());
     }
 
-    /** {@code submit} on a synchronous provider names the right terminal (OAA-003). */
+    /**/
     @Test
     void submitOnSyncProviderRejects() {
         ValidationException thrown = assertThrows(
@@ -204,7 +204,7 @@ class TranscriptionTest {
         assertTrue(thrown.getMessage().contains("use transcribe"), "got: " + thrown.getMessage());
     }
 
-    /** Exactly one audio part is required (STT-003) — a non-audio part is rejected. */
+    /**/
     @Test
     void rejectsNonAudioPart() {
         ValidationException thrown = assertThrows(

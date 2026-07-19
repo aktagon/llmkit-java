@@ -11,16 +11,16 @@ import com.google.gson.JsonElement;
 import java.util.Base64;
 import org.junit.jupiter.api.Test;
 
-/**
- * Mock-server unit tests for the text-to-speech capability ({@link Speech}):
- * response parsing for both audio encodings ({@code base64Envelope} /
- * {@code rawBody}), request bodies per wire shape, and pre-flight validation
- * — not already covered by the wire drivers ({@link RequestWireTest} /
- * {@link ResponseWireTest}). Real domain values, {@code actual == expected}
- * (mirrors Swift's SpeechTests).
- */
+/*
+
+
+
+
+
+
+*/
 class SpeechTest {
-    /** A real 44-byte WAV header (base64), same clip the response-wire golden anchors. */
+    /**/
     private static final String WAV_BASE64 = "UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=";
 
     private CapturingTransport transport;
@@ -35,7 +35,7 @@ class SpeechTest {
         return new Client(provider, "key", transport);
     }
 
-    // --- Response parsing (base64Envelope shape — Inworld) ---
+    //
 
     @Test
     void inworldBase64EnvelopeDecodes() {
@@ -48,14 +48,14 @@ class SpeechTest {
         assertEquals("audio/wav", resp.audio().mimeType());
         assertArrayEquals(Base64.getDecoder().decode(WAV_BASE64), resp.audio().bytes());
         assertEquals(44, resp.audio().bytes().length);
-        // ADR-049 OQ-3: processedCharactersCount is not surfaced (no characters axis).
+        //
         assertEquals(Usage.zero(), resp.usage());
         assertEquals("", resp.finishReason());
     }
 
-    // HANDOFF-036 A5: a 2xx whose body does not parse to audio is a
-    // DecodingException naming the provider and field - never silent empty
-    // audio.
+    //
+    //
+    //
     @Test
     void inworldMalformed2xxIsDecodingError() {
         String[][] cases = {
@@ -74,12 +74,12 @@ class SpeechTest {
         }
     }
 
-    // --- Response parsing (rawBody shape — OpenAI) ---
+    //
 
     @Test
     void openAIRawBodyTakesResponseVerbatim() {
-        // OpenAI /v1/audio/speech returns binary audio, not JSON — the reply
-        // is the audio bytes verbatim.
+        //
+        //
         byte[] mp3 = {(byte) 0xFF, (byte) 0xFB, (byte) 0x90, 0x00, 0x6D, 0x70, 0x33};
 
         SpeechResponse resp = clientBytes(ProviderName.OPENAI, mp3).speech()
@@ -91,12 +91,12 @@ class SpeechTest {
         assertEquals(Usage.zero(), resp.usage());
     }
 
-    // --- Request bodies (per wire shape) ---
+    //
 
     @Test
     void inworldRequestBody() {
-        // A valid envelope: since HANDOFF-036 A5 a malformed 2xx throws, so
-        // the request-body assertion needs a parseable reply.
+        //
+        //
         client(ProviderName.INWORLD, "{\"audioContent\":\"" + WAV_BASE64 + "\"}").speech()
                 .model("inworld-tts-2").voice("Dennis")
                 .generate("Hello from llmkit.");
@@ -108,7 +108,7 @@ class SpeechTest {
         assertEquals("LINEAR16", Json.stringAt(body, "audioConfig.audioEncoding"));
         assertEquals(22050L, Json.longAt(body, "audioConfig.sampleRateHertz"));
         assertEquals("BALANCED", Json.stringAt(body, "deliveryMode"));
-        // Inworld authenticates with a Basic-prefixed Authorization header.
+        //
         assertEquals("Basic key", transport.capturedHeaders.get("Authorization"));
     }
 
@@ -125,7 +125,7 @@ class SpeechTest {
         assertEquals("mp3", Json.stringAt(body, "response_format"));
     }
 
-    // --- Validation ---
+    //
 
     @Test
     void requiresModel() {

@@ -17,17 +17,17 @@ import java.util.List;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 
-/**
- * Response-wire driver (ADR-065 direction): feed each anchored provider reply
- * ({@code codegen/testdata/wire/response/v1/bodies/<shape>.json}) through the
- * real public prompt path against the capturing transport, then normalize the
- * typed {@link Response} to the SAME projection the other five SDKs assert —
- * {@code {content, error, finishReason, usage{...}}} — dropping
- * {@code target/wire/response/<shape>/java.json} for the cross-SDK comparator
- * ({@code codegen/test_cross_sdk_response.py}). Phase 2 = the three
- * ChatCompletion shapes; media / stream / transcription shapes are driven in
- * later phases.
- */
+/*
+
+
+
+
+
+
+
+
+
+*/
 class ResponseWireTest {
 
     private void drive(String shape, ProviderName provider) throws Exception {
@@ -72,12 +72,12 @@ class ResponseWireTest {
         drive("chat-google", ProviderName.GOOGLE);
     }
 
-    /**
-     * Streaming variant: feed an anchored SSE frame stream
-     * ({@code bodies/<shape>.sse}) through the real {@code Text.stream} path
-     * and assert the assembled Response normalizes to the same projection
-     * (ADR-065 B-stream).
-     */
+    /*
+
+
+
+
+*/
     private void driveStream(String shape, ProviderName provider) throws Exception {
         String body = TestPaths.read(TestPaths.testdata("wire/response/v1/bodies/" + shape + ".sse"));
         CapturingTransport transport = new CapturingTransport().withResponse(200, body);
@@ -115,13 +115,13 @@ class ResponseWireTest {
         driveStream("stream-google", ProviderName.GOOGLE);
     }
 
-    /**
-     * Image variant: feed an anchored image-generation reply through the real
-     * {@code Image.generate} path and assert the decoded {@code ImageResponse}
-     * projects to the media discriminant {@code {kind, mimeType, byteLen,
-     * count}} (RWR-004) — the same body must decode to the same images across
-     * all six SDKs (BUG-024).
-     */
+    /*
+
+
+
+
+
+*/
     private void driveImage(String shape, ProviderName provider, String model) throws Exception {
         String body = TestPaths.read(TestPaths.testdata("wire/response/v1/bodies/" + shape + ".json"));
         CapturingTransport transport = new CapturingTransport().withResponse(200, body);
@@ -171,13 +171,13 @@ class ResponseWireTest {
         driveImage("image-vertex", ProviderName.VERTEX, "imagen-3.0-generate-002");
     }
 
-    /**
-     * Speech variant: feed an anchored TTS reply (an Inworld base64-envelope
-     * body) through the real {@code Speech.generate} path and assert the
-     * decoded {@code SpeechResponse} projects to the media discriminant
-     * {@code {kind, mimeType, byteLen}} (RWR-004) — the same body must
-     * decode to the same audio across all six SDKs.
-     */
+    /*
+
+
+
+
+
+*/
     private void driveSpeech(String shape, ProviderName provider, String model, String voice) throws Exception {
         String body = TestPaths.read(TestPaths.testdata("wire/response/v1/bodies/" + shape + ".json"));
         CapturingTransport transport = new CapturingTransport().withResponse(200, body);
@@ -215,13 +215,13 @@ class ResponseWireTest {
         driveSpeech("speech-inworld", ProviderName.INWORLD, "inworld-tts-2", "Dennis");
     }
 
-    /**
-     * Transcription variant: feed an anchored OpenAI verbose_json reply through
-     * the real synchronous {@code transcribe} path and assert the decoded
-     * {@code TranscriptionResponse} projects to the transcript discriminant
-     * {@code {kind, segments, text}} (ADR-065 / ADR-048) — the same body must
-     * decode to the same transcript across all six SDKs.
-     */
+    /*
+
+
+
+
+
+*/
     private void driveTranscription(String shape, ProviderName provider, String model) throws Exception {
         String body = TestPaths.read(TestPaths.testdata("wire/response/v1/bodies/" + shape + ".json"));
         CapturingTransport transport = new CapturingTransport().withResponse(200, body);
@@ -261,16 +261,16 @@ class ResponseWireTest {
         driveTranscription("transcription-openai", ProviderName.OPENAI, "whisper-1");
     }
 
-    /**
-     * Catalogue variant (ADR-067 Fix B): feed an anchored {@code /models}
-     * reply ({@code bodies/models-<provider>.json}, a real ADR-019 capture)
-     * through the handwritten parse seam and assert the decoded {@code
-     * ParsedModelsPage} projects to the catalogue discriminant {@code
-     * {kind:"models", count, firstId, lastId, nextCursor, first{...}}} — the
-     * same body must decode to the same model list + pagination cursor
-     * across all six SDKs. URL/auth assembly is a separate request-side
-     * golden — this member is the parse seam only.
-     */
+    /*
+
+
+
+
+
+
+
+
+*/
     private void driveModels(
             String shape, Function<byte[], ModelsParsers.ParsedModelsPage> parse) throws IOException {
         byte[] body = Files.readAllBytes(TestPaths.testdata("wire/response/v1/bodies/" + shape + ".json"));
@@ -315,18 +315,18 @@ class ResponseWireTest {
         driveModels("models-google", ModelsParsers::parseGoogleModelsResponse);
     }
 
-    /**
-     * Batch results parse (HANDOFF-036 A1): a completed batch's RESULTS file —
-     * one succeeded line + one errored line (Anthropic result.type=errored
-     * carries no result.message at the configured resultBodyPath). Every SDK
-     * must SKIP the errored line and return the successful subset (count 1); a
-     * throwing parser would destroy a completed batch. Driven through the real
-     * public path: {@code BatchJob.poll()} against a two-hop scripted transport
-     * (Anthropic status "ended", then the anchored JSONL served verbatim; the
-     * .jsonl extension marks a JSONL results file, not a JSON document). Known
-     * shared assumption (PROVENANCE.md): no SDK matches results by custom_id —
-     * all assume file line order.
-     */
+    /*
+
+
+
+
+
+
+
+
+
+
+*/
     @Test
     void batchResultsAnthropic() throws Exception {
         String results = TestPaths.read(

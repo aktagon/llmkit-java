@@ -6,24 +6,24 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-/**
- * The JSON waist (ADR-068 JAVA-002): one shared Gson instance plus
- * dotted-path readers over its ordered tree model.
- *
- * <p>The instance is built with {@code disableHtmlEscaping()} — Gson's
- * default escapes {@code <}, {@code >}, {@code &}, {@code =}, {@code '} as
- * {@code \\uXXXX}, which would break byte-parity with the other SDKs on the
- * wire goldens. Serialization is compact; {@code JsonObject} preserves
- * insertion order and {@code LazilyParsedNumber} keeps the lexical form of
- * parsed numbers, so parse/serialize round-trips are deterministic.
- *
- * <p>Public (not the usual package-private runtime-helper visibility)
- * because the generated {@code ModelsParsers} lives in the sibling
- * {@code providers.generated} package and reuses this same waist rather than
- * hand-rolling its own JSON access (ADR-019 catalogue parsers). This class is
- * an internal seam kept public only for those generated parsers and for
- * tool-schema construction ({@link #parse}) — not a stable API.
- */
+/*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*/
 public final class Json {
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
 
@@ -41,11 +41,11 @@ public final class Json {
         return GSON.toJson(element);
     }
 
-    /**
-     * Resolve a dotted path with optional array indices (e.g.
-     * {@code choices[0].message.content}) against a JSON tree. Returns null
-     * when any segment is absent — callers map that to their zero value.
-     */
+    /*
+
+
+
+*/
     public static JsonElement at(JsonElement root, String path) {
         JsonElement current = root;
         for (String segment : path.split("\\.")) {
@@ -88,7 +88,7 @@ public final class Json {
                 && found.getAsJsonPrimitive().isNumber() ? found.getAsDouble() : 0.0;
     }
 
-    /** An empty insertion-ordered object (the request-body builder's root). */
+    /**/
     static JsonObject object() {
         return new JsonObject();
     }

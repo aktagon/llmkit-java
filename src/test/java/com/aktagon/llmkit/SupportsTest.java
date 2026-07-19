@@ -6,11 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.aktagon.llmkit.providers.generated.ProviderName;
 import org.junit.jupiter.api.Test;
 
-/**
- * Capability-query parity (ADR-030 / CAP-002): {@code Client.supports} must
- * agree with the generated {@code *Config} lookups the strict pre-flight paths
- * use. Mirrors Swift's {@code SupportsTests}.
- */
+/*
+
+
+
+*/
 class SupportsTest {
 
     @Test

@@ -15,30 +15,30 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Immutable, clone-on-chain builder for speech-to-text transcription
- * (ADR-068 Phase 4f, ADR-048/ADR-051) — a port of Swift's {@code
- * Transcription} / Rust's {@code builders/transcription.rs} onto the shared
- * Job engine (ADR-062). One capability, two execution shapes selected by the
- * generated {@code transcriptionConfig(provider).interaction} fact (never the
- * provider name):
- *
- * <ul>
- *   <li>{@link #submit} — ASYNCHRONOUS (AssemblyAI): POST a {@code
- *       {audio_url}} JSON body (optionally preceded by an upload hop for
- *       inline bytes), returning a live {@link TranscriptionJob} immediately;
- *       poll it to completion with {@link TranscriptionJob#await} / {@link
- *       TranscriptionJob#poll}.
- *   <li>{@link #transcribe} — SYNCHRONOUS (OpenAI, ADR-051): a single {@code
- *       multipart/form-data} POST returns the transcript directly, no job
- *       handle — the first multipart request-wire fixture in the SDK.
- * </ul>
- *
- * <p>The result decode is wire-shape-keyed (STT-005); the submit / poll /
- * status endpoints and the sync-vs-async split are config. {@link
- * TranscriptionResponse} is text-shaped, NOT a media {@code *Data} container
- * — the structural divergence from video (ADR-048).
- */
+/*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*/
 public final class Transcription {
     private final ProviderName provider;
     private final String apiKey;
@@ -59,21 +59,21 @@ public final class Transcription {
         return new Transcription(provider, apiKey, baseUrlOverride, http, null);
     }
 
-    /** Select the transcription model (required by the synchronous path; the asynchronous provider infers it). */
+    /**/
     public Transcription model(String model) {
         return new Transcription(provider, apiKey, baseUrlOverride, http, model);
     }
 
-    // --- Async submit (AssemblyAI) ---
+    //
 
-    /**
-     * Submit an asynchronous speech-to-text job and return the live {@link
-     * TranscriptionJob}. Pre-flight rejects a synchronous provider (naming
-     * {@code transcribe}) and anything other than exactly one audio Part
-     * before any HTTP call (STT-003). For an audio-bytes part the runtime
-     * performs the upload hop (POST the raw bytes, read {@code upload_url})
-     * before submitting (STT-005).
-     */
+    /*
+
+
+
+
+
+
+*/
     public TranscriptionJob submit(List<Part> parts) {
         if (apiKey == null || apiKey.isEmpty()) {
             throw new ValidationException("api_key", "required");
@@ -83,8 +83,8 @@ public final class Transcription {
         if (tcCfg == null) {
             throw new ValidationException("provider", config.slug + " does not support transcription");
         }
-        // A synchronous provider has no job handle; Submit/Wait is the wrong
-        // terminal for it (ADR-051 OAA-003). Name the supported one.
+        //
+        //
         if ("sync".equals(tcCfg.interaction)) {
             throw new ValidationException(
                     "interaction", config.slug + " transcribes synchronously; use transcribe, not submit");
@@ -94,8 +94,8 @@ public final class Transcription {
         String base = baseUrlOverride != null ? baseUrlOverride : config.baseUrl;
         Map<String, String> headers = RequestBuilder.buildAuthHeaders(config, apiKey);
 
-        // Upload hop (STT-005): a bytes part is uploaded first to obtain a URL
-        // the submit body can reference. URL parts skip this entirely.
+        //
+        //
         String audioUrl;
         if (source.bytes() != null) {
             if (tcCfg.uploadEndpoint.isEmpty()) {
@@ -136,16 +136,16 @@ public final class Transcription {
         return new TranscriptionJob(handle, apiKey, http, baseUrlOverride);
     }
 
-    // --- Sync transcribe (OpenAI) ---
+    //
 
-    /**
-     * Run a SYNCHRONOUS speech-to-text request (ADR-051): one {@code
-     * multipart/form-data} POST returns the transcript directly, no job
-     * handle. Pre-flight rejects a non-sync provider (naming {@code submit}),
-     * a missing model, a remote audio URL (OpenAI ingests inline bytes only —
-     * the inverse of AssemblyAI, OAA-005), and a non-single-audio-bytes
-     * input.
-     */
+    /*
+
+
+
+
+
+
+*/
     public TranscriptionResponse transcribe(List<Part> parts) {
         if (apiKey == null || apiKey.isEmpty()) {
             throw new ValidationException("api_key", "required");
@@ -167,10 +167,10 @@ public final class Transcription {
         String base = baseUrlOverride != null ? baseUrlOverride : config.baseUrl;
         Map<String, String> headers = RequestBuilder.buildAuthHeaders(config, apiKey);
 
-        // Build the multipart body in FIXED field order (model, response_format,
-        // file) so all six SDKs emit the same canonical descriptor (ADR-051
-        // OQ-3). The file part carries the real audio mime + the
-        // format-detecting extension.
+        //
+        //
+        //
+        //
         String mime = media.mimeType().isEmpty() ? "application/octet-stream" : media.mimeType();
         String filename = "audio." + audioExtForMime(media.mimeType());
         Map<String, String> fields = new LinkedHashMap<>();
@@ -185,14 +185,14 @@ public final class Transcription {
         return resultFromOpenAI(raw);
     }
 
-    // --- Part normalization (pre-flight, before any HTTP call) ---
+    //
 
     private record AudioSource(String url, byte[] bytes) {}
 
-    /**
-     * Enforces the single-audio-part rule (STT-003) and returns the audio
-     * source: a URL XOR raw bytes. Mirror of {@code normalizeAudioPart}.
-     */
+    /*
+
+
+*/
     private static AudioSource normalizeAudioPart(List<Part> parts) {
         String url = "";
         byte[] bytes = null;
@@ -215,12 +215,12 @@ public final class Transcription {
         return new AudioSource(url, bytes);
     }
 
-    /**
-     * Enforces the single-audio-bytes rule for the sync path (OAA-005):
-     * exactly one inline-bytes audio Part. A remote URL is rejected (OpenAI
-     * ingests no URL — the inverse of AssemblyAI). Mirror of {@code
-     * normalizeAudioBytesPart}.
-     */
+    /*
+
+
+
+
+*/
     private static MediaRef normalizeAudioBytesPart(List<Part> parts) {
         MediaRef media = null;
         int audioCount = 0;
@@ -243,15 +243,15 @@ public final class Transcription {
         return media;
     }
 
-    // --- Result decode (wire-shape-keyed, STT-005) ---
+    //
 
-    /**
-     * Extracts the transcript text + (when present) segment timings from a
-     * synchronous OpenAI response. verbose_json offsets are SECONDS (float)
-     * -> integer milliseconds (x1000, rounded, OAA-006). Missing segments ->
-     * empty, not an error. Usage stays zero (OAA-007). Mirror of {@code
-     * transcriptionResultFromOpenAI}.
-     */
+    /*
+
+
+
+
+
+*/
     static TranscriptionResponse resultFromOpenAI(JsonElement raw) {
         String text = Json.stringAt(raw, "text");
         List<TranscriptSegment> segments = new ArrayList<>();
@@ -269,13 +269,13 @@ public final class Transcription {
         return new TranscriptionResponse(text, segments, Usage.zero());
     }
 
-    /**
-     * Extracts the transcript text + word-level timing from a completed
-     * AssemblyAI transcript object. start/end are integer milliseconds;
-     * speaker is present only on diarized transcripts. Usage stays zero —
-     * AssemblyAI bills by audio duration, not tokens (ADR-048 OQ-2). Mirror
-     * of {@code transcriptionResultFromAssemblyAI}.
-     */
+    /*
+
+
+
+
+
+*/
     static TranscriptionResponse resultFromAssemblyAI(JsonElement raw) {
         String text = Json.stringAt(raw, "text");
         List<TranscriptSegment> segments = new ArrayList<>();
@@ -293,11 +293,11 @@ public final class Transcription {
         return new TranscriptionResponse(text, segments, Usage.zero());
     }
 
-    /**
-     * Extracts the finished transcript per wire shape. Only the result decode
-     * is wire-shape-keyed (STT-005); the submit / poll / status facts are
-     * config. Mirror of {@code transcriptionResult}.
-     */
+    /*
+
+
+
+*/
     static TranscriptionResponse result(TranscriptionGen.Def tcCfg, JsonElement raw) {
         return switch (tcCfg.wireShape) {
             case "TranscriptionAssemblyAI" -> resultFromAssemblyAI(raw);
@@ -306,10 +306,10 @@ public final class Transcription {
         };
     }
 
-    /**
-     * Maps an audio IANA media type to the file extension OpenAI uses to
-     * detect the format. Mirror of {@code audioExtForMime}.
-     */
+    /*
+
+
+*/
     static String audioExtForMime(String mime) {
         return switch (mime) {
             case "audio/mpeg", "audio/mp3" -> "mp3";
@@ -322,7 +322,7 @@ public final class Transcription {
         };
     }
 
-    /** Binds async transcription to the Job engine's four seams (ADR-062). */
+    /**/
     static final class TranscriptionAdapter implements Job.Adapter<TranscriptionResponse> {
         final Job.LifecycleConfig lc;
         private final TranscriptionGen.Def tcCfg;

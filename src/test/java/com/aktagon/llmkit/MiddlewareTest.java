@@ -12,20 +12,20 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-/**
- * Behavior tests for the middleware seam (Phase 4a): pre-phase observation +
- * veto and post-phase observation with usage, across the prompt / agent /
- * batch sites. The wire goldens (see {@link RequestWireTest}) assert the
- * caching body but never exercise the observation/veto hooks — these do.
- * Real domain values, {@code actual == expected} (mirrors Swift's
- * MiddlewareTests).
- */
+/*
+
+
+
+
+
+
+*/
 class MiddlewareTest {
     private static final String CHAT_RESPONSE =
             "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"Helsinki\"}}],"
                     + "\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":2}}";
 
-    // --- Prompt: pre + post observation ---
+    //
 
     @Test
     void promptFiresLlmRequestPreAndPost() {
@@ -42,7 +42,7 @@ class MiddlewareTest {
 
         assertEquals("Helsinki", response.text());
         assertEquals(2, events.size());
-        // Pre fires first with no usage; post fires with the observed usage.
+        //
         assertEquals(MiddlewareOp.LLM_REQUEST, events.get(0).op());
         assertEquals(MiddlewarePhase.PRE, events.get(0).phase());
         assertEquals("openai", events.get(0).provider());
@@ -54,7 +54,7 @@ class MiddlewareTest {
         assertNull(events.get(1).err());
     }
 
-    // --- Prompt: pre-phase veto aborts before the network call ---
+    //
 
     @Test
     void preVetoAbortsPrompt() {
@@ -74,13 +74,13 @@ class MiddlewareTest {
                         .prompt("This must not reach the provider."));
 
         assertEquals(blocked, thrown.getCause());
-        // The veto is first in registration order, so the observer never fires,
-        // and no request was sent (the veto short-circuits before build/send).
+        //
+        //
         assertTrue(events.isEmpty());
         assertNull(transport.capturedBody);
     }
 
-    // --- Agent: toolCall observation ---
+    //
 
     @Test
     void agentFiresToolCall() {
@@ -106,7 +106,7 @@ class MiddlewareTest {
         new Client(ProviderName.OPENAI, "key", transport)
                 .agent().addTool(tool).addMiddleware(hook).prompt("Weather in Helsinki?");
 
-        // Two llmRequest turns (pre+post each) plus one toolCall (pre+post).
+        //
         Optional<Event> toolPre = events.stream()
                 .filter(e -> e.op() == MiddlewareOp.TOOL_CALL && e.phase() == MiddlewarePhase.PRE)
                 .findFirst();
@@ -121,7 +121,7 @@ class MiddlewareTest {
         assertTrue(events.stream().anyMatch(e -> e.op() == MiddlewareOp.LLM_REQUEST && e.phase() == MiddlewarePhase.POST));
     }
 
-    // --- Batch: batchSubmit observation ---
+    //
 
     @Test
     void batchFiresBatchSubmit() {
@@ -147,7 +147,7 @@ class MiddlewareTest {
         assertNull(post.get().err());
     }
 
-    // --- Caching: cacheCreate observation (Google resource caching) ---
+    //
 
     @Test
     void resourceCachingFiresCacheCreate() {
@@ -178,7 +178,7 @@ class MiddlewareTest {
         assertTrue(events.stream().anyMatch(e -> e.op() == MiddlewareOp.LLM_REQUEST));
     }
 
-    // --- Image generation: pre + post observation, and pre-phase veto ---
+    //
 
     private static final String IMAGE_RESPONSE =
             "{\"candidates\":[{\"content\":{\"parts\":[{\"inlineData\":{\"mimeType\":\"image/png\","
@@ -229,8 +229,8 @@ class MiddlewareTest {
                         .generate("This must not reach the provider."));
 
         assertEquals(blocked, thrown.getCause());
-        // The veto is first in registration order, so the observer never fires,
-        // and no request was sent.
+        //
+        //
         assertTrue(events.isEmpty());
         assertNull(transport.capturedBody);
     }

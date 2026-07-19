@@ -17,32 +17,32 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-/**
- * Immutable, clone-on-chain builder for music generation (ADR-068 Phase 4d,
- * ADR-033/037 discipline) — a port of Swift's {@code Music} / Rust's
- * {@code music.rs}. Synchronous: {@code client.music().<config>.generate(prompt)}
- * builds the provider request body, sends it once, and parses the reply into
- * the universal {@link MusicResponse}.
- *
- * <p>Dispatch branches on the generated {@code musicGenConfig(provider).wireShape}
- * — never the provider name — which fully determines the request body, the
- * response audio path, AND the byte encoding (base64 vs hex):
- *
- * <ul>
- *   <li>{@code MusicPredict} (Vertex Lyria): instances/parameters envelope to
- *       {@code :predict}; audio at {@code predictions[].audioContent} (base64 WAV).
- *   <li>{@code MusicMinimax}: top-level model/prompt/lyrics/audio_setting to
- *       the absolute gen endpoint; audio at {@code data.audio} (hex).
- *   <li>{@code MusicGenerateContent} (Gemini Lyria 3): prompt + lyrics fold
- *       into {@code contents[0].parts[].text} with
- *       {@code responseModalities=["AUDIO"]}; audio at
- *       {@code candidates[0].content.parts[].inlineData.data} (base64).
- * </ul>
- *
- * <p>Lyrics support is advisory (ADR-037 MUS-008), not gated: lyrics fold into
- * the prompt for the Predict shape and the model ignores or honors them.
- * Fires the {@code musicGeneration} middleware op pre + post.
- */
+/*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*/
 public final class Music {
     private final ProviderName provider;
     private final String apiKey;
@@ -50,7 +50,7 @@ public final class Music {
     private final HttpTransport http;
     private final String model;
     private final MusicOptions options;
-    /** Accumulated text + lyrics parts in caller order (the canonical sequence path). */
+    /**/
     private final List<Part> parts;
 
     private Music(
@@ -74,53 +74,53 @@ public final class Music {
         return new Music(provider, apiKey, baseUrlOverride, http, null, new MusicOptions(), List.of());
     }
 
-    /**
-     * Select the music-generation model (required — the text-generation
-     * default does not generate audio).
-     */
+    /*
+
+
+*/
     public Music model(String model) {
         return new Music(provider, apiKey, baseUrlOverride, http, model, options, parts);
     }
 
-    /**
-     * Append a text part (ordered). Mixing {@code .text(...)} /
-     * {@code .lyrics(...)} uses the canonical parts path; a final
-     * {@code generate(prompt)} appends the prompt as a last text part.
-     */
+    /*
+
+
+
+*/
     public Music text(String value) {
         List<Part> next = new ArrayList<>(parts);
         next.add(new Part.Text(value));
         return new Music(provider, apiKey, baseUrlOverride, http, model, options, List.copyOf(next));
     }
 
-    /**
-     * Append a lyrics part (ordered). Advisory (ADR-037 MUS-008):
-     * instrumental models fold lyrics into the prompt and ignore them.
-     */
+    /*
+
+
+*/
     public Music lyrics(String value) {
         List<Part> next = new ArrayList<>(parts);
         next.add(new Part.Lyrics(value));
         return new Music(provider, apiKey, baseUrlOverride, http, model, options, List.copyOf(next));
     }
 
-    /** Opt into {@code MusicResponse.raw} (the parsed provider body, ADR-014). */
+    /**/
     public Music raw() {
         return withOptions(o -> o.raw = true);
     }
 
-    /** Register a middleware hook (observation + pre-phase veto). */
+    /**/
     public Music addMiddleware(MiddlewareFn hook) {
         return withOptions(o -> o.middleware.add(hook));
     }
 
-    /**
-     * Build and send the music request, returning the decoded
-     * {@link MusicResponse}. {@code prompt} is terse sugar for the
-     * prompt-only hot path; when the chain accumulated {@code .text(...)} /
-     * {@code .lyrics(...)} parts, a non-empty {@code prompt} is appended as a
-     * final text part. Fires the {@code musicGeneration} middleware op
-     * (pre-phase veto, post-phase observation with usage).
-     */
+    /*
+
+
+
+
+
+
+*/
     public MusicResponse generate(String prompt) {
         if (apiKey == null || apiKey.isEmpty()) {
             throw new ValidationException("api_key", "required");
@@ -159,33 +159,33 @@ public final class Music {
         }
     }
 
-    /** Clone-on-chain: copy the options, mutate, return a fresh builder. */
+    /**/
     private Music withOptions(Consumer<MusicOptions> mutate) {
         MusicOptions copy = options.copy();
         mutate.accept(copy);
         return new Music(provider, apiKey, baseUrlOverride, http, model, copy, parts);
     }
 
-    // --- Parts ---
+    //
 
-    /**
-     * The internal music-input atom: text or lyrics. A music request never
-     * carries image parts — the {@code Part} type makes that unrepresentable
-     * (the Rust runtime rejects {@code Part::Image}; here the case does not
-     * exist).
-     */
+    /*
+
+
+
+
+*/
     private sealed interface Part {
         record Text(String text) implements Part {}
 
         record Lyrics(String text) implements Part {}
     }
 
-    /**
-     * Enforce the prompt-XOR-parts rule and produce the canonical part list.
-     * When the chain accumulated parts, a non-empty {@code prompt} appends as
-     * a final text part; otherwise the prompt sugar path. Both empty is a
-     * validation error (mirror of {@code normalize_music_parts}).
-     */
+    /*
+
+
+
+
+*/
     private List<Part> normalizeParts(String prompt) {
         if (!parts.isEmpty()) {
             List<Part> out = new ArrayList<>(parts);
@@ -220,7 +220,7 @@ public final class Music {
         return String.join("\n", texts);
     }
 
-    // --- Send ---
+    //
 
     private MusicResponse send(List<Part> parts, MusicModelDef modelDef, MusicGenDef mgCfg, Providers.Spec config) {
         String base = baseUrlOverride != null ? baseUrlOverride : config.baseUrl;
@@ -259,14 +259,14 @@ public final class Music {
         return parsed;
     }
 
-    // --- Request bodies ---
+    //
 
-    /**
-     * Vertex AI Lyria {@code :predict} body. Lyria 2 has no lyrics wire-slot,
-     * so any lyrics parts fold into the prompt text (ADR-037 MUS-008); the
-     * instrumental model ignores vocal content. instances/parameters
-     * envelope mirrors Imagen.
-     */
+    /*
+
+
+
+
+*/
     private static JsonObject buildVertexBody(List<Part> parts) {
         String prompt = joinPromptText(parts);
         String lyrics = joinLyricsText(parts);
@@ -288,12 +288,12 @@ public final class Music {
         return body;
     }
 
-    /**
-     * Gemini {@code generateContent} body for Lyria 3. Text and lyrics parts
-     * both serialize as {text} parts in caller order (Gemini takes custom
-     * lyrics inline in the prompt text). {@code responseModalities} requests
-     * AUDIO output.
-     */
+    /*
+
+
+
+
+*/
     private static JsonObject buildGeminiBody(List<Part> parts) {
         JsonArray wire = new JsonArray();
         for (Part part : parts) {
@@ -321,12 +321,12 @@ public final class Music {
         return body;
     }
 
-    /**
-     * MiniMax {@code /v1/music_generation} body. Prompt parts join into
-     * {@code prompt}; lyrics parts join into {@code lyrics}.
-     * {@code output_format=hex} returns hex-encoded audio at
-     * {@code data.audio}.
-     */
+    /*
+
+
+
+
+*/
     private static JsonObject buildMinimaxBody(List<Part> parts, String model) {
         JsonObject audioSetting = new JsonObject();
         audioSetting.addProperty("sample_rate", 44100);
@@ -345,7 +345,7 @@ public final class Music {
         return body;
     }
 
-    // --- Response parsing (selected by wireShape, never provider name) ---
+    //
 
     private static MusicResponse parseResponse(String wireShape, String fallbackMime, JsonElement raw) {
         return switch (wireShape) {
@@ -355,10 +355,10 @@ public final class Music {
         };
     }
 
-    /**
-     * Vertex Lyria {@code :predict} responses. Shape:
-     * {@code {"predictions": [{"audioContent": "<base64>", "mimeType": "audio/wav"}]}}.
-     */
+    /*
+
+
+*/
     private static MusicResponse parseVertexResponse(JsonElement raw, String fallbackMime) {
         List<AudioData> audio = new ArrayList<>();
         String finishReason = "";
@@ -400,11 +400,11 @@ public final class Music {
         return new MusicResponse(audio, "", Usage.zero(), finishReason, "", null);
     }
 
-    /**
-     * Gemini responses. Walks {@code candidates[0].content.parts}, decoding
-     * each {@code inlineData} audio part and concatenating text parts
-     * (generated lyrics).
-     */
+    /*
+
+
+
+*/
     private static MusicResponse parseGeminiResponse(JsonElement raw, String fallbackMime) {
         JsonElement candidatesElement = Json.at(raw, "candidates");
         if (candidatesElement == null
@@ -451,10 +451,10 @@ public final class Music {
         return new MusicResponse(audio, text.toString(), Usage.zero(), finishReason, "", null);
     }
 
-    /**
-     * MiniMax responses. Shape:
-     * {@code {"data": {"audio": "<hex>"}, "base_resp": {"status_msg": "..."}}}.
-     */
+    /*
+
+
+*/
     private static MusicResponse parseMinimaxResponse(JsonElement raw, String fallbackMime) {
         List<AudioData> audio = new ArrayList<>();
         String hex = Json.stringAt(raw, "data.audio");
@@ -472,12 +472,12 @@ public final class Music {
         return new MusicResponse(audio, "", Usage.zero(), "", finishMessage, null);
     }
 
-    /**
-     * Decode a hex string to bytes. Returns null on odd length or any
-     * non-hex digit (matching Go's {@code hex.DecodeString} error -> no
-     * audio).
-     */
-    /** Decode provider-supplied base64, mapping malformed input into the error taxonomy. */
+    /*
+
+
+
+*/
+    /**/
     private static byte[] decodeBase64(String value, String what) {
         try {
             return Base64.getDecoder().decode(value);

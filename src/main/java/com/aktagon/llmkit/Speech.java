@@ -12,24 +12,24 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
 
-/**
- * Immutable, clone-on-chain builder for text-to-speech generation (ADR-068
- * Phase 4d) — a port of Swift's {@code Speech} / Rust's {@code speech.rs}.
- * Synchronous: {@code client.speech().<config>.generate(text)} builds the
- * provider request body, sends it once, and parses the reply into the
- * universal {@link SpeechResponse}.
- *
- * <p>The generated {@code speechGenConfig(provider)} fact selects both the
- * request body ({@code wireShape}) and the audio decode
- * ({@code audioResponseEncoding}) — never the provider name. Two shapes ship:
- * {@code SpeechInworld} (a flat-JSON POST whose reply carries base64 audio at
- * {@code audioContent}, ADR-049; Basic-prefixed auth carries the raw API key
- * VERBATIM, never re-encoded) and {@code SpeechOpenAI} (a flat-JSON POST
- * whose reply is RAW audio bytes — never JSON — ADR-051 slice 1). Pre-flight
- * validation (model + text + voice required; provider supports speech; model
- * + voice in the catalogue) runs before any HTTP call. No middleware (mirrors
- * the Rust / Swift runtime).
- */
+/*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*/
 public final class Speech {
     private final ProviderName provider;
     private final String apiKey;
@@ -57,24 +57,24 @@ public final class Speech {
         return new Speech(provider, apiKey, baseUrlOverride, http, null, null);
     }
 
-    /** Select the speech-generation model (required). */
+    /**/
     public Speech model(String model) {
         return new Speech(provider, apiKey, baseUrlOverride, http, model, voice);
     }
 
-    /**
-     * Select the voice — request-data selector validated pre-flight against
-     * the provider's catalogue (SPK-004).
-     */
+    /*
+
+
+*/
     public Speech voice(String voice) {
         return new Speech(provider, apiKey, baseUrlOverride, http, model, voice);
     }
 
-    /**
-     * Synthesize speech audio from {@code text}. Builds the provider body,
-     * sends it once, and decodes the reply per the wire shape's audio
-     * encoding.
-     */
+    /*
+
+
+
+*/
     public SpeechResponse generate(String text) {
         if (apiKey == null || apiKey.isEmpty()) {
             throw new ValidationException("api_key", "required");
@@ -113,9 +113,9 @@ public final class Speech {
                 ? buildOpenAIBody(model, voice, text)
                 : buildInworldBody(model, voice, text);
 
-        // The OpenAI shape returns binary audio (not JSON), so the reply is
-        // read as raw bytes and must not be lossily UTF-8 decoded before the
-        // encoding fork.
+        //
+        //
+        //
         HttpTransport.Result result = http.postJson(url, Json.serialize(body), headers);
         if (result.statusCode() < 200 || result.statusCode() >= 300) {
             throw ResponseParser.parseError(config, result.statusCode(), result.body());
@@ -123,13 +123,13 @@ public final class Speech {
         return parseResponse(config.slug, sgCfg.audioResponseEncoding(), modelDef.outputMime(), result.body());
     }
 
-    // --- Request bodies ---
+    //
 
-    /**
-     * Inworld {@code /tts/v1/voice} body. Slice 1 sends a fixed audioConfig
-     * (LINEAR16/22050 -> WAV) and BALANCED delivery; format/sample-rate
-     * selection is a later slice (ADR-049 OQ-5).
-     */
+    /*
+
+
+
+*/
     private static JsonObject buildInworldBody(String model, String voice, String text) {
         JsonObject audioConfig = new JsonObject();
         audioConfig.addProperty("audioEncoding", "LINEAR16");
@@ -144,11 +144,11 @@ public final class Speech {
         return body;
     }
 
-    /**
-     * OpenAI {@code /v1/audio/speech} body. Slice 1 fixes
-     * {@code response_format=mp3} (KISS); format selection is a later slice
-     * (ADR-051).
-     */
+    /*
+
+
+
+*/
     private static JsonObject buildOpenAIBody(String model, String voice, String text) {
         JsonObject body = new JsonObject();
         body.addProperty("model", model);
@@ -158,17 +158,17 @@ public final class Speech {
         return body;
     }
 
-    // --- Response parsing (selected by audioResponseEncoding, never provider name) ---
+    //
 
-    /**
-     * Decode the synthesized audio per the wire shape's audio response
-     * encoding (ADR-051 OAA-002). {@code rawBody} (OpenAI) takes the
-     * response body verbatim as the audio bytes; {@code base64Envelope}
-     * (Inworld) parses a JSON envelope and base64-decodes the
-     * {@code audioContent} field. A 2xx body that does not parse to audio
-     * is a {@link DecodingException} (HANDOFF-036 A5) — never a silent
-     * empty clip.
-     */
+    /*
+
+
+
+
+
+
+
+*/
     private static SpeechResponse parseResponse(
             String providerSlug, String encoding, String fallbackMime, byte[] body) {
         byte[] bytes;

@@ -16,16 +16,16 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-/**
- * Catalogue tests (ADR-019). Mirror of Rust rust/tests/{catalogue,
- * catalogue_http}.rs / Swift {@code CatalogueTests}/{@code CatalogueHTTPTests}
- * at reduced count — the request/response wire fixtures + the
- * parity.providers-list lint are the cross-SDK conformance floor; these are
- * the Java-local mock-server + compiled-in-slice behavior checks.
- */
+/*
+
+
+
+
+
+*/
 class ModelsTest {
 
-    // --- Compiled-in slice (keyless, no HTTP) ---
+    //
 
     @Test
     void listReturnsCompiledInCatalogue() {
@@ -60,7 +60,7 @@ class ModelsTest {
                 new Client(ProviderName.ANTHROPIC, "test-key").models().get("nonexistent-model-xyz"));
     }
 
-    // --- Providers-namespace (BUG-003 gate) ---
+    //
 
     @Test
     void providersListReturnsConfiguredProviderWithEndpoint() {
@@ -72,11 +72,11 @@ class ModelsTest {
 
     @Test
     void providersListEmptyForEndpointlessProvider() {
-        // cohere has no llm:hasModelsEndpoint -> not configured for live catalogue.
+        //
         assertTrue(new Client(ProviderName.COHERE, "test-key").providers().list().isEmpty());
     }
 
-    // --- Live HTTP: pagination + parsing per wire shape ---
+    //
 
     @Test
     void scopedListAnthropicCursorPagination() {
@@ -114,13 +114,13 @@ class ModelsTest {
 
         List<ModelInfo> models = client.models().provider(ProviderName.GOOGLE).list();
         assertEquals(2, models.size());
-        // Parser strips the models/ prefix from response.name.
+        //
         assertEquals("gemini-2.5-flash", models.get(0).id());
         assertEquals(2, transport.urls.size());
         assertTrue(transport.urls.get(0).contains("key=test-key"));
-        // Order is contract, not cosmetics: the QueryParamKey splice precedes
-        // the cursor param, matching the cross-SDK catalogue-wire golden
-        // (?key=...&pageToken=..., CR-003 alignment / HANDOFF-036 Part C).
+        //
+        //
+        //
         assertEquals(
                 "https://mock.test/v1beta/models?key=test-key&pageToken=opaque-cursor-xyz",
                 transport.urls.get(1));
@@ -197,8 +197,8 @@ class ModelsTest {
 
     @Test
     void liveMapsTransportFailureToUnavailableInsteadOfAborting() {
-        // A daemon-down / DNS failure lands in the errors map as
-        // "unavailable" (Go parity), never aborts the aggregation.
+        //
+        //
         HttpTransport downTransport = new HttpTransport() {
             @Override
             public Result postJson(String url, String body, java.util.Map<String, String> headers) {
@@ -243,9 +243,9 @@ class ModelsTest {
     }
     @Test
     void scopedListAppliesCapabilityFilter() {
-        // HANDOFF-036 A4: withCapability composes with provider(p).list() -
-        // the scoped live list returns only models whose ontology-derived
-        // capabilities contain the filter.
+        //
+        //
+        //
         String body = "{\"object\":\"list\",\"data\":["
                 + "{\"id\":\"gpt-4o-mini\",\"object\":\"model\",\"created\":1715367049,\"owned_by\":\"system\"},"
                 + "{\"id\":\"gpt-image-1\",\"object\":\"model\",\"created\":1715367049,\"owned_by\":\"system\"}]}";
@@ -266,9 +266,9 @@ class ModelsTest {
 
     @Test
     void scopedListFiresClientMiddleware() {
-        // HANDOFF-036 A3: client-scoped hooks (the addTelemetry seam) observe
-        // catalogue calls - pre fires before the HTTP call, post fires after
-        // with a duration.
+        //
+        //
+        //
         String body = "{\"object\":\"list\",\"data\":[{\"id\":\"gpt-5\",\"object\":\"model\","
                 + "\"created\":1715367049,\"owned_by\":\"system\"}]}";
         CapturingTransport transport = new CapturingTransport().withResponse(200, body);

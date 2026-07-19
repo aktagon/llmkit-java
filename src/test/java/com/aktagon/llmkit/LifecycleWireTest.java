@@ -11,15 +11,15 @@ import com.google.gson.JsonObject;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * Cross-SDK LIFECYCLE conformance (ADR-062 slice 1). The INBOUND counterpart
- * to the request-wire suite: given the same provider poll response, every
- * SDK's Job engine must normalize it to the SAME terminal JobStatus. Drives
- * one {@code BatchJob.poll()} round-trip against the scripted transport and
- * drops the normalized {@code {state, hasResult, rawStatus, cause}} projection
- * to {@code target/wire/lifecycle/<fixture>/java.json}, value-equal to the
- * shared golden.
- */
+/*
+
+
+
+
+
+
+
+*/
 class LifecycleWireTest {
 
     private BatchJob batchJob(CapturingTransport transport) {
@@ -49,8 +49,8 @@ class LifecycleWireTest {
 
     @Test
     void batchSucceeded() throws Exception {
-        // Two-hop: the status GET reports completed + output_file_id, then the
-        // file-content GET returns one JSONL result line (OpenAI response.body).
+        //
+        //
         String jsonl = "{\"custom_id\":\"req-0\",\"response\":{\"body\":{\"choices\":[{\"message\":"
                 + "{\"role\":\"assistant\",\"content\":\"ok\"}}],\"usage\":{\"prompt_tokens\":1,"
                 + "\"completion_tokens\":1}}}}";
@@ -62,8 +62,8 @@ class LifecycleWireTest {
 
     @Test
     void batchFailed() throws Exception {
-        // The status GET reports failed and there is no output_file_id — one
-        // round-trip, no result fetch.
+        //
+        //
         CapturingTransport transport = new CapturingTransport()
                 .enqueue("{\"id\":\"batch_1\",\"status\":\"failed\"}");
         assertGolden("batch-failed", batchJob(transport).poll());

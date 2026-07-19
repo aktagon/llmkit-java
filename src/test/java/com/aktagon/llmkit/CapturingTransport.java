@@ -7,22 +7,22 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 
-/**
- * A transport that captures the outbound request and returns canned
- * responses, letting the request-wire driver assert the exact bytes the SDK
- * builds without a live network call (mirrors Swift's MockURLProtocol,
- * including its scripted response sequence for multi-hop flows).
- */
+/*
+
+
+
+
+*/
 final class CapturingTransport implements HttpTransport {
     String capturedUrl;
     String capturedBody;
     Map<String, String> capturedHeaders;
-    /** Every URL touched, in order (poll + result hops). */
+    /**/
     final List<String> urls = new ArrayList<>();
 
     int responseStatusCode = 200;
     byte[] responseBody = new byte[0];
-    /** When non-empty, each exchange consumes the next canned body. */
+    /**/
     final Deque<byte[]> responseSequence = new ArrayDeque<>();
 
     CapturingTransport withResponse(int statusCode, String body) {
@@ -31,7 +31,7 @@ final class CapturingTransport implements HttpTransport {
         return this;
     }
 
-    /** Canned response as raw bytes (e.g. OpenAI's binary TTS reply, never JSON). */
+    /**/
     CapturingTransport withResponseBytes(int statusCode, byte[] body) {
         this.responseStatusCode = statusCode;
         this.responseBody = body;
@@ -74,9 +74,9 @@ final class CapturingTransport implements HttpTransport {
             String fileContentType,
             byte[] data,
             Map<String, String> headers) {
-        // Actually ENCODE the multipart body (the same encoder JdkHttpTransport
-        // uses) so a wire test can decode the real boundary-delimited bytes,
-        // never a test-only approximation (ADR-051 OQ-3).
+        //
+        //
+        //
         Multipart.Encoded encoded = Multipart.encode(fields, fileField, filename, fileContentType, data);
         this.capturedUrl = url;
         this.capturedBody = new String(encoded.payload(), StandardCharsets.UTF_8);

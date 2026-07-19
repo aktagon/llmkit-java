@@ -12,16 +12,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * The tool-using agent loop — a port of Swift's {@code Agent} / Rust's
- * {@code agent.rs}. The one stateful builder: it accumulates conversation
- * history across turns. Each {@link #prompt} runs the tool loop, calling
- * registered tools until the model returns a plain-text answer (or
- * {@link #maxToolIterations} is hit). The request body is built through the
- * shared {@code RequestBuilder}, so the agent constructs no wire shape of its
- * own. Fires {@code llmRequest} around each turn and {@code toolCall} around
- * each tool invocation; caching is applied on every turn (BUG-004).
- */
+/*
+
+
+
+
+
+
+
+
+*/
 public final class Agent {
     private final ProviderName provider;
     private final String apiKey;
@@ -41,49 +41,49 @@ public final class Agent {
         this.http = http;
     }
 
-    /** Register a tool the model may invoke. Returns this for chaining. */
+    /**/
     public Agent addTool(Tool tool) {
         tools.add(tool);
         return this;
     }
 
-    /** Select the model. Returns this for chaining. */
+    /**/
     public Agent model(String model) {
         this.model = model;
         return this;
     }
 
-    /** Set the system instruction. Returns this for chaining. */
+    /**/
     public Agent system(String system) {
         this.system = system;
         return this;
     }
 
-    /** Cap the number of tool-loop iterations (default 10). Returns this. */
+    /**/
     public Agent maxToolIterations(int value) {
         this.maxToolIterations = value;
         return this;
     }
 
-    /** Opt into prompt caching (ADR-026) — applied on every turn (BUG-004). Returns this. */
+    /**/
     public Agent caching() {
         options.caching = true;
         return this;
     }
 
-    /** Set the cache TTL in seconds (resource caching only). Returns this. */
+    /**/
     public Agent cacheTtl(int seconds) {
         options.cacheTtl = seconds;
         return this;
     }
 
-    /** Register a middleware hook (observation + pre-phase veto). Returns this. */
+    /**/
     public Agent addMiddleware(MiddlewareFn hook) {
         options.middleware.add(hook);
         return this;
     }
 
-    /** Append a user turn and run the tool loop to a final text answer. */
+    /**/
     public Response prompt(String message) {
         history.add(new Msg.Text("user", message));
         return runToolLoop();
@@ -108,8 +108,8 @@ public final class Agent {
             JsonElement raw;
             Response parsed;
             try {
-                // Caching is a shared request-construction step (ADR-026 / BUG-004):
-                // applied on every agent turn by construction, like the Text path.
+                //
+                //
                 RequestBuilder.Built built = RequestBuilder.buildBody(
                         config, config.chatWireShape, apiKey, resolvedModel, system, history, tools, options);
                 CachingRuntime.apply(built.body(), config, resolvedModel, apiKey, options, http, baseUrlOverride);
@@ -166,9 +166,9 @@ public final class Agent {
                     try {
                         content = tool.handler().run(call.input() != null ? call.input() : new com.google.gson.JsonObject());
                     } catch (Exception e) {
-                        // Restore the interrupt flag before stringifying — the
-                        // loop reports the failure to the model but must not
-                        // swallow a thread interruption.
+                        //
+                        //
+                        //
                         for (Throwable t = e; t != null; t = t.getCause()) {
                             if (t instanceof InterruptedException) {
                                 Thread.currentThread().interrupt();

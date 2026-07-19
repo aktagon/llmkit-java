@@ -14,16 +14,16 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * Behavior tests for the client-scoped telemetry seam (Phase 4g): {@code
- * addTelemetry} installs a post-phase export hook on every capability
- * builder, so a prompt emits one OTLP span carrying the call's
- * operation/provider/model/usage. The wire goldens (see {@link
- * TelemetryWireTest}) assert the pure builder; these assert the middleware
- * wiring, the honest-contract constructor rejection, the fail-open, and the
- * full structural classification table (ADR-071; the telemetry-error golden
- * exercises the api_error path end-to-end).
- */
+/*
+
+
+
+
+
+
+
+
+*/
 class TelemetryTest {
     private static final String CHAT_RESPONSE =
             "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"Helsinki\"}}],"
@@ -41,7 +41,7 @@ class TelemetryTest {
 
         assertEquals("Helsinki", response.text());
 
-        // Exactly one span was exported (post phase only; pre is a no-op).
+        //
         assertEquals(1, payloads.size());
         JsonElement span = Json.at(Json.parse(payloads.get(0)), "resourceSpans[0].scopeSpans[0].spans[0]");
         Map<String, String> attrs = spanAttributes(span);
@@ -54,8 +54,8 @@ class TelemetryTest {
 
     @Test
     void telemetryIsFailOpen() {
-        // An export hook that throws must never surface to the caller — the
-        // prompt still returns.
+        //
+        //
         CapturingTransport transport = new CapturingTransport().withResponse(200, CHAT_RESPONSE);
         Client client = new Client(ProviderName.OPENAI, "key", transport)
                 .addTelemetry(new Telemetry(bytes -> {
@@ -72,14 +72,14 @@ class TelemetryTest {
         assertEquals("telemetry.export", thrown.field());
     }
 
-    /**
-     * The structural classification contract (ADR-071), asserted through the
-     * one erasure seam ({@code Event.toPost}): {@link ApiException} ->
-     * api_error, {@link ValidationException} -> validation_error, everything
-     * else -> error; success (null error) leaves err and errType null. The
-     * err message stays the exception's message (byte-identical to the old
-     * {@code e.getMessage()} call sites).
-     */
+    /*
+
+
+
+
+
+
+*/
     @Test
     void toPostStampsErrTypeStructurally() {
         Event base = Event.of(MiddlewareOp.LLM_REQUEST, "openai", "gpt-4o");
@@ -100,7 +100,7 @@ class TelemetryTest {
         assertEquals(null, success.errType());
     }
 
-    /** Extract the single span's attributes as a flat {@code [key: stringValueOrIntValue]}. */
+    /**/
     private static Map<String, String> spanAttributes(JsonElement span) {
         Map<String, String> out = new LinkedHashMap<>();
         JsonElement attrs = span.getAsJsonObject().get("attributes");

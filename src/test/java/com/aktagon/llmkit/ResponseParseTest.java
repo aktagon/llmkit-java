@@ -11,11 +11,11 @@ import com.google.gson.JsonObject;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 
-/**
- * Response-wire parse test (ADR-065 direction): feed the live-anchored
- * OpenAI chat body into the Java parser and assert the projection equals
- * the shared cross-SDK golden.
- */
+/*
+
+
+
+*/
 class ResponseParseTest {
 
     @Test
@@ -25,8 +25,8 @@ class ResponseParseTest {
         Providers.Spec config = Providers.config(ProviderName.OPENAI);
         Response response = ResponseParser.parse(config, body);
 
-        // Project the typed Response onto the golden's shape (content/error/
-        // finishReason/usage), then compare value-equal to the shared golden.
+        //
+        //
         JsonObject usage = new JsonObject();
         usage.addProperty("cacheRead", response.usage().cacheRead());
         usage.addProperty("cacheWrite", response.usage().cacheWrite());

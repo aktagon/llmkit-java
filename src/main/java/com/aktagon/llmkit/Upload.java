@@ -16,17 +16,17 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
 
-/**
- * The Files API upload builder (ADR-060 / CR-004). {@code
- * client.upload().path(p).run()} uploads a file to the provider and returns
- * a {@link File} handle to attach to a later prompt via {@code .file(id)}.
- * {@code path()} and {@code bytes()} are mutually exclusive — exactly one
- * must be set; {@code filename()} is required with {@code bytes()} (no path
- * to derive a name from) and overrides the derived name with {@code path()};
- * {@code mimeType()} overrides extension-based detection. Fires the {@code
- * upload} MiddlewareOp. Mirrors Go {@code Upload}/{@code Run}, TS/Python/Rust
- * {@code upload().run()}, Swift {@code Upload}/{@code run()}.
- */
+/*
+
+
+
+
+
+
+
+
+
+*/
 public final class Upload {
     private static final long MAX_UPLOAD_BYTES = 1L << 30; // 1GB
 
@@ -53,37 +53,37 @@ public final class Upload {
         return new Upload(provider, apiKey, baseUrlOverride, http, new UploadOptions());
     }
 
-    /**
-     * Read the upload payload from a filesystem path. The multipart filename
-     * defaults to the path's last component unless {@code filename()}
-     * overrides it.
-     */
+    /*
+
+
+
+*/
     public Upload path(String value) {
         return withOptions(o -> o.path = value);
     }
 
-    /** Upload the given bytes directly. {@code filename()} is required in this mode. */
+    /**/
     public Upload bytes(byte[] value) {
         byte[] copy = value == null ? null : value.clone();
         return withOptions(o -> o.bytes = copy);
     }
 
-    /** Override the multipart filename. */
+    /**/
     public Upload filename(String value) {
         return withOptions(o -> o.filename = value);
     }
 
-    /** Override the file part's Content-Type (else inferred from the filename). */
+    /**/
     public Upload mimeType(String value) {
         return withOptions(o -> o.mimeType = value);
     }
 
-    /** Register a middleware hook for this upload (observes/vetoes the {@code upload} op). */
+    /**/
     public Upload addMiddleware(MiddlewareFn hook) {
         return withOptions(o -> o.middleware.add(hook));
     }
 
-    /** Upload the configured file and return its {@link File} handle. */
+    /**/
     public File run() {
         boolean hasPath = options.path != null && !options.path.isEmpty();
         boolean hasBytes = options.bytes != null;
@@ -99,10 +99,10 @@ public final class Upload {
         if (hasPath) {
             Path path = Path.of(options.path);
             try {
-                // Stat first so pathologically large files reject before
-                // allocating — well above any provider's real upload limit,
-                // but blocks a trivial OOM via path("/dev/zero") (mirrors
-                // Go's guard).
+                //
+                //
+                //
+                //
                 long size = Files.size(path);
                 if (size > MAX_UPLOAD_BYTES) {
                     throw new ValidationException(
@@ -133,16 +133,16 @@ public final class Upload {
         return uploadData(provider, apiKey, baseUrlOverride, http, data, name, options.mimeType, options.middleware);
     }
 
-    /** Clone-on-chain: copy the options, mutate, return a fresh builder. */
+    /**/
     private Upload withOptions(Consumer<UploadOptions> mutate) {
         UploadOptions copy = options.copy();
         mutate.accept(copy);
         return new Upload(provider, apiKey, baseUrlOverride, http, copy);
     }
 
-    // --- Transport (fire + multipart) ---
+    //
 
-    /** Fires the {@code upload} op around the multipart POST (mirrors Rust {@code upload_with_data}). */
+    /**/
     private static File uploadData(
             ProviderName provider,
             String apiKey,
@@ -174,7 +174,7 @@ public final class Upload {
         }
     }
 
-    /** The multipart POST + response-path parse (mirrors Rust {@code upload_file_inner}). */
+    /**/
     private static File send(
             Providers.Spec config,
             Request.FileUploadDef upload,
@@ -210,7 +210,7 @@ public final class Upload {
             }
         }
 
-        // Google carries the filename as a JSON metadata form field + a protocol header.
+        //
         if ("ChatGoogle".equals(config.chatWireShape)) {
             JsonObject file = new JsonObject();
             file.addProperty("display_name", filename);
@@ -235,12 +235,12 @@ public final class Upload {
         return new File(id, uri, mimeOut, name);
     }
 
-    /**
-     * Extension-based MIME fallback when {@code mimeType()} is unset (mirrors
-     * Go's {@code detectMimeType}). The dominant provider (Anthropic)
-     * overrides mimeType from the response anyway; this sets the request
-     * part's Content-Type.
-     */
+    /*
+
+
+
+
+*/
     private static String detectMimeType(String filename) {
         int dot = filename.lastIndexOf('.');
         String ext = dot >= 0 ? filename.substring(dot + 1).toLowerCase(Locale.ROOT) : "";

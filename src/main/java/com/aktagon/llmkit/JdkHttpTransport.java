@@ -9,10 +9,10 @@ import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
 
-/** Default transport over {@code java.net.http} (ADR-068 JAVA-003). */
+/**/
 final class JdkHttpTransport implements HttpTransport {
-    // Connect timeout mirrors Go's DefaultTransport 30s dial timeout; no
-    // per-request timeout (Go has none — long generations may stream slowly).
+    //
+    //
     private final HttpClient client =
             HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();
 
@@ -81,16 +81,19 @@ final class JdkHttpTransport implements HttpTransport {
         try {
             return HttpRequest.newBuilder(URI.create(url));
         } catch (IllegalArgumentException e) {
-            throw new ValidationException("url", "invalid URL: " + url);
+            //
+            //
+            //
+            throw new ValidationException("url", "malformed request URL");
         }
     }
 
-    /**
-     * Apply caller headers, skipping the ones {@code java.net.http} restricts
-     * (Host, Content-Length — set by the client itself). SigV4's signed Host
-     * rides implicitly: the client always sends Host = URI host, which is the
-     * value the signature covered.
-     */
+    /*
+
+
+
+
+*/
     private static void applyHeaders(HttpRequest.Builder builder, Map<String, String> headers) {
         for (Map.Entry<String, String> header : headers.entrySet()) {
             String name = header.getKey().toLowerCase(Locale.ROOT);

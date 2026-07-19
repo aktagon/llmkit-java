@@ -6,15 +6,15 @@ import com.google.gson.JsonElement;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
 
-/**
- * Telemetry-wire driver (ADR-054 TEL-011): call the PURE OTLP builder with the
- * SAME fixed inputs the other five SDKs feed and assert the payload is
- * value-equal to the shared golden at
- * {@code codegen/testdata/wire/telemetry/v1/}. Each test also drops {@code
- * target/wire/telemetry/<fixture>/java.json} so the cross-SDK comparator
- * ({@code codegen/test_cross_sdk_telemetry_wire.py}) can enroll Java. Span
- * identity + timing are injected fixed so the payload is byte-stable.
- */
+/*
+
+
+
+
+
+
+
+*/
 class TelemetryWireTest {
     private void assertGolden(String fixture, String payload) throws IOException {
         TestPaths.writeTelemetryArtifact(fixture, payload);
@@ -43,12 +43,12 @@ class TelemetryWireTest {
         assertGolden("telemetry-rejection", payload);
     }
 
-    /**
-     * Exercises classification end-to-end (ADR-071 ETY-004): the SDK's typed
-     * API error routes through the REAL erasure seam ({@code Event.toPost}),
-     * and the stamped event renders to the shared telemetry-error golden via
-     * the pure event-level builder — no error.type is hand-fed anywhere.
-     */
+    /*
+
+
+
+
+*/
     @Test
     void telemetryError() throws IOException {
         Event event = Event.of(MiddlewareOp.LLM_REQUEST, "openai", "gpt-4o")

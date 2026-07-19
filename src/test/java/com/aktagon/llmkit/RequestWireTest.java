@@ -13,19 +13,19 @@ import java.util.Locale;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
-/**
- * Request-wire driver (ADR-028 direction): build each ChatCompletion request
- * through the full SDK stack, capture the outbound bytes via the injected
- * {@link CapturingTransport}, and assert the body is value-equal to the SAME
- * shared golden at {@code codegen/testdata/wire/request/v1/<fixture>.json} that
- * the other five SDKs assert. Each test also drops
- * {@code target/wire/request/<fixture>/java.json} so the cross-SDK comparator
- * ({@code codegen/test_cross_sdk_request_wire.py}) enrolls Java. Inputs are the
- * SAME canonical values the other drivers feed (single-sourced in
- * {@code ontology/wire-fixtures.ttl}; hand-mirrored here — test drivers are
- * never generated). Phase 2 = ChatCompletion; media Parts / tools / batch /
- * SigV4 / media capabilities are driven in later phases.
- */
+/*
+
+
+
+
+
+
+
+
+
+
+
+*/
 class RequestWireTest {
     private CapturingTransport transport;
 
@@ -45,7 +45,7 @@ class RequestWireTest {
         assertEquals(golden, body, fixture + " body differs from shared golden");
     }
 
-    // --- Options (one per model family; the double-serialization surface) ---
+    //
 
     @Test
     void optionsOpenAIGPT4O() throws Exception {
@@ -118,7 +118,7 @@ class RequestWireTest {
         assertGolden("options-google-gemini25");
     }
 
-    // --- OpenAI-compat fleet ---
+    //
 
     @Test
     void workersAI() throws Exception {
@@ -128,7 +128,7 @@ class RequestWireTest {
         assertGolden("workersai");
     }
 
-    // --- Responses protocol (ADR-055) ---
+    //
 
     @Test
     void responsesOpenAI() throws Exception {
@@ -138,7 +138,7 @@ class RequestWireTest {
         assertGolden("responses-openai");
     }
 
-    // --- Structured output (schema normalization) ---
+    //
 
     private static final String SCHEMA_FLAT =
             "{\"type\":\"object\",\"properties\":{\"color\":{\"type\":\"string\"}},"
@@ -170,9 +170,9 @@ class RequestWireTest {
         client(ProviderName.ANTHROPIC).text()
                 .model("claude-sonnet-4-6").schema(SCHEMA_FLAT).prompt(PROMPT_FLAT);
         assertGolden("structured-output-anthropic");
-        // Load-bearing headers: without the structured-output beta Anthropic
-        // 400s on output_format. Golden-locked across all SDKs via the companion
-        // structured-output-anthropic.headers.json.
+        //
+        //
+        //
         assertEquals(
                 "structured-outputs-2025-11-13", transport.capturedHeaders.get("anthropic-beta"));
         TestPaths.writeRequestHeaders("structured-output-anthropic", transport.capturedHeaders);
@@ -198,7 +198,7 @@ class RequestWireTest {
         assertGolden("structured-output-nested-anthropic");
     }
 
-    // --- Streaming (BUG-028: stream_options.include_usage on the body) ---
+    //
 
     @Test
     void streamOpenAI() throws Exception {
@@ -206,7 +206,7 @@ class RequestWireTest {
         assertGolden("stream-openai");
     }
 
-    // --- Agent tool definitions (per wire shape) ---
+    //
 
     private static final String TOOL_SCHEMA =
             "{\"type\":\"object\",\"properties\":{\"city\":{\"type\":\"string\"}},\"additionalProperties\":false}";
@@ -244,9 +244,9 @@ class RequestWireTest {
         assertGolden("tooldef-bedrock");
     }
 
-    // --- Media Parts on the text path (ADR-060: vision image + file refs) ---
+    //
 
-    // The shared 1x1 PNG the other SDKs feed, decoded to bytes for .image(...).
+    //
     private static final String IMAGE_BASE64 =
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGM4YWQEAALyAS2saifrAAAAAElFTkSuQmCC";
 
@@ -300,9 +300,9 @@ class RequestWireTest {
                 .model("claude-opus-4-8").file("file_011CMZq8h5VnVe8jL3qK7p2R")
                 .prompt("Summarize the attached document in three sentences.");
         assertGolden("anthropic-text-document");
-        // BUG-017: a file-referencing Anthropic request must carry the
-        // files-api beta; golden-locked across all SDKs via
-        // anthropic-text-document.headers.json.
+        //
+        //
+        //
         assertEquals("files-api-2025-04-14", transport.capturedHeaders.get("anthropic-beta"));
         TestPaths.writeRequestHeaders("anthropic-text-document", transport.capturedHeaders);
     }
@@ -316,8 +316,8 @@ class RequestWireTest {
                 .model("claude-opus-4-8").schema(schema).file("file_011CMZq8h5VnVe8jL3qK7p2R")
                 .prompt("Summarize the attached document as structured data.");
         assertGolden("anthropic-schema-document");
-        // BUG-017 compose path: the structured-output beta and the files-api
-        // beta compose into one comma-separated anthropic-beta, deduped.
+        //
+        //
         assertEquals(
                 "structured-outputs-2025-11-13,files-api-2025-04-14",
                 transport.capturedHeaders.get("anthropic-beta"));
@@ -334,12 +334,12 @@ class RequestWireTest {
                 .image("image/png", imageBytes())
                 .batch("Summarize the attached document and describe the image in one sentence.");
         assertGolden("batch-multimodal-anthropic");
-        // The batch CREATE request lifts the per-item files-api beta (BUG-017).
+        //
         assertEquals("files-api-2025-04-14", transport.capturedHeaders.get("anthropic-beta"));
         TestPaths.writeRequestHeaders("batch-multimodal-anthropic", transport.capturedHeaders);
     }
 
-    // --- Caching (Anthropic explicit cache_control on the system prefix) ---
+    //
 
     private static final String CACHING_SYSTEM = "a long stable system prefix";
     private static final String CACHING_PROMPT = "hi";
@@ -353,9 +353,9 @@ class RequestWireTest {
 
     @Test
     void cachingAgentAnthropic() throws Exception {
-        // cacheTtl is a no-op under explicit caching (Anthropic ignores it; it
-        // only feeds resource caching) — exercised here alongside .caching() so
-        // both Agent setters are covered without perturbing the golden body.
+        //
+        //
+        //
         client(ProviderName.ANTHROPIC).agent()
                 .system(CACHING_SYSTEM).caching().cacheTtl(600).prompt(CACHING_PROMPT);
         assertGolden("caching-agent-anthropic");
@@ -364,15 +364,15 @@ class RequestWireTest {
     @Test
     void cachingBatchAnthropic() throws Exception {
         Client c = client(ProviderName.ANTHROPIC);
-        // The batch CREATE response must carry an id so submit does not throw;
-        // the assertion is on the captured CREATE request body, not the reply.
+        //
+        //
         transport.withResponse(200, "{\"id\":\"batch_1\"}");
         c.text().system(CACHING_SYSTEM).caching().batch(CACHING_PROMPT);
         assertGolden("caching-batch-anthropic");
     }
 
-    // --- Image generation (JSON bodies only; multipart edits are a WIRE-008
-    // documented exclusion). Inputs mirror the WIRE_IMAGE_* wire_inputs constants.
+    //
+    //
 
     @Test
     void imageGenGoogleFlash() throws Exception {
@@ -415,15 +415,15 @@ class RequestWireTest {
         assertGolden("image-edit-google-flash");
     }
 
-    // --- Speech generation (TTS). Inputs mirror the WIRE_SPEECH_* wire_inputs
-    // constants; the two shapes are the flat-JSON Inworld body (Basic auth)
-    // and the flat-JSON OpenAI body.
+    //
+    //
+    //
 
     @Test
     void speechInworld() throws Exception {
-        // The base64Envelope parser rejects a bodyless 2xx since HANDOFF-036
-        // A5, so this driver (like the other SDKs' wire drivers) feeds a valid
-        // envelope; the assertion is on the captured request bytes.
+        //
+        //
+        //
         Client c = client(ProviderName.INWORLD);
         transport.withResponse(200, "{\"audioContent\":\"UklGRg==\"}");
         c.speech()
@@ -440,13 +440,13 @@ class RequestWireTest {
         assertGolden("speech-openai");
     }
 
-    // --- Video generation (ADR-034; asynchronous submit). The wire suite
-    // asserts ONLY the submit body -- submit(prompt) performs the submit POST,
-    // the mock answers with the provider's submit-response handle id so submit
-    // returns a VideoJob (discarded), and only the captured outbound bytes are
-    // asserted. The canned response carries every provider's handle field
-    // (mirror of the Swift driver's videoSubmitResponse): request_id / task_id /
-    // id / name / invocationArn / output.task_id / Resp.video_id.
+    //
+    //
+    //
+    //
+    //
+    //
+    //
 
     private static final String VIDEO_SUBMIT_RESPONSE = "{\"request_id\":\"vid_test\",\"task_id\":\"vid_test\","
             + "\"id\":\"vid_test\",\"name\":\"models/veo-test/operations/op_test\","
@@ -459,7 +459,7 @@ class RequestWireTest {
         return new Client(provider, "key", transport);
     }
 
-    // VID-007: Grok video-submit body {model, prompt}.
+    //
     @Test
     void videoGrok() throws Exception {
         videoClient(ProviderName.GROK).video()
@@ -468,8 +468,8 @@ class RequestWireTest {
         assertGolden("video-grok");
     }
 
-    // BUG-010: Grok image-to-video submit body {model, prompt, image:{url}} -- the
-    // seed frame inlines as a data URL at image.url (the Grok image-edit encoding).
+    //
+    //
     @Test
     void videoGrokI2V() throws Exception {
         videoClient(ProviderName.GROK).video()
@@ -479,7 +479,7 @@ class RequestWireTest {
         assertGolden("video-grok-i2v");
     }
 
-    // ADR-034 fan-out: Zhipu CogVideoX shares the {model, prompt} arm.
+    //
     @Test
     void videoZhipu() throws Exception {
         videoClient(ProviderName.ZHIPU).video()
@@ -488,7 +488,7 @@ class RequestWireTest {
         assertGolden("video-zhipu");
     }
 
-    // ADR-034 fan-out: Vidu (Shengshu) shares the {model, prompt} arm.
+    //
     @Test
     void videoVidu() throws Exception {
         videoClient(ProviderName.VIDU).video()
@@ -497,9 +497,9 @@ class RequestWireTest {
         assertGolden("video-vidu");
     }
 
-    // ADR-034 fan-out: PixVerse's five-field body {model, prompt, duration,
-    // quality, aspect_ratio}. The per-request Ai-trace-id header is a runtime
-    // UUID (asserted in VideoTest, not the golden).
+    //
+    //
+    //
     @Test
     void videoPixVerse() throws Exception {
         videoClient(ProviderName.PIXVERSE).video()
@@ -508,7 +508,7 @@ class RequestWireTest {
         assertGolden("video-pixverse");
     }
 
-    // ADR-034 fan-out: Together shares the {model, prompt} arm.
+    //
     @Test
     void videoTogether() throws Exception {
         videoClient(ProviderName.TOGETHER).video()
@@ -517,9 +517,9 @@ class RequestWireTest {
         assertGolden("video-together");
     }
 
-    // ADR-034 fan-out: Qwen (DashScope) nests the prompt under {model,
-    // input:{prompt}} and requires the load-bearing X-DashScope-Async: enable
-    // header (asserted in-driver, mirror of the Anthropic beta-header assert).
+    //
+    //
+    //
     @Test
     void videoQwen() throws Exception {
         videoClient(ProviderName.QWEN).video()
@@ -529,8 +529,8 @@ class RequestWireTest {
         assertGolden("video-qwen");
     }
 
-    // ADR-034 fan-out: MiniMax shares the {model, prompt} arm (the two-hop
-    // result retrieve is delivery-side, covered by VideoTest).
+    //
+    //
     @Test
     void videoMiniMax() throws Exception {
         videoClient(ProviderName.MINIMAX).video()
@@ -539,8 +539,8 @@ class RequestWireTest {
         assertGolden("video-minimax");
     }
 
-    // ADR-034 fan-out: Google Veo carries the model in the submit PATH, so the
-    // body is the nested {instances:[{prompt}]} with NO model field.
+    //
+    //
     @Test
     void videoGoogleVeo() throws Exception {
         videoClient(ProviderName.GOOGLE).video()
@@ -549,10 +549,10 @@ class RequestWireTest {
         assertGolden("video-google");
     }
 
-    // ADR-034 fan-out: AWS Bedrock Nova Reel carries the model in the BODY
-    // (modelId), nests the prompt under modelInput, and the caller S3 URI under
-    // outputDataConfig. The submit is SigV4-signed; the mock captures the
-    // outbound body regardless of the (keyless) signature.
+    //
+    //
+    //
+    //
     @Test
     void videoBedrock() throws Exception {
         videoClient(ProviderName.BEDROCK).video()
@@ -562,13 +562,13 @@ class RequestWireTest {
         assertGolden("video-bedrock");
     }
 
-    // ADR-034 delivery-mode phase: Vertex Veo's submit body is byte-identical to
-    // the Gemini Veo golden (model in the PATH, not the body).
+    //
+    //
     @Test
     void videoVertexVeo() throws Exception {
-        // Vertex's base carries {location}/{project_id} placeholders (the
-        // caller-substituted seam); override with the mock base so the URL is
-        // valid (the mock intercepts regardless; only the body is asserted).
+        //
+        //
+        //
         Client client = videoClient(ProviderName.VERTEX).baseUrl("https://mock.local");
         client.video()
                 .model("veo-3.1-generate-preview")
@@ -576,17 +576,17 @@ class RequestWireTest {
         assertGolden("video-vertex");
     }
 
-    // --- Transcription (ADR-048 / ADR-051; the Part container). Inputs
-    // mirror the WIRE_TRANSCRIPTION_* wire_inputs constants.
+    //
+    //
 
     private static final String TRANSCRIPTION_AUDIO_URL = "https://storage.example.com/meeting-2026-06-24.mp3";
     private static final String TRANSCRIPTION_OPENAI_MODEL = "whisper-1";
     private static final String TRANSCRIPTION_OPENAI_MIME = "audio/mpeg";
 
-    // ADR-048: AssemblyAI transcription submit body {audio_url}. The async
-    // TranscriptionJob is discarded; only the outbound submit bytes are
-    // asserted. The upload hop is bytes-only and is not exercised here (a URL
-    // part skips it).
+    //
+    //
+    //
+    //
     @Test
     void transcriptionAssemblyAI() throws Exception {
         Client c = client(ProviderName.ASSEMBLYAI);
@@ -595,11 +595,11 @@ class RequestWireTest {
         assertGolden("transcription-assemblyai");
     }
 
-    // ADR-051: OpenAI SYNCHRONOUS transcription is the first multipart/form-data
-    // request body in the SDK. The golden is the canonical multipart descriptor
-    // (OQ-3); the driver decodes its ACTUAL encoded multipart body (captured
-    // bytes + boundary from the Content-Type header) into ordered fields and
-    // asserts value-equal to the golden.
+    //
+    //
+    //
+    //
+    //
     @Test
     void transcriptionOpenAI() throws Exception {
         Client c = client(ProviderName.OPENAI);
@@ -613,15 +613,15 @@ class RequestWireTest {
         assertGolden("transcription-openai", descriptor);
     }
 
-    /**
-     * Decodes an encoded {@code multipart/form-data} body into the canonical
-     * descriptor the cross-SDK comparator asserts (ADR-051 OQ-3): an ordered
-     * list of form fields. Text fields emit {@code {name, value}}; the file
-     * part keeps its filename + content-type but its bytes become the fixed
-     * sentinel {@code "<audio-bytes>"}. Parses the ACTUAL captured bytes +
-     * boundary, keeping the descriptor independent of the golden. Port of the
-     * Rust {@code multipart_to_descriptor} (request_wire.rs).
-     */
+    /*
+
+
+
+
+
+
+
+*/
     static JsonElement multipartToDescriptor(String body, String contentType) {
         String boundary = "";
         int boundaryIdx = contentType.indexOf("boundary=");
@@ -678,12 +678,12 @@ class RequestWireTest {
         return descriptor;
     }
 
-    /**
-     * Pulls the quoted value following {@code key} (e.g. {@code
-     * name="model"} -> "model"). Leftmost match, so {@code name=} on the file
-     * part resolves the standalone field name, not the tail of {@code
-     * filename=}.
-     */
+    /*
+
+
+
+
+*/
     private static String extractQuoted(String haystack, String key) {
         String value = extractQuotedOrNull(haystack, key);
         return value != null ? value : "";
@@ -705,10 +705,10 @@ class RequestWireTest {
         return haystack.substring(quoteStart + 1, quoteEnd);
     }
 
-    // --- Bedrock Converse (SigV4 signing; body is asserted, signature is not).
-    // AWS_REGION / AWS_SECRET_ACCESS_KEY are deterministic dummies supplied by
-    // the Gradle test task (Java cannot setenv at runtime); the signature is
-    // time-dependent and NOT asserted, only the body is. ---
+    //
+    //
+    //
+    //
 
     @Test
     void bedrockChat() throws Exception {

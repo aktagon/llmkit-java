@@ -10,14 +10,14 @@ import com.aktagon.llmkit.providers.generated.VideoResponse;
 import java.util.Base64;
 import org.junit.jupiter.api.Test;
 
-/**
- * Behavior tests for the video capability (ADR-034) beyond the request-wire
- * goldens: the async submit -&gt; poll -&gt; result lifecycle over the shared
- * Job engine, driven by a scripted {@link CapturingTransport#enqueue}. There
- * are no cross-SDK video response/lifecycle fixtures, so these are the
- * poll-side parity oracle (mirrors Swift's VideoTests). Real domain values,
- * {@code actual == expected}.
- */
+/*
+
+
+
+
+
+
+*/
 class VideoTest {
     private CapturingTransport transport;
 
@@ -26,7 +26,7 @@ class VideoTest {
         return new Client(provider, "key", transport);
     }
 
-    // --- Text-to-video happy path (Grok, url delivery) ---
+    //
 
     @Test
     void grokTextToVideoAwaitReturnsUrl() {
@@ -49,7 +49,7 @@ class VideoTest {
         assertEquals("video/mp4", response.videos().get(0).mimeType());
     }
 
-    /** The {@code poll()} primitive (ADR-063): one round-trip -&gt; a normalized status. */
+    /**/
     @Test
     void grokPollRunningThenSucceeded() {
         transport = new CapturingTransport()
@@ -72,7 +72,7 @@ class VideoTest {
         assertEquals("https://xai.example/vid_1.mp4", second.result().videos().get(0).url());
     }
 
-    // --- Image-to-video (BUG-010): the seed frame inlines at image.url ---
+    //
 
     @Test
     void grokImageToVideoSubmitBodyCarriesSeedFrame() {
@@ -80,7 +80,7 @@ class VideoTest {
                 .enqueue("{\"request_id\":\"vid_i2v\"}")
                 .enqueue("{\"status\":\"done\",\"video\":{\"url\":\"https://xai.example/vid_i2v.mp4\","
                         + "\"duration\":8}}");
-        // A 1x1 PNG seed frame (the shared wire-fixtures constant).
+        //
         byte[] seed = Base64.getDecoder().decode(
                 "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGM4YWQEAALyAS2saifrAAAAAElFTkSuQmCC");
         VideoJob job = new Client(ProviderName.GROK, "key", transport).video()
@@ -88,7 +88,7 @@ class VideoTest {
                 .image("image/png", seed)
                 .submit("Animate the still: a slow cinematic push-in");
 
-        // The captured submit body (before await polls) carries the seed data URL.
+        //
         com.google.gson.JsonElement submitBody = Json.parse(transport.capturedBody);
         assertEquals("grok-imagine-video", Json.stringAt(submitBody, "model"));
         assertTrue(Json.stringAt(submitBody, "image.url").startsWith("data:image/png;base64,"));
@@ -98,10 +98,10 @@ class VideoTest {
         assertEquals("https://xai.example/vid_i2v.mp4", response.videos().get(0).url());
     }
 
-    /**
-     * A text-to-video-only model rejects a seed frame pre-flight (BUG-010) --
-     * honest rejection, not a silent drop.
-     */
+    /*
+
+
+*/
     @Test
     void textOnlyModelRejectsImageToVideo() {
         byte[] seed = Base64.getDecoder().decode("iVBORw0KGgo=");
@@ -113,7 +113,7 @@ class VideoTest {
         assertTrue(thrown.getMessage().contains("text-to-video-only"));
     }
 
-    // --- Failure classification (a failed poll surfaces as an error) ---
+    //
 
     @Test
     void grokFailedPollThrows() {
@@ -129,7 +129,7 @@ class VideoTest {
         assertTrue(thrown.getMessage().contains("blocked by content policy"), "got: " + thrown.getMessage());
     }
 
-    // --- MiniMax two-hop (terminal poll yields a file_id -> file-retrieve) ---
+    //
 
     @Test
     void miniMaxTwoHopResolvesDownloadUrl() {
@@ -149,7 +149,7 @@ class VideoTest {
         assertEquals(0, response.videos().get(0).bytes().length);
     }
 
-    // --- PixVerse per-request headers (Ai-trace-id anti-cache key + API-KEY) ---
+    //
 
     @Test
     void pixVerseSubmitCarriesTraceAndApiKeyHeaders() {
@@ -157,7 +157,7 @@ class VideoTest {
         VideoJob job = new Client(ProviderName.PIXVERSE, "key", transport).video()
                 .model("v4.5")
                 .submit("A drone shot sweeping over snow-capped alpine peaks at sunrise");
-        // The numeric handle field is read back as its integer string form.
+        //
         assertEquals("318633193768896", job.handle().id());
         assertEquals("key", transport.capturedHeaders.get("API-KEY"));
         assertFalse(transport.capturedHeaders.get("Ai-trace-id").isEmpty());

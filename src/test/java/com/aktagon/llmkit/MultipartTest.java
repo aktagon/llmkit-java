@@ -7,11 +7,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * HANDOFF-036 A2: a quote, backslash, or CR/LF in a caller-controlled field
- * name or filename must not break out of the Content-Disposition part header.
- * The shared hostile vector is asserted identically in Go, Swift, and Python.
- */
+/*
+
+
+
+*/
 class MultipartTest {
 
     @Test

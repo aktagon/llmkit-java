@@ -13,13 +13,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * The single-provider live-catalogue sub-builder (ADR-019). Reached via
- * {@link Models#provider(ProviderName)}. {@link #raw()} opts into populating
- * {@code ModelInfo.raw} per ADR-014. Synchronous HTTP throughout (ADR-068
- * JAVA-004 — unlike Swift/Rust's async catalogue). Port of Swift's {@code
- * ScopedModels} / Rust's {@code ScopedModels} + {@code models.rs}.
- */
+/*
+
+
+
+
+
+*/
 public final class ScopedModels {
     private final ProviderName target;
     private final String apiKey;
@@ -27,8 +27,8 @@ public final class ScopedModels {
     private final HttpTransport http;
     private final Capability capFilter;
     private final boolean rawFlag;
-    // Client-scoped hooks (telemetry, ADR-054) observe catalogue calls too
-    // (HANDOFF-036 A3); the Swift seam is the reference.
+    //
+    //
     private final List<MiddlewareFn> middleware;
 
     ScopedModels(
@@ -48,21 +48,21 @@ public final class ScopedModels {
         this.middleware = middleware;
     }
 
-    /** Opt into carrying the parsed provider-native record on each {@code ModelInfo}. */
+    /**/
     public ScopedModels raw() {
         return new ScopedModels(target, apiKey, baseUrlOverride, http, capFilter, true, middleware);
     }
 
-    /**
-     * Single-provider live HTTP. Paginates per the catalogue config until the
-     * parser reports no next cursor, then enriches each record with the
-     * ontology-derived capability list and applies the chain's capability
-     * filter ({@code withCapability} composes with {@code provider(p).list()}
-     * — HANDOFF-036 A4; {@link #get(String)} stays an unfiltered point lookup
-     * by id). Middleware fires once per call (not once per page) — pre fires
-     * before the first request, post fires after the final page (or the first
-     * error).
-     */
+    /*
+
+
+
+
+
+
+
+
+*/
     public List<ModelInfo> list() {
         Catalogue.CatalogueConfig cfg = Catalogue.catalogueConfig(target);
         if (cfg == null) {
@@ -85,12 +85,12 @@ public final class ScopedModels {
         }
     }
 
-    /**
-     * Single-provider live model fetch. URL shapes pinned in plan 025
-     * (Anthropic {@code /v1/models/{id}}, OpenAI {@code /v1/models/{id}},
-     * Google {@code /v1beta/models/{id}} — the parser strips {@code models/}
-     * from the response, the URL uses the bare ID).
-     */
+    /*
+
+
+
+
+*/
     public ModelInfo get(String id) {
         Catalogue.CatalogueConfig cfg = Catalogue.catalogueConfig(target);
         if (cfg == null) {
@@ -117,14 +117,14 @@ public final class ScopedModels {
         }
     }
 
-    // --- HTTP internals ---
+    //
 
     private List<ModelsParsers.ParsedModelRecord> paginate(Providers.Spec pcfg, Catalogue.CatalogueConfig cfg) {
-        // Build the full URL FIRST, then splice the cursor: the QueryParamKey
-        // `?key=` must precede the cursor param so a Google multi-page URL
-        // reads `?key=...&pageToken=...`, byte-identical to the other five
-        // SDKs' catalogue-wire golden (CR-003 alignment; HANDOFF-036 Part C
-        // caught Java on the wrong side of the order when it was enrolled).
+        //
+        //
+        //
+        //
+        //
         String baseUrl = buildCatalogueUrl(pcfg, cfg.endpoint);
         String cursor = "";
         List<ModelsParsers.ParsedModelRecord> all = new ArrayList<>();
@@ -140,13 +140,13 @@ public final class ScopedModels {
         }
     }
 
-    /**
-     * Splices the pagination cursor into the URL using the cursor query-param
-     * name carried by the generated {@code CatalogueConfig} (ADR-067 Fix A).
-     * An empty cursor or an empty cursorParam (PaginationNone) leaves the URL
-     * unchanged. Package-private: the catalogue-wire driver
-     * ({@code CatalogueWireTest}) exercises this exact seam.
-     */
+    /*
+
+
+
+
+
+*/
     static String appendCursor(String endpoint, String cursorParam, String cursor) {
         if (cursor.isEmpty() || cursorParam.isEmpty()) {
             return endpoint;
@@ -159,22 +159,22 @@ public final class ScopedModels {
         return URLEncoder.encode(s, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
-    /**
-     * The full catalogue URL for an endpoint, reusing the same URL assembly
-     * the chat request path uses ({@link RequestBuilder#buildUrl}) rather
-     * than a duplicate catalogue-specific builder. Package-private: the
-     * catalogue-wire driver ({@code CatalogueWireTest}) exercises this seam.
-     */
+    /*
+
+
+
+
+*/
     String buildCatalogueUrl(Providers.Spec pcfg, String endpoint) {
         return RequestBuilder.buildUrl(pcfg, endpoint, apiKey, "", baseUrlOverride);
     }
 
-    /** Fetches one catalogue endpoint (URL assembly + auth headers + GET). */
+    /**/
     private byte[] fetchCatalogueUrl(Providers.Spec pcfg, String endpoint) {
         return fetchAbsoluteUrl(pcfg, buildCatalogueUrl(pcfg, endpoint));
     }
 
-    /** GET an already-assembled catalogue URL with the provider's auth headers. */
+    /**/
     private byte[] fetchAbsoluteUrl(Providers.Spec pcfg, String url) {
         Map<String, String> headers = RequestBuilder.buildAuthHeaders(pcfg, apiKey);
         HttpTransport.Result result = http.getText(url, headers);
@@ -205,12 +205,12 @@ public final class ScopedModels {
         }
     }
 
-    /**
-     * Adapts the list-parsers to {@link #get(String)}. Each provider returns
-     * the single record inline (no envelope) at {@code /v1/models/{id}} —
-     * wrap it into a one-record list and reuse the same parser to keep
-     * wire-format mapping single-sourced.
-     */
+    /*
+
+
+
+
+*/
     private static ModelsParsers.ParsedModelRecord parseSingleRecord(String kind, byte[] body) {
         String bodyStr = new String(body, StandardCharsets.UTF_8);
         String wrapped = switch (kind) {

@@ -1,6 +1,6 @@
 package com.aktagon.llmkit;
 
-/** A provider-reported terminal FAILED state from an async job's poll loop. */
+/**/
 public final class JobFailedException extends LlmKitException {
     private final JobFailure cause;
 
@@ -14,7 +14,7 @@ public final class JobFailedException extends LlmKitException {
         return detail.isEmpty() ? noun + " failed" : noun + " failed: " + detail;
     }
 
-    /** The normalized failure detail (raw status, message, timed-out flag). */
+    /**/
     public JobFailure failure() {
         return cause;
     }

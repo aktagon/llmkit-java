@@ -5,11 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.aktagon.llmkit.providers.generated.ProviderName;
 import org.junit.jupiter.api.Test;
 
-/**
- * Client.addHeader (ADR-052): a custom header reaches the wire on every send
- * path beside the provider auth header (the BUG-015 authenticated-gateway
- * case), calls accumulate, and an SDK-set header is never clobbered.
- */
+/*
+
+
+
+*/
 class CustomHeaderTest {
 
     private static final String OPENAI_REPLY =

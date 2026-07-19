@@ -13,22 +13,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Request-body message + tool transforms, selected by the effective
- * {@code chatWireShape} (ADR-047 / ADR-055 discriminator) and the generated
- * {@code ToolCallDef}, NOT by provider name — a port of Swift's
- * {@code Transforms} / Rust's {@code transforms.rs}. Covers the multi-turn
- * message array (text, media, tool-call, and tool-result turns) for the four
- * chat wire shapes plus tool-definition serialization and response-side
- * tool-call extraction.
- */
+/*
+
+
+
+
+
+
+
+*/
 final class Transforms {
     private Transforms() {}
 
-    /**
-     * True when any turn carries a file reference — drives the Anthropic
-     * files-api beta header (BUG-017).
-     */
+    /*
+
+
+*/
     static boolean hasFileParts(List<Msg> msgs) {
         for (Msg msg : msgs) {
             if (msg instanceof Msg.Media media && !media.files().isEmpty()) {
@@ -38,12 +38,12 @@ final class Transforms {
         return false;
     }
 
-    // --- Message array ---
+    //
 
-    /**
-     * Append the provider-specific message array to {@code body}, built from
-     * the internal message list + an optional system turn.
-     */
+    /*
+
+
+*/
     static void applyMessageShape(
             JsonObject body, List<Msg> msgs, String system, String wireShape, Providers.Spec config) {
         if ("ChatGoogle".equals(wireShape)) {
@@ -55,12 +55,12 @@ final class Transforms {
         }
     }
 
-    /**
-     * The shared flat message array used by both the Chat Completions
-     * ({@code messages}) and Responses ({@code input}) envelopes. A leading
-     * system turn is emitted only for the MessageInArray placement; Bedrock
-     * wraps text content in a {@code [{text}]} block.
-     */
+    /*
+
+
+
+
+*/
     private static JsonArray flatMessageArray(
             List<Msg> msgs, String system, String wireShape, Providers.Spec config) {
         boolean bedrock = "ChatBedrock".equals(wireShape);
@@ -104,14 +104,14 @@ final class Transforms {
         return messages;
     }
 
-    /**
-     * The flat (OpenAI / Anthropic / Responses) content-parts array for a
-     * media turn: files first, then images, then the text — the fixed order
-     * the wire goldens pin. Anthropic uses {@code document}/{@code image}
-     * blocks with a {@code source}; OpenAI uses {@code file}/{@code image_url}
-     * blocks. Mirror of Swift's {@code flatContentParts} / Rust's
-     * {@code build_flat_content_parts}.
-     */
+    /*
+
+
+
+
+
+
+*/
     private static JsonArray flatContentParts(
             List<InputImage> images, List<FileRef> files, String text, String wireShape) {
         boolean isAnthropic = "ChatAnthropic".equals(wireShape);
@@ -166,11 +166,11 @@ final class Transforms {
         return parts;
     }
 
-    /**
-     * The Google {@code parts} array for a media turn: {@code file_data} for
-     * files, {@code inline_data} for data-URI images, then the text. Mirror of
-     * Swift's {@code googleParts} / Rust's {@code build_google_parts}.
-     */
+    /*
+
+
+
+*/
     private static JsonArray googleParts(List<InputImage> images, List<FileRef> files, String text) {
         JsonArray parts = new JsonArray();
         for (FileRef file : files) {
@@ -199,11 +199,11 @@ final class Transforms {
         return parts;
     }
 
-    /**
-     * The Bedrock Converse content array for a media turn: {@code image}
-     * blocks (files are unsupported here), then the text. Mirror of Swift's
-     * {@code bedrockContentParts} / Rust's {@code build_bedrock_content_parts}.
-     */
+    /*
+
+
+
+*/
     private static JsonArray bedrockContentParts(List<InputImage> images, String text) {
         JsonArray parts = new JsonArray();
         for (InputImage image : images) {
@@ -224,10 +224,10 @@ final class Transforms {
         return parts;
     }
 
-    /**
-     * Split a {@code data:<mime>;base64,<data>} URI into
-     * {@code {mime, data}}. A non-data URI returns {@code {"", url}}.
-     */
+    /*
+
+
+*/
     private static String[] parseDataUri(String url) {
         int comma = url.indexOf(',');
         if (!url.startsWith("data:") || comma < 0) {
@@ -239,16 +239,16 @@ final class Transforms {
         return new String[] {mime, url.substring(comma + 1)};
     }
 
-    /** Derive the Converse {@code format} token from a MIME type (image/png -> "png"). */
+    /**/
     private static String bedrockImageFormat(String mime) {
         int slash = mime.lastIndexOf('/');
         return slash >= 0 ? mime.substring(slash + 1) : mime;
     }
 
     private static JsonArray googleContents(List<Msg> msgs, Providers.Spec config) {
-        // Google identifies a tool result by function NAME, but ToolResult
-        // carries only tool_use_id. Recover id->name from the preceding call
-        // turns (which always precede their result in a valid history).
+        //
+        //
+        //
         Map<String, String> idToName = new HashMap<>();
         JsonArray contents = new JsonArray();
         for (Msg msg : msgs) {
@@ -283,13 +283,13 @@ final class Transforms {
         return contents;
     }
 
-    // --- Tool definitions ---
+    //
 
-    /**
-     * Serialize the tool definitions into the provider-specific wire field,
-     * selected by {@code chatWireShape} + the generated
-     * {@code ToolCallDef.argsFormat}.
-     */
+    /*
+
+
+
+*/
     static void applyToolDefs(JsonObject body, Providers.Spec config, List<Tool> tools) {
         if (tools.isEmpty()) {
             return;
@@ -368,7 +368,7 @@ final class Transforms {
         body.add("toolConfig", toolConfig);
     }
 
-    // --- Tool-call / tool-result turn messages ---
+    //
 
     private static JsonElement toolCallInput(ToolCall call) {
         return call.input() != null ? call.input() : new JsonObject();
@@ -491,12 +491,12 @@ final class Transforms {
         return message;
     }
 
-    // --- Tool-call extraction (response side) ---
+    //
 
-    /**
-     * Extract the tool calls the model issued in the raw response, selected by
-     * {@code chatWireShape} + {@code ToolCallDef.argsFormat}.
-     */
+    /*
+
+
+*/
     static List<ToolCall> extractToolCalls(JsonElement raw, Providers.Spec config) {
         if ("ChatBedrock".equals(config.chatWireShape)) {
             return extractBedrockToolCalls(raw);
@@ -540,7 +540,7 @@ final class Transforms {
                             input = parsed;
                         }
                     } catch (DecodingException e) {
-                        // Malformed arguments degrade to an empty input object.
+                        //
                     }
                 }
             } else {
@@ -616,23 +616,23 @@ final class Transforms {
         return result;
     }
 
-    // --- Helpers ---
+    //
 
     private static String argsFormat(ProviderName provider) {
         Request.ToolCallDef def = Request.toolCallConfig(provider);
         return def != null ? def.argsFormat : "json_string";
     }
 
-    /** The value if it is an object, else an empty object — for a tool-call
-     * input that may be absent or non-object. */
+    /*
+*/
     private static JsonElement objectOrEmpty(JsonElement value) {
         return value != null && value.isJsonObject() ? value : new JsonObject();
     }
 
-    /**
-     * Translate a canonical role to the provider's wire role (identity when the
-     * provider declares no mapping).
-     */
+    /*
+
+
+*/
     static String mapRole(String role, Providers.Spec config) {
         return config.roleMappings.getOrDefault(role, role);
     }

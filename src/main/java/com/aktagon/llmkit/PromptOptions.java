@@ -3,13 +3,13 @@ package com.aktagon.llmkit;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * The accumulated generation parameters carried by the {@link Text} builder and
- * applied to the request body by {@link RequestBuilder} (mirrors Swift's
- * {@code PromptOptions} / Rust's {@code PromptOptions}). Package-private — the
- * public surface is the builder chain. Mutable; {@link Text} clones it on each
- * chain step so builders stay immutable value-like.
- */
+/*
+
+
+
+
+
+*/
 final class PromptOptions {
     Integer maxTokens;
     Double temperature;
@@ -22,21 +22,21 @@ final class PromptOptions {
     String reasoningEffort;
     List<String> stopSequences = new ArrayList<>();
     List<SafetySetting> safetySettings = new ArrayList<>();
-    /** The chat-protocol opt-in token (ADR-055), e.g. {@code "responses"}. Empty = default. */
+    /**/
     String proto = "";
-    /** A JSON-Schema string for structured output, or null. */
+    /**/
     String schema;
-    /** Opt into prompt caching (ADR-026). The provider-appropriate mechanism
-     * is chosen by {@code Caching.config(provider).mode}. */
+    /*
+*/
     boolean caching = false;
-    /** Cache TTL in seconds (resource caching only); null uses the provider default. */
+    /**/
     Integer cacheTtl;
-    /** Observation + veto hooks fired around each operation site. */
+    /**/
     List<MiddlewareFn> middleware = new ArrayList<>();
 
     PromptOptions() {}
 
-    /** A deep-enough copy for clone-on-chain (lists copied, scalars shared). */
+    /**/
     PromptOptions copy() {
         PromptOptions o = new PromptOptions();
         o.maxTokens = maxTokens;

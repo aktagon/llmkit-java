@@ -11,12 +11,12 @@ import com.aktagon.llmkit.providers.generated.VideoResponse;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * Executes the exact call chains shown in java/README.md against canned
- * transports, so every documented shape is guaranteed to run against the
- * real builder surface. The marked blocks are the single source for the
- * matching README fences; keep them pure chains that read standalone.
- */
+/*
+
+
+
+
+*/
 class ExampleSnippetsTest {
 
     @Test
@@ -31,7 +31,7 @@ class ExampleSnippetsTest {
         CapturingTransport transport = new CapturingTransport().withResponse(200, sse);
         Client client = new Client(ProviderName.OPENAI, "test-key", transport);
 
-        // #region stream
+        //
         Response resp = client.text()
                 .system("Be brief")
                 .stream("Tell me a joke", System.out::print);
@@ -39,7 +39,7 @@ class ExampleSnippetsTest {
         System.out.println();
         System.out.println("Usage: " + resp.usage().input() + " in / "
                 + resp.usage().output() + " out");
-        // #endregion
+        //
 
         assertEquals("Why did the chicken cross the road?", resp.text());
         assertEquals(12, resp.usage().input());
@@ -61,7 +61,7 @@ class ExampleSnippetsTest {
                 .enqueue(resultLines); // result file content
         Client client = new Client(ProviderName.OPENAI, "test-key", transport);
 
-        // #region batch
+        //
         BatchJob job = client.text()
                 .system("Be brief")
                 .batch(
@@ -71,7 +71,7 @@ class ExampleSnippetsTest {
 
         List<Response> results = job.await();
         results.forEach(r -> System.out.println(r.text()));
-        // #endregion
+        //
 
         assertEquals(3, results.size());
         assertEquals("Bonjour", results.get(0).text());
@@ -86,7 +86,7 @@ class ExampleSnippetsTest {
 
     @Test
     void musicChain() {
-        // A real 44-byte WAV header (base64), same constant MusicTest uses.
+        //
         String wavBase64 = "UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=";
         CapturingTransport transport = new CapturingTransport().withResponse(
                 200,
@@ -94,14 +94,14 @@ class ExampleSnippetsTest {
                         + "\",\"mimeType\":\"audio/wav\"}]}");
         Client client = new Client(ProviderName.VERTEX, "test-token", transport);
 
-        // #region music
+        //
         MusicResponse resp = client.music()
                 .model("lyria-002")
                 .generate("a calm instrumental, warm piano and soft strings");
 
         AudioData first = resp.audio().get(0);
         System.out.println("got " + first.bytes().length + " bytes (" + first.mimeType() + ")");
-        // #endregion
+        //
 
         assertEquals("audio/wav", first.mimeType());
         assertEquals(44, first.bytes().length);
@@ -116,7 +116,7 @@ class ExampleSnippetsTest {
                         + "\"duration\":6}}"); // poll: done on the first round-trip
         Client client = new Client(ProviderName.GROK, "test-key", transport);
 
-        // #region video
+        //
         VideoJob job = client.video()
                 .model("grok-imagine-video")
                 .submit("a slow cinematic drone shot flying over snow-capped"
@@ -126,7 +126,7 @@ class ExampleSnippetsTest {
         VideoData first = resp.videos().get(0);
         System.out.println("url=" + first.url() + " duration="
                 + first.durationSeconds() + "s mime=" + first.mimeType());
-        // #endregion
+        //
 
         assertEquals("https://xai.example/vid_alpine.mp4", first.url());
         assertEquals(6, first.durationSeconds());

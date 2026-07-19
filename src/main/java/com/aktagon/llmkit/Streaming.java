@@ -12,16 +12,16 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-/**
- * Streaming (SSE) text generation — a port of Swift's {@code Streamer} /
- * Rust's {@code stream.rs}. Builds the request body through the shared
- * {@link RequestBuilder}, applies caching, adds the per-provider stream flag
- * (+ {@code stream_options.include_usage} where the provider requires it,
- * BUG-028), and consumes the {@code event:} / {@code data:} frame stream,
- * invoking {@code onDelta} per text chunk and assembling the final
- * {@code Response}. Fires the {@code llmRequest} middleware op around the
- * whole call, mirroring Go's {@code promptStream}.
- */
+/*
+
+
+
+
+
+
+
+
+*/
 final class Streaming {
     private Streaming() {}
 
@@ -76,7 +76,7 @@ final class Streaming {
         if (!stream.param.isEmpty()) {
             body.addProperty(stream.param, true);
         }
-        // BUG-028: opt into a streamed usage frame where the provider requires it.
+        //
         if (stream.usageOptIn) {
             JsonObject streamOptions = new JsonObject();
             streamOptions.addProperty("include_usage", true);
@@ -105,12 +105,12 @@ final class Streaming {
         long usageOutput = 0;
         String currentEvent = "";
 
-        // The lines Stream owns the response subscription: close it on every
-        // exit (the done-sentinel early returns fire on essentially every
-        // successful stream before the body is exhausted) or the connection
-        // leaks in the shared HttpClient. A mid-stream network failure
-        // surfaces from the iterator as UncheckedIOException; rewrap so the
-        // typed-error contract (LlmKitException) holds on this path too.
+        //
+        //
+        //
+        //
+        //
+        //
         try (java.util.stream.Stream<String> lineStream = result.lines()) {
             Iterator<String> lines = lineStream.iterator();
             while (lines.hasNext()) {
@@ -125,7 +125,7 @@ final class Streaming {
                     continue;
                 }
 
-                // Data-level done sentinel (e.g. OpenAI [DONE]) is literal, not JSON.
+                //
                 if (!stream.doneSignal.isEmpty() && data.equals(stream.doneSignal)) {
                     return assemble(fullText.toString(), usageInput, usageOutput, finishReason);
                 }
@@ -137,8 +137,8 @@ final class Streaming {
                     parsed = null;
                 }
 
-                // ADR-013: capture the stream-time finish reason before any event-
-                // level done return.
+                //
+                //
                 if (parsed != null && !finishPath.isEmpty()
                         && (finishEvent.isEmpty() || finishEvent.equals(currentEvent))) {
                     String value = Json.stringAt(parsed, finishPath);
@@ -202,10 +202,10 @@ final class Streaming {
         return new Response(text, new Usage(input, output, 0, 0, 0, 0.0), finishReason, "", null);
     }
 
-    /**
-     * Split {@code event_name:json.path} into its event-name prefix and the
-     * JSON path. Bare paths return {"", path}; empty returns {"", ""}.
-     */
+    /*
+
+
+*/
     private static String[] parseStreamFinishPath(String p) {
         if (p.isEmpty()) {
             return new String[] {"", ""};

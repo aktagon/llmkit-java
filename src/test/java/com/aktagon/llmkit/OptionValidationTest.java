@@ -8,13 +8,13 @@ import com.aktagon.llmkit.providers.generated.ProviderName;
 import com.aktagon.llmkit.providers.generated.Response;
 import org.junit.jupiter.api.Test;
 
-/**
- * Pre-flight option validation (mirror of Go's {@code validateOptions}): an
- * option a provider's supported table lacks is a loud
- * {@link ValidationException}, never a silent drop. The unsupported combos
- * below are read off the generated {@code Options.supported} tables — OpenAI
- * lacks {@code top_k} and {@code thinking_budget}; Anthropic carries both.
- */
+/*
+
+
+
+
+
+*/
 class OptionValidationTest {
 
     private static final String ANTHROPIC_REPLY =
@@ -60,7 +60,7 @@ class OptionValidationTest {
 
     @Test
     void reasoningEffortValueOutsideWhitelistThrowsLoudly() {
-        // Anthropic's ontology override whitelists low/medium/high/xhigh/max.
+        //
         Client client = new Client(ProviderName.ANTHROPIC, "test-key", new CapturingTransport());
 
         ValidationException err = assertThrows(

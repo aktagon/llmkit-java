@@ -14,16 +14,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Batch execution mode (ADR-064) — a port of Swift's {@code Batch} / Rust's
- * {@code batch.rs} onto the shared Job engine (ADR-062). {@code Text.batch}
- * submits and returns a {@link BatchJob}; the job polls the lifecycle to
- * completion and returns the ordered responses.
- */
+/*
+
+
+
+
+*/
 final class Batching {
     private Batching() {}
 
-    /** Submit a batch of single-turn prompts and return the live {@link BatchJob}. */
+    /**/
     static BatchJob submit(
             Providers.Spec config,
             String apiKey,
@@ -58,12 +58,12 @@ final class Batching {
             }
             case INLINE_REQUESTS -> {
                 JsonArray items = new JsonArray();
-                // The per-item bodies may require a contract-bearing
-                // anthropic-beta (structured output / files) that
-                // buildAuthHeaders does not set — compose it across items and
-                // ride it onto the batch CREATE request, else a
-                // schema-carrying item silently drops the beta and the
-                // provider 400s (mirror of Rust batch.rs build_batch_body).
+                //
+                //
+                //
+                //
+                //
+                //
                 String beta = "";
                 for (int index = 0; index < prompts.size(); index++) {
                     RequestBuilder.Built built = RequestBuilder.buildBody(
@@ -107,12 +107,12 @@ final class Batching {
         return new BatchJob(handle, apiKey, http, baseUrlOverride);
     }
 
-    /**
-     * The per-item user turn — a media turn when the builder carried
-     * image/file parts (ADR-060), else a plain text turn. Batch applies the
-     * builder's media to every item (the ADR-064 {@code batch(prompts...)}
-     * shape carries builder-level config uniformly).
-     */
+    /*
+
+
+
+
+*/
     private static List<Msg> itemMsgs(String prompt, List<InputImage> images, List<FileRef> files) {
         if (images.isEmpty() && files.isEmpty()) {
             return List.of(new Msg.Text("user", prompt));
@@ -177,7 +177,7 @@ final class Batching {
         return fileId;
     }
 
-    /** Binds the batch capability to the Job engine's four seams. */
+    /**/
     static final class BatchAdapter implements Job.Adapter<List<Response>> {
         final Job.LifecycleConfig lc;
         private final Providers.Spec spec;
@@ -242,8 +242,8 @@ final class Batching {
 
         @Override
         public List<Response> result(Job.PollBody body) {
-            // The output file ID lives in the already-decoded poll body
-            // (ADR-062 S1) — no redundant status GET.
+            //
+            //
             String responseBody;
             if (!lifecycle.resultFileIdPath.isEmpty()) {
                 String fileId = Json.stringAt(body.raw(), lifecycle.resultFileIdPath);
@@ -274,10 +274,10 @@ final class Batching {
                 if (line.isEmpty()) {
                     continue;
                 }
-                // A malformed or errored item line (e.g. Anthropic
-                // result.type=errored, which carries no result.message at the
-                // configured body path) must not destroy the completed batch:
-                // skip it and return the successful subset, mirroring Go.
+                //
+                //
+                //
+                //
                 try {
                     String responseText;
                     if (batch.resultBodyPath.isEmpty()) {

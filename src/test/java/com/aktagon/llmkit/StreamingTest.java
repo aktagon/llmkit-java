@@ -17,16 +17,16 @@ import java.util.stream.StreamSupport;
 import java.util.Spliterators;
 import org.junit.jupiter.api.Test;
 
-/**
- * Stream lifecycle: the SSE line Stream owns the response subscription, so it
- * must be closed on the done-sentinel early return (which fires on essentially
- * every successful OpenAI stream), and a mid-stream network failure must
- * surface as the typed TransportException, not the JDK's raw
- * UncheckedIOException.
- */
+/*
+
+
+
+
+
+*/
 class StreamingTest {
 
-    /** Transport whose streamed body reports whether it was closed. */
+    /**/
     private static final class ClosableStreamTransport implements HttpTransport {
         final AtomicBoolean closed = new AtomicBoolean(false);
         private final Stream<String> lines;

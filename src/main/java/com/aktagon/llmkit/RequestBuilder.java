@@ -11,30 +11,30 @@ import com.google.gson.JsonPrimitive;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Builds the provider-specific chat request body, headers, and URL from the
- * generated {@code Providers.Spec} + option tables. Selected by config facts
- * ({@code chatWireShape}, {@code systemPlacement}, {@code authScheme},
- * {@code wrapsOptionsIn}), never by provider name — a port of Swift's
- * {@code RequestBuilder} / Rust's {@code request.rs::build_request} covering
- * options, structured output, the Responses protocol, and media Parts on the
- * text path (ADR-060, BUG-017 files-api beta composition).
- */
+/*
+
+
+
+
+
+
+
+*/
 final class RequestBuilder {
     private RequestBuilder() {}
 
-    /** The effective wire shape + endpoint after chat-protocol resolution. */
+    /**/
     record Resolved(String wireShape, String endpoint) {}
 
-    /** One built request: ordered JSON body + auth headers. */
+    /**/
     record Built(JsonObject body, Map<String, String> headers) {}
 
-    /**
-     * Resolve a chat-protocol opt-in token (ADR-055) to the effective
-     * {@code (wireShape, endpoint)}. An empty token keeps the default; an
-     * unknown or unsupported token is a loud validation error before any body
-     * is built.
-     */
+    /*
+
+
+
+
+*/
     static Resolved resolveChatProtocol(Providers.Spec config, String token) {
         if (token == null || token.isEmpty()) {
             return new Resolved(config.chatWireShape, config.endpoint);
@@ -56,12 +56,12 @@ final class RequestBuilder {
         return "responses".equals(token) ? "ChatResponsesOpenAI" : null;
     }
 
-    /**
-     * Construct the request body + headers for a chat request. {@code msgs} is
-     * the internal message list (a single user turn on the Text path, the full
-     * history on the Agent path); {@code tools} serializes tool definitions
-     * when the caller registered any. Mirror of Rust's {@code build_request}.
-     */
+    /*
+
+
+
+
+*/
     static Built buildBody(
             Providers.Spec config,
             String wireShape,
@@ -86,7 +86,7 @@ final class RequestBuilder {
             body.add(maxKey, new JsonPrimitive(maxTokens));
         }
 
-        // System placement (the message-array case is handled inside the shape).
+        //
         switch (config.systemPlacement) {
             case "TopLevelField" -> {
                 if (system != null) {
@@ -118,9 +118,9 @@ final class RequestBuilder {
         Transforms.applyMessageShape(body, msgs, system, wireShape, config);
         Transforms.applyToolDefs(body, config, tools);
 
-        // Options. When the provider wraps options (Google's generationConfig),
-        // the generation params + max-token key nest inside the wrapper; root
-        // extras (ADR-029) always deep-merge at the true body root.
+        //
+        //
+        //
         if (!config.wrapsOptionsIn.isEmpty()) {
             JsonObject wrapped = new JsonObject();
             JsonObject rootExtras = addOptions(wrapped, config.name, model, options);
@@ -152,12 +152,12 @@ final class RequestBuilder {
             addStructuredOutput(body, headers, options.schema, config.name);
         }
 
-        // BUG-017: a text request referencing an uploaded file emits an
-        // Anthropic {"type":"document","source":{"type":"file",...}} block,
-        // which the Messages API rejects unless the files-api beta rides
-        // along. Compose it with any existing anthropic-beta (e.g. the
-        // structured-output beta) — comma-separated, deduped — never
-        // overwriting.
+        //
+        //
+        //
+        //
+        //
+        //
         if (Transforms.hasFileParts(msgs)) {
             Request.FileUploadDef upload = Request.fileUploadConfig(config.name);
             if (upload != null && !upload.betaHeader.isEmpty()) {
@@ -168,8 +168,8 @@ final class RequestBuilder {
             }
         }
 
-        // ADR-055 Responses body fixup: the output-token cap is named
-        // `max_output_tokens` (not `max_tokens`) on the Responses envelope.
+        //
+        //
         if ("ChatResponsesOpenAI".equals(wireShape) && body.has("max_tokens")) {
             JsonElement value = body.get("max_tokens");
             body.remove("max_tokens");
@@ -179,10 +179,10 @@ final class RequestBuilder {
         return new Built(body, headers);
     }
 
-    /**
-     * The chosen model, or the provider default; throws when neither exists
-     * (ADR-031 honest no-default contract).
-     */
+    /*
+
+
+*/
     static String resolveModel(Providers.Spec config, String override) {
         if (override != null) {
             return override;
@@ -194,11 +194,11 @@ final class RequestBuilder {
         return config.defaultModel;
     }
 
-    /**
-     * Send a chat request, dispatching on the auth scheme: a SigV4 provider
-     * (Bedrock) signs the exact bytes and reads its credentials from the
-     * environment (ADR-052); every other provider posts with the auth headers.
-     */
+    /*
+
+
+
+*/
     static HttpTransport.Result send(
             Providers.Spec config,
             String url,
@@ -217,13 +217,13 @@ final class RequestBuilder {
         return http.postJson(url, payload, merged);
     }
 
-    /**
-     * Resolve the SigV4 credentials from the environment, sign the request,
-     * and merge the caller's headers over the signed set. The single assembly
-     * seam for every SigV4 request — the chat/media POSTs and the Bedrock
-     * video poll GET (which passes an empty {@code contentType}: a bodyless
-     * GET sends no Content-Type, so none may be signed).
-     */
+    /*
+
+
+
+
+
+*/
     static Map<String, String> sigV4Headers(
             Providers.Spec config,
             String method,
@@ -250,10 +250,10 @@ final class RequestBuilder {
         return merged;
     }
 
-    /**
-     * Compose two comma-separated {@code anthropic-beta} values, deduplicating
-     * tokens while preserving first-seen order (mirrors Rust/Swift appendBeta).
-     */
+    /*
+
+
+*/
     static String appendBeta(String existing, String value) {
         java.util.List<String> tokens = new java.util.ArrayList<>();
         for (String source : new String[] {existing, value}) {
@@ -267,10 +267,10 @@ final class RequestBuilder {
         return String.join(",", tokens);
     }
 
-    /**
-     * Provider auth + required headers, dispatched on the generated
-     * {@code authScheme} fact (QueryParamKey / SigV4 contribute no header here).
-     */
+    /*
+
+
+*/
     static Map<String, String> buildAuthHeaders(Providers.Spec config, String apiKey) {
         Map<String, String> headers = new LinkedHashMap<>();
         switch (config.authScheme) {
@@ -284,11 +284,11 @@ final class RequestBuilder {
         return headers;
     }
 
-    /**
-     * The request URL: base (with optional override) + endpoint, resolving
-     * {@code {region}}/{@code {model}}/{@code {apiKey}} placeholders and the
-     * QueryParamKey {@code ?key=} parameter.
-     */
+    /*
+
+
+
+*/
     static String buildUrl(
             Providers.Spec config, String endpoint, String apiKey, String model, String baseUrlOverride) {
         String base = baseUrlOverride != null ? baseUrlOverride : config.baseUrl;
@@ -306,14 +306,14 @@ final class RequestBuilder {
         return base + resolved;
     }
 
-    // --- Options ---
+    //
 
-    /**
-     * Reject options the provider's supported table lacks (mirror of Go's
-     * {@code validateOptions}) — silently dropping a requested knob would
-     * misrepresent the call. A provider with no supported table skips
-     * validation, matching Go's nil-table behavior.
-     */
+    /*
+
+
+
+
+*/
     static void validateOptions(Providers.Spec config, PromptOptions options) {
         java.util.List<Options.SupportedDef> supported = Options.supported(config.name);
         if (supported.isEmpty()) {
@@ -336,8 +336,8 @@ final class RequestBuilder {
         }
         if (options.reasoningEffort != null && !options.reasoningEffort.isEmpty()) {
             requireSupported(supported, Options.Key.REASONING_EFFORT, "reasoning_effort", config.slug);
-            // Value check against the ontology-defined allowedValues
-            // (provider-level overrides), mirroring Go.
+            //
+            //
             for (Options.OptionOverrideDef override : Options.optionOverrides(config.name)) {
                 if (override.key == Options.Key.REASONING_EFFORT
                         && !override.allowedValues.isEmpty()
@@ -361,11 +361,11 @@ final class RequestBuilder {
         throw new ValidationException(field, "not supported by " + slug);
     }
 
-    /**
-     * Applies generation parameters to {@code body} and returns the accumulated
-     * root extras (ADR-029 THK-003) for the caller to deep-merge at the body
-     * root.
-     */
+    /*
+
+
+
+*/
     private static JsonObject addOptions(
             JsonObject body, ProviderName provider, String model, PromptOptions options) {
         JsonObject rootExtras = new JsonObject();
@@ -405,9 +405,9 @@ final class RequestBuilder {
         }
         JsonBuilder.setNested(body, jsonKey, value);
 
-        // Static sibling fields from the option override (e.g. Anthropic's
-        // {"type":"enabled"} alongside thinking.budget_tokens) merge into the
-        // leaf's parent object.
+        //
+        //
+        //
         for (Options.OptionOverrideDef override : Options.optionOverrides(provider)) {
             if (override.key == key && !override.extraFieldsJson.isEmpty()) {
                 JsonElement extras = Json.parse(override.extraFieldsJson);
@@ -417,8 +417,8 @@ final class RequestBuilder {
                 break;
             }
         }
-        // Root extras (ADR-029): static fields the option implies at the body
-        // ROOT (e.g. {"thinking":{"type":"adaptive"}} alongside output_config.effort).
+        //
+        //
         for (Options.OptionOverrideDef override : Options.optionOverrides(provider)) {
             if (override.key == key && !override.rootExtraFieldsJson.isEmpty()) {
                 JsonElement extras = Json.parse(override.rootExtraFieldsJson);
@@ -430,13 +430,13 @@ final class RequestBuilder {
         }
     }
 
-    /**
-     * Wire (JSON) key for {@code key} on {@code (provider, model)}. Per-model
-     * overrides (ADR-024) outrank the provider default: an exact id match wins
-     * outright, else the longest-prefix glob wins, else the provider's
-     * supported-options key. Returns null when the provider does not support the
-     * option.
-     */
+    /*
+
+
+
+
+
+*/
     static String resolveOptionKey(ProviderName provider, String model, Options.Key key) {
         String bestKey = null;
         int bestLen = -1;
@@ -469,7 +469,7 @@ final class RequestBuilder {
         return null;
     }
 
-    // --- Structured output ---
+    //
 
     private static void addStructuredOutput(
             JsonObject body, Map<String, String> headers, String schema, ProviderName provider) {
@@ -514,11 +514,11 @@ final class RequestBuilder {
         JsonBuilder.setNested(body, def.formatField, formatObject);
     }
 
-    /**
-     * EnforceStrict normalization: set {@code additionalProperties:false} on
-     * every object node and auto-fill {@code required} with all property keys
-     * when absent (recursing through {@code properties} and {@code items}).
-     */
+    /*
+
+
+
+*/
     private static void setAdditionalPropertiesFalse(JsonObject schema) {
         JsonElement type = schema.get("type");
         if (type != null && type.isJsonPrimitive() && "object".equals(type.getAsString())) {
@@ -546,7 +546,7 @@ final class RequestBuilder {
         }
     }
 
-    /** Google normalization: strip {@code additionalProperties} at every node. */
+    /**/
     private static void removeAdditionalProperties(JsonObject schema) {
         schema.remove("additionalProperties");
         JsonElement propsElement = schema.get("properties");

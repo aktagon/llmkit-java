@@ -14,23 +14,23 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Binds the video capability to the Job engine's four seams (ADR-062). Video's
- * poll classification is NOT config-driven the way batch's is — the generated
- * {@code VideoGenDef} carries no status paths — so {@link #classify} dispatches
- * on the {@code wireShape} fact (a port of Rust's {@code parse_video_poll}) and
- * {@link #result} extracts the finished video URL/bytes per shape (the
- * {@code video_result_from_*} family, including the MiniMax two-hop file
- * retrieve and the Veo download hop). A port of Swift's {@code VideoPoll.swift}.
- */
+/*
+
+
+
+
+
+
+
+*/
 final class VideoPoll {
     private VideoPoll() {}
 
-    /**
-     * Video API base: an override wins, else the provider's distinct video
-     * base when set, else the chat base — with {@code {region}} resolved from
-     * the region env var.
-     */
+    /*
+
+
+
+*/
     static String baseUrl(Providers.Spec config, VideoGenDef vgCfg, String override) {
         if (override != null) {
             return override;
@@ -45,11 +45,11 @@ final class VideoPoll {
         return base;
     }
 
-    /**
-     * Appends {@code ?key=}/{@code &key=} for query-param-auth providers
-     * (Google); a no-op otherwise. Picks the separator by whether the URL
-     * already has a query.
-     */
+    /*
+
+
+
+*/
     static String appendQueryAuth(String url, Providers.Spec config, String apiKey) {
         if (!"QueryParamKey".equals(config.authScheme) || config.authQueryParam.isEmpty()) {
             return url;
@@ -58,11 +58,11 @@ final class VideoPoll {
         return url + separator + config.authQueryParam + "=" + apiKey;
     }
 
-    /**
-     * Descends a dotted path (e.g. "id", "output.task_id", "Resp.video_id")
-     * through the submit response; a numeric leaf (PixVerse's integer job id)
-     * is formatted back to its integer string.
-     */
+    /*
+
+
+
+*/
     static String lookupHandleField(JsonElement raw, String path) {
         if (path.isEmpty()) {
             return "";
@@ -81,12 +81,12 @@ final class VideoPoll {
         return "";
     }
 
-    /**
-     * Classifies one poll body per wire shape (port of {@code
-     * parse_video_poll}). Returns running / succeeded / failed; an unmodeled
-     * wire shape is an internal invariant violation (the switch is exhaustive
-     * over the ten configured shapes), not a runtime user error.
-     */
+    /*
+
+
+
+
+*/
     static Job.Classification classify(VideoGenDef vgCfg, JsonElement raw) {
         return switch (vgCfg.wireShape()) {
             case "VideoQwen" -> {
@@ -123,8 +123,8 @@ final class VideoPoll {
                 yield running(state);
             }
             case "VideoPixVerse" -> {
-                // Status is an INTEGER code nested under Resp: 1=success,
-                // 7/8=failed, 5=generating.
+                //
+                //
                 JsonElement resp = Json.at(raw, "Resp");
                 long status = resp != null ? Json.longAt(resp, "status") : -1;
                 if (status == 1) {
@@ -136,16 +136,16 @@ final class VideoPoll {
                 yield running(String.valueOf(status));
             }
             case "VideoMinimax" -> {
-                // Two-hop: success yields a file_id (resolved in result), not a URL.
+                //
                 String status = Json.stringAt(raw, "status");
                 yield "Success".equals(status)
                         ? succeeded(status)
                         : "Fail".equals(status) ? failed(status, "") : running(status);
             }
             case "VideoVeo", "VideoVertexVeo" -> {
-                // Operation-based LRO: poll until done==true. A done op with an
-                // error object is a terminal failure; otherwise the finished
-                // video is in the response (extracted in result).
+                //
+                //
+                //
                 JsonElement doneElement = Json.at(raw, "done");
                 boolean done = doneElement != null
                         && doneElement.isJsonPrimitive()
@@ -182,10 +182,10 @@ final class VideoPoll {
         };
     }
 
-    /**
-     * Extracts the finished {@code VideoResponse} per wire shape (the {@code
-     * video_result_from_*} family). Only called on a succeeded classification.
-     */
+    /*
+
+
+*/
     static VideoResponse result(
             VideoGenDef vgCfg, JsonElement raw, String base, Map<String, String> headers, HttpTransport http) {
         String mime = fallbackMime(vgCfg);
@@ -248,10 +248,10 @@ final class VideoPoll {
         };
     }
 
-    /**
-     * The MiniMax file-retrieve hop: reads file_id from the terminal poll,
-     * GETs the file endpoint, and extracts file.download_url.
-     */
+    /*
+
+
+*/
     private static VideoResponse resolveFile(
             VideoGenDef vgCfg,
             JsonElement poll,
@@ -278,7 +278,7 @@ final class VideoPoll {
         return urlResult(mime, Json.stringAt(fileRaw, "file.download_url"));
     }
 
-    // --- Small builders ---
+    //
 
     private static String fallbackMime(VideoGenDef vgCfg) {
         return vgCfg.models().isEmpty() ? "video/mp4" : vgCfg.models().get(0).outputMime();
@@ -289,15 +289,15 @@ final class VideoPoll {
                 List.of(new VideoData(mime, url, new byte[0], duration)), Usage.zero(), "", "", null);
     }
 
-    /**
-     * A url-delivery result, or the empty response when the URL is absent
-     * (matches the Rust {@code video_result_from_*} empty-url guard).
-     */
+    /*
+
+
+*/
     private static VideoResponse urlResult(String mime, String url) {
         return url.isEmpty() ? emptyResponse() : single(mime, url, 0);
     }
 
-    /** The empty video response (a failed or still-empty poll). */
+    /**/
     private static VideoResponse emptyResponse() {
         return new VideoResponse(List.of(), Usage.zero(), "", "", null);
     }
@@ -321,7 +321,7 @@ final class VideoPoll {
         return !b.isEmpty() ? b : "operation failed";
     }
 
-    /** Binds the video capability to the Job engine's four seams. */
+    /**/
     static final class VideoAdapter implements Job.Adapter<VideoResponse> {
         final Job.LifecycleConfig lc;
         private final Providers.Spec spec;
@@ -332,7 +332,7 @@ final class VideoPoll {
         private final HttpTransport http;
         private final String apiKey;
 
-        /** Poll transport arm, selected once before the loop (mirror of {@code wait_video}). */
+        /**/
         private enum PollArm {
             SIGV4, // Bedrock: SigV4-signed GET, ARN as one path segment
             VERTEX_POST, // Vertex Veo: POST {model}:fetchPredictOperation
@@ -357,23 +357,23 @@ final class VideoPoll {
             }
             String base = VideoPoll.baseUrl(config, vgCfg, baseUrlOverride);
             Map<String, String> headers = new LinkedHashMap<>(RequestBuilder.buildAuthHeaders(config, apiKey));
-            // PixVerse requires the per-request Ai-trace-id on the poll GET too;
-            // one per wait call suffices (uniqueness is an anti-cache measure on
-            // submit).
+            //
+            //
+            //
             if ("VideoPixVerse".equals(vgCfg.wireShape())) {
                 headers.put("Ai-trace-id", Video.newTraceId());
             }
 
-            // The arms are config-disjoint: SigV4 keys off authScheme,
-            // VERTEX_POST off wireShape, and no A-Box pairs SigV4 with
-            // VideoVertexVeo. SigV4 is matched first so a hypothetical
-            // both-true misconfig polls as SigV4.
+            //
+            //
+            //
+            //
             PollArm arm;
             String pollUrl;
             if ("SigV4".equals(config.authScheme)) {
                 arm = PollArm.SIGV4;
-                // Encode the ARN's '/' to %2F (one path segment) but leave ':'
-                // literal (Bedrock's SigV4 canonicalization accepts a literal ':').
+                //
+                //
                 pollUrl = base + vgCfg.pollEndpoint().replace("{id}", id.replace("/", "%2F"));
             } else if ("VideoVertexVeo".equals(vgCfg.wireShape())) {
                 arm = PollArm.VERTEX_POST;
@@ -441,10 +441,10 @@ final class VideoPoll {
         @Override
         public VideoResponse result(Job.PollBody body) {
             VideoResponse response = VideoPoll.result(vgCfg, body.raw(), base, headers, http);
-            // Download delivery (Veo): the poll result placed a temporary fetch
-            // URI in VideoData.url; fetch each and fill VideoData.bytes
-            // (clearing url, the source-XOR contract VID-004). Vertex is
-            // inline-base64 (no url) — no-op.
+            //
+            //
+            //
+            //
             if ("DeliveryDownload".equals(vgCfg.outputDelivery())) {
                 response = downloadBytes(response);
             }
@@ -456,11 +456,11 @@ final class VideoPoll {
             return response;
         }
 
-        /**
-         * Fetches finished-video bytes for download-delivery providers,
-         * carrying the query-param auth (Google {@code ?key=}) and moving the
-         * payload into bytes.
-         */
+        /*
+
+
+
+*/
         private VideoResponse downloadBytes(VideoResponse input) {
             List<VideoData> updated = new ArrayList<>();
             for (VideoData video : input.videos()) {
