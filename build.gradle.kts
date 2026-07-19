@@ -1,7 +1,13 @@
+import com.vanniktech.maven.publish.SonatypeHost
+
 plugins {
     `java-library`
-    `maven-publish`
-    signing
+    // Publishes to the Maven Central Portal (central.sonatype.com), which is
+    // not a plain Maven repo URL. This plugin builds the required
+    // jar/-sources/-javadoc, generates the POM, GPG-signs every artifact, and
+    // uploads the bundle. Build-time only — it never ships in the artifact, so
+    // the runtime dependency set stays {Gson} (ADR-068 JAVA-002).
+    id("com.vanniktech.maven.publish") version "0.30.0"
 }
 
 group = "com.aktagon"
@@ -22,12 +28,6 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-java {
-    // Maven Central requires -sources and -javadoc artifacts beside the jar.
-    withSourcesJar()
-    withJavadocJar()
-}
-
 tasks.withType<JavaCompile> {
     // Java 17 floor (ADR-068 JAVA-003) regardless of the JDK running Gradle.
     options.release.set(17)
@@ -42,50 +42,36 @@ tasks.test {
     environment("AWS_SECRET_ACCESS_KEY", "test-secret")
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            from(components["java"])
-            pom {
-                name.set("llmkit")
-                // Public package metadata — describe what it does, not how it
-                // is built (no ontology/codegen framing).
-                description.set("A unified, typed LLM client for Java: one API across many model providers.")
-                url.set("https://github.com/aktagon/llmkit-java")
-                licenses {
-                    license {
-                        name.set("MIT License")
-                        url.set("https://opensource.org/licenses/MIT")
-                    }
-                }
-                developers {
-                    developer {
-                        id.set("aktagon")
-                        name.set("Aktagon")
-                        email.set("christian@aktagon.com")
-                    }
-                }
-                scm {
-                    connection.set("scm:git:https://github.com/aktagon/llmkit-java.git")
-                    developerConnection.set("scm:git:ssh://git@github.com/aktagon/llmkit-java.git")
-                    url.set("https://github.com/aktagon/llmkit-java")
-                }
+mavenPublishing {
+    // automaticRelease = false: the upload lands in the Portal as a staged
+    // deployment for a human to review + release, not an irreversible publish.
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = false)
+    signAllPublications()
+    coordinates("com.aktagon", "llmkit", version.toString())
+    pom {
+        name.set("llmkit")
+        // Public package metadata — describe what it does, not how it is built
+        // (no ontology/codegen framing).
+        description.set("A unified, typed LLM client for Java: one API across many model providers.")
+        url.set("https://github.com/aktagon/llmkit-java")
+        licenses {
+            license {
+                name.set("MIT License")
+                url.set("https://opensource.org/licenses/MIT")
+                distribution.set("repo")
             }
         }
+        developers {
+            developer {
+                id.set("aktagon")
+                name.set("Aktagon")
+                email.set("christian@aktagon.com")
+            }
+        }
+        scm {
+            url.set("https://github.com/aktagon/llmkit-java")
+            connection.set("scm:git:https://github.com/aktagon/llmkit-java.git")
+            developerConnection.set("scm:git:ssh://git@github.com/aktagon/llmkit-java.git")
+        }
     }
-    // Maven Central now ingests through the Central Portal
-    // (central.sonatype.com), which is NOT a plain Maven repository URL, so no
-    // `repositories { maven { url = ... } }` block is wired here. Before the
-    // first `./gradlew publish`, add the owner's chosen Central Portal
-    // publisher (e.g. the com.vanniktech.maven.publish or jreleaser plugin, or
-    // a portal bundle upload). Requires: the DNS-verified `com.aktagon`
-    // namespace, a Central Portal token, and a published GPG key.
-}
-
-signing {
-    // Only require a signature for publish tasks, so `build`/`test` and the
-    // cross-SDK wire drivers run with no GPG key present.
-    setRequired({ gradle.taskGraph.allTasks.any { it.name.startsWith("publish") } })
-    useGpgCmd()
-    sign(publishing.publications["maven"])
 }
