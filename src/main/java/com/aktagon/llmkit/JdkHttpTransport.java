@@ -81,7 +81,10 @@ final class JdkHttpTransport implements HttpTransport {
         try {
             return HttpRequest.newBuilder(URI.create(url));
         } catch (IllegalArgumentException e) {
-            throw new ValidationException("url", "invalid URL: " + url);
+            // Do not echo `url` — it can carry the API key (spliced into the
+            // path via {apiKey} or into a ?key= query param), which would leak
+            // the credential into the exception message, logs, and stack traces.
+            throw new ValidationException("url", "malformed request URL");
         }
     }
 
