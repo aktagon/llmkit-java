@@ -81,7 +81,10 @@ final class JdkHttpTransport implements HttpTransport {
         try {
             return HttpRequest.newBuilder(URI.create(url));
         } catch (IllegalArgumentException e) {
-            throw new ValidationException("url", "invalid URL: " + url);
+            //
+            //
+            //
+            throw new ValidationException("url", "malformed request URL");
         }
     }
 
