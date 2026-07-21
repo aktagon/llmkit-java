@@ -9,7 +9,9 @@ import com.aktagon.llmkit.providers.generated.SpeechResponse;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -27,8 +29,8 @@ import java.util.Map;
  * VERBATIM, never re-encoded) and {@code SpeechOpenAI} (a flat-JSON POST
  * whose reply is RAW audio bytes — never JSON — ADR-051 slice 1). Pre-flight
  * validation (model + text + voice required; provider supports speech; model
- * + voice in the catalogue) runs before any HTTP call. No middleware (mirrors
- * the Rust / Swift runtime).
+ * + voice in the catalogue) runs before any HTTP call. Fires the
+ * {@code SPEECH_GENERATION} middleware op around the request (BUG-036).
  */
 public final class Speech {
     private final ProviderName provider;
@@ -37,6 +39,8 @@ public final class Speech {
     private final HttpTransport http;
     private final String model;
     private final String voice;
+    /** Observation + veto hooks fired around the {@code SPEECH_GENERATION} op. */
+    private final List<MiddlewareFn> middleware;
 
     private Speech(
             ProviderName provider,
@@ -44,22 +48,24 @@ public final class Speech {
             String baseUrlOverride,
             HttpTransport http,
             String model,
-            String voice) {
+            String voice,
+            List<MiddlewareFn> middleware) {
         this.provider = provider;
         this.apiKey = apiKey;
         this.baseUrlOverride = baseUrlOverride;
         this.http = http;
         this.model = model;
         this.voice = voice;
+        this.middleware = middleware;
     }
 
     static Speech root(ProviderName provider, String apiKey, String baseUrlOverride, HttpTransport http) {
-        return new Speech(provider, apiKey, baseUrlOverride, http, null, null);
+        return new Speech(provider, apiKey, baseUrlOverride, http, null, null, List.of());
     }
 
     /** Select the speech-generation model (required). */
     public Speech model(String model) {
-        return new Speech(provider, apiKey, baseUrlOverride, http, model, voice);
+        return new Speech(provider, apiKey, baseUrlOverride, http, model, voice, middleware);
     }
 
     /**
@@ -67,13 +73,21 @@ public final class Speech {
      * the provider's catalogue (SPK-004).
      */
     public Speech voice(String voice) {
-        return new Speech(provider, apiKey, baseUrlOverride, http, model, voice);
+        return new Speech(provider, apiKey, baseUrlOverride, http, model, voice, middleware);
+    }
+
+    /** Register a middleware hook (observation + pre-phase veto). */
+    public Speech addMiddleware(MiddlewareFn hook) {
+        List<MiddlewareFn> hooks = new ArrayList<>(middleware);
+        hooks.add(hook);
+        return new Speech(provider, apiKey, baseUrlOverride, http, model, voice, List.copyOf(hooks));
     }
 
     /**
      * Synthesize speech audio from {@code text}. Builds the provider body,
      * sends it once, and decodes the reply per the wire shape's audio
-     * encoding.
+     * encoding. Fires the {@code SPEECH_GENERATION} middleware op pre + post
+     * around the request (pre-phase veto, post-phase observation).
      */
     public SpeechResponse generate(String text) {
         if (apiKey == null || apiKey.isEmpty()) {
@@ -103,24 +117,39 @@ public final class Speech {
             throw new ValidationException("voice", voice + " is not a known voice for " + config.slug);
         }
 
-        Map<String, String> headers = RequestBuilder.buildAuthHeaders(config, apiKey);
+        Event baseEvent = Event.of(MiddlewareOp.SPEECH_GENERATION, config.slug, model);
+        long startNanos = System.nanoTime();
+        Middleware.firePre(middleware, baseEvent);
 
-        String base = baseUrlOverride != null ? baseUrlOverride : config.baseUrl;
-        String endpoint = sgCfg.genEndpoint().isEmpty() ? config.endpoint : sgCfg.genEndpoint();
-        String url = endpoint.startsWith("http") ? endpoint : base + endpoint;
+        try {
+            Map<String, String> headers = RequestBuilder.buildAuthHeaders(config, apiKey);
 
-        JsonObject body = "SpeechOpenAI".equals(sgCfg.wireShape())
-                ? buildOpenAIBody(model, voice, text)
-                : buildInworldBody(model, voice, text);
+            String base = baseUrlOverride != null ? baseUrlOverride : config.baseUrl;
+            String endpoint = sgCfg.genEndpoint().isEmpty() ? config.endpoint : sgCfg.genEndpoint();
+            String url = endpoint.startsWith("http") ? endpoint : base + endpoint;
 
-        // The OpenAI shape returns binary audio (not JSON), so the reply is
-        // read as raw bytes and must not be lossily UTF-8 decoded before the
-        // encoding fork.
-        HttpTransport.Result result = http.postJson(url, Json.serialize(body), headers);
-        if (result.statusCode() < 200 || result.statusCode() >= 300) {
-            throw ResponseParser.parseError(config, result.statusCode(), result.body());
+            JsonObject body = "SpeechOpenAI".equals(sgCfg.wireShape())
+                    ? buildOpenAIBody(model, voice, text)
+                    : buildInworldBody(model, voice, text);
+
+            // The OpenAI shape returns binary audio (not JSON), so the reply is
+            // read as raw bytes and must not be lossily UTF-8 decoded before the
+            // encoding fork.
+            HttpTransport.Result result = http.postJson(url, Json.serialize(body), headers);
+            if (result.statusCode() < 200 || result.statusCode() >= 300) {
+                throw ResponseParser.parseError(config, result.statusCode(), result.body());
+            }
+            SpeechResponse response =
+                    parseResponse(config.slug, sgCfg.audioResponseEncoding(), modelDef.outputMime(), result.body());
+            Middleware.firePost(
+                    middleware,
+                    baseEvent.toPost("", response.usage(), null, Middleware.elapsedMillis(startNanos)));
+            return response;
+        } catch (RuntimeException e) {
+            Middleware.firePost(
+                    middleware, baseEvent.toPost("", null, e, Middleware.elapsedMillis(startNanos)));
+            throw e;
         }
-        return parseResponse(config.slug, sgCfg.audioResponseEncoding(), modelDef.outputMime(), result.body());
     }
 
     // --- Request bodies ---
