@@ -9,7 +9,9 @@ import com.aktagon.llmkit.providers.generated.SpeechResponse;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 
 
@@ -38,28 +40,32 @@ public final class Speech {
     private final String model;
     private final String voice;
 
+    private final List<MiddlewareFn> middleware;
+
     private Speech(
             ProviderName provider,
             String apiKey,
             String baseUrlOverride,
             HttpTransport http,
             String model,
-            String voice) {
+            String voice,
+            List<MiddlewareFn> middleware) {
         this.provider = provider;
         this.apiKey = apiKey;
         this.baseUrlOverride = baseUrlOverride;
         this.http = http;
         this.model = model;
         this.voice = voice;
+        this.middleware = middleware;
     }
 
     static Speech root(ProviderName provider, String apiKey, String baseUrlOverride, HttpTransport http) {
-        return new Speech(provider, apiKey, baseUrlOverride, http, null, null);
+        return new Speech(provider, apiKey, baseUrlOverride, http, null, null, List.of());
     }
 
 
     public Speech model(String model) {
-        return new Speech(provider, apiKey, baseUrlOverride, http, model, voice);
+        return new Speech(provider, apiKey, baseUrlOverride, http, model, voice, middleware);
     }
 
 
@@ -67,8 +73,16 @@ public final class Speech {
 
 
     public Speech voice(String voice) {
-        return new Speech(provider, apiKey, baseUrlOverride, http, model, voice);
+        return new Speech(provider, apiKey, baseUrlOverride, http, model, voice, middleware);
     }
+
+
+    public Speech addMiddleware(MiddlewareFn hook) {
+        List<MiddlewareFn> hooks = new ArrayList<>(middleware);
+        hooks.add(hook);
+        return new Speech(provider, apiKey, baseUrlOverride, http, model, voice, List.copyOf(hooks));
+    }
+
 
 
 
@@ -103,24 +117,39 @@ public final class Speech {
             throw new ValidationException("voice", voice + " is not a known voice for " + config.slug);
         }
 
-        Map<String, String> headers = RequestBuilder.buildAuthHeaders(config, apiKey);
+        Event baseEvent = Event.of(MiddlewareOp.SPEECH_GENERATION, config.slug, model);
+        long startNanos = System.nanoTime();
+        Middleware.firePre(middleware, baseEvent);
 
-        String base = baseUrlOverride != null ? baseUrlOverride : config.baseUrl;
-        String endpoint = sgCfg.genEndpoint().isEmpty() ? config.endpoint : sgCfg.genEndpoint();
-        String url = endpoint.startsWith("http") ? endpoint : base + endpoint;
+        try {
+            Map<String, String> headers = RequestBuilder.buildAuthHeaders(config, apiKey);
 
-        JsonObject body = "SpeechOpenAI".equals(sgCfg.wireShape())
-                ? buildOpenAIBody(model, voice, text)
-                : buildInworldBody(model, voice, text);
+            String base = baseUrlOverride != null ? baseUrlOverride : config.baseUrl;
+            String endpoint = sgCfg.genEndpoint().isEmpty() ? config.endpoint : sgCfg.genEndpoint();
+            String url = endpoint.startsWith("http") ? endpoint : base + endpoint;
 
-        //
-        //
-        //
-        HttpTransport.Result result = http.postJson(url, Json.serialize(body), headers);
-        if (result.statusCode() < 200 || result.statusCode() >= 300) {
-            throw ResponseParser.parseError(config, result.statusCode(), result.body());
+            JsonObject body = "SpeechOpenAI".equals(sgCfg.wireShape())
+                    ? buildOpenAIBody(model, voice, text)
+                    : buildInworldBody(model, voice, text);
+
+            //
+            //
+            //
+            HttpTransport.Result result = http.postJson(url, Json.serialize(body), headers);
+            if (result.statusCode() < 200 || result.statusCode() >= 300) {
+                throw ResponseParser.parseError(config, result.statusCode(), result.body());
+            }
+            SpeechResponse response =
+                    parseResponse(config.slug, sgCfg.audioResponseEncoding(), modelDef.outputMime(), result.body());
+            Middleware.firePost(
+                    middleware,
+                    baseEvent.toPost("", response.usage(), null, Middleware.elapsedMillis(startNanos)));
+            return response;
+        } catch (RuntimeException e) {
+            Middleware.firePost(
+                    middleware, baseEvent.toPost("", null, e, Middleware.elapsedMillis(startNanos)));
+            throw e;
         }
-        return parseResponse(config.slug, sgCfg.audioResponseEncoding(), modelDef.outputMime(), result.body());
     }
 
     //

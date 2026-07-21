@@ -7,6 +7,11 @@ package com.aktagon.llmkit;
 
 
 
+
+
+
+
+
 public enum MiddlewareOp {
     LLM_REQUEST("llm_request"),
     TOOL_CALL("tool_call"),
@@ -16,7 +21,9 @@ public enum MiddlewareOp {
     IMAGE_GENERATION("image_generation"),
     MUSIC_GENERATION("music_generation"),
     VIDEO_GENERATION("video_generation"),
-    MODELS_LIST("models_list");
+    MODELS_LIST("models_list"),
+    SPEECH_GENERATION("speech_generation"),
+    TRANSCRIPTION("transcription");
 
     private final String label;
 
