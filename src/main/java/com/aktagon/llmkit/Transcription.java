@@ -45,23 +45,45 @@ public final class Transcription {
     private final String baseUrlOverride;
     private final HttpTransport http;
     private final String model;
+    /** Observation + veto hooks fired around the {@code TRANSCRIPTION} op. */
+    private final List<MiddlewareFn> middleware;
 
     private Transcription(
-            ProviderName provider, String apiKey, String baseUrlOverride, HttpTransport http, String model) {
+            ProviderName provider,
+            String apiKey,
+            String baseUrlOverride,
+            HttpTransport http,
+            String model,
+            List<MiddlewareFn> middleware) {
         this.provider = provider;
         this.apiKey = apiKey;
         this.baseUrlOverride = baseUrlOverride;
         this.http = http;
         this.model = model;
+        this.middleware = middleware;
     }
 
     static Transcription root(ProviderName provider, String apiKey, String baseUrlOverride, HttpTransport http) {
-        return new Transcription(provider, apiKey, baseUrlOverride, http, null);
+        return new Transcription(provider, apiKey, baseUrlOverride, http, null, List.of());
     }
 
     /** Select the transcription model (required by the synchronous path; the asynchronous provider infers it). */
     public Transcription model(String model) {
-        return new Transcription(provider, apiKey, baseUrlOverride, http, model);
+        return new Transcription(provider, apiKey, baseUrlOverride, http, model, middleware);
+    }
+
+    /**
+     * Register a middleware hook (observation + pre-phase veto). The {@code
+     * TRANSCRIPTION} op fires around the OUTBOUND request only — the async
+     * {@link #submit} and the sync {@link #transcribe}. {@link
+     * TranscriptionJob#await} / {@link TranscriptionJob#poll} only read job
+     * state and do not fire (mirrors {@code VIDEO_GENERATION} / {@code
+     * BATCH_SUBMIT}).
+     */
+    public Transcription addMiddleware(MiddlewareFn hook) {
+        List<MiddlewareFn> hooks = new ArrayList<>(middleware);
+        hooks.add(hook);
+        return new Transcription(provider, apiKey, baseUrlOverride, http, model, List.copyOf(hooks));
     }
 
     // --- Async submit (AssemblyAI) ---
@@ -94,46 +116,62 @@ public final class Transcription {
         String base = baseUrlOverride != null ? baseUrlOverride : config.baseUrl;
         Map<String, String> headers = RequestBuilder.buildAuthHeaders(config, apiKey);
 
-        // Upload hop (STT-005): a bytes part is uploaded first to obtain a URL
-        // the submit body can reference. URL parts skip this entirely.
-        String audioUrl;
-        if (source.bytes() != null) {
-            if (tcCfg.uploadEndpoint.isEmpty()) {
-                throw new ValidationException(
-                        "parts", config.slug + " does not accept audio bytes; pass a public audio URL");
-            }
-            HttpTransport.Result uploadResult =
-                    http.postBytes(base + tcCfg.uploadEndpoint, source.bytes(), headers);
-            if (uploadResult.statusCode() < 200 || uploadResult.statusCode() >= 300) {
-                throw new ApiException(
-                        "transcription_upload", uploadResult.statusCode(),
-                        new String(uploadResult.body(), StandardCharsets.UTF_8));
-            }
-            JsonElement uploaded = Json.parse(new String(uploadResult.body(), StandardCharsets.UTF_8));
-            String uploadedUrl = Json.stringAt(uploaded, "upload_url");
-            if (uploadedUrl.isEmpty()) {
-                throw new DecodingException("transcription upload: response carried no upload_url");
-            }
-            audioUrl = uploadedUrl;
-        } else {
-            audioUrl = source.url();
+        // The upload endpoint is a pre-flight fact, so an unsupported bytes part
+        // is rejected before the request middleware fires.
+        if (source.bytes() != null && tcCfg.uploadEndpoint.isEmpty()) {
+            throw new ValidationException(
+                    "parts", config.slug + " does not accept audio bytes; pass a public audio URL");
         }
 
-        JsonObject body = new JsonObject();
-        body.addProperty("audio_url", audioUrl);
-        HttpTransport.Result result = http.postJson(base + tcCfg.submitEndpoint, Json.serialize(body), headers);
-        if (result.statusCode() < 200 || result.statusCode() >= 300) {
-            throw new ApiException(
-                    "transcription_submit", result.statusCode(), new String(result.body(), StandardCharsets.UTF_8));
+        Event baseEvent = Event.of(MiddlewareOp.TRANSCRIPTION, config.slug, model == null ? "" : model);
+        long startNanos = System.nanoTime();
+        Middleware.firePre(middleware, baseEvent);
+
+        try {
+            // Upload hop (STT-005): a bytes part is uploaded first to obtain a
+            // URL the submit body can reference. URL parts skip this entirely.
+            String audioUrl;
+            if (source.bytes() != null) {
+                HttpTransport.Result uploadResult =
+                        http.postBytes(base + tcCfg.uploadEndpoint, source.bytes(), headers);
+                if (uploadResult.statusCode() < 200 || uploadResult.statusCode() >= 300) {
+                    throw new ApiException(
+                            "transcription_upload", uploadResult.statusCode(),
+                            new String(uploadResult.body(), StandardCharsets.UTF_8));
+                }
+                JsonElement uploaded = Json.parse(new String(uploadResult.body(), StandardCharsets.UTF_8));
+                String uploadedUrl = Json.stringAt(uploaded, "upload_url");
+                if (uploadedUrl.isEmpty()) {
+                    throw new DecodingException("transcription upload: response carried no upload_url");
+                }
+                audioUrl = uploadedUrl;
+            } else {
+                audioUrl = source.url();
+            }
+
+            JsonObject body = new JsonObject();
+            body.addProperty("audio_url", audioUrl);
+            HttpTransport.Result result = http.postJson(base + tcCfg.submitEndpoint, Json.serialize(body), headers);
+            if (result.statusCode() < 200 || result.statusCode() >= 300) {
+                throw new ApiException(
+                        "transcription_submit", result.statusCode(),
+                        new String(result.body(), StandardCharsets.UTF_8));
+            }
+            JsonElement parsed = Json.parse(new String(result.body(), StandardCharsets.UTF_8));
+            String id = Json.stringAt(parsed, tcCfg.submitHandleField);
+            if (id.isEmpty()) {
+                throw new DecodingException(
+                        "transcription submit: empty handle field \"" + tcCfg.submitHandleField + "\"");
+            }
+            Middleware.firePost(
+                    middleware, baseEvent.toPost("", null, null, Middleware.elapsedMillis(startNanos)));
+            TranscriptionHandle handle = new TranscriptionHandle(id, provider);
+            return new TranscriptionJob(handle, apiKey, http, baseUrlOverride);
+        } catch (RuntimeException e) {
+            Middleware.firePost(
+                    middleware, baseEvent.toPost("", null, e, Middleware.elapsedMillis(startNanos)));
+            throw e;
         }
-        JsonElement parsed = Json.parse(new String(result.body(), StandardCharsets.UTF_8));
-        String id = Json.stringAt(parsed, tcCfg.submitHandleField);
-        if (id.isEmpty()) {
-            throw new DecodingException(
-                    "transcription submit: empty handle field \"" + tcCfg.submitHandleField + "\"");
-        }
-        TranscriptionHandle handle = new TranscriptionHandle(id, provider);
-        return new TranscriptionJob(handle, apiKey, http, baseUrlOverride);
     }
 
     // --- Sync transcribe (OpenAI) ---
@@ -176,13 +214,29 @@ public final class Transcription {
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("model", model);
         fields.put("response_format", "verbose_json");
-        HttpTransport.Result result = http.postMultipart(
-                base + tcCfg.submitEndpoint, fields, "file", filename, mime, media.bytes(), headers);
-        if (result.statusCode() < 200 || result.statusCode() >= 300) {
-            throw new ApiException(config.slug, result.statusCode(), new String(result.body(), StandardCharsets.UTF_8));
+
+        Event baseEvent = Event.of(MiddlewareOp.TRANSCRIPTION, config.slug, model);
+        long startNanos = System.nanoTime();
+        Middleware.firePre(middleware, baseEvent);
+
+        try {
+            HttpTransport.Result result = http.postMultipart(
+                    base + tcCfg.submitEndpoint, fields, "file", filename, mime, media.bytes(), headers);
+            if (result.statusCode() < 200 || result.statusCode() >= 300) {
+                throw new ApiException(
+                        config.slug, result.statusCode(), new String(result.body(), StandardCharsets.UTF_8));
+            }
+            JsonElement raw = Json.parse(new String(result.body(), StandardCharsets.UTF_8));
+            TranscriptionResponse response = resultFromOpenAI(raw);
+            Middleware.firePost(
+                    middleware,
+                    baseEvent.toPost("", response.usage(), null, Middleware.elapsedMillis(startNanos)));
+            return response;
+        } catch (RuntimeException e) {
+            Middleware.firePost(
+                    middleware, baseEvent.toPost("", null, e, Middleware.elapsedMillis(startNanos)));
+            throw e;
         }
-        JsonElement raw = Json.parse(new String(result.body(), StandardCharsets.UTF_8));
-        return resultFromOpenAI(raw);
     }
 
     // --- Part normalization (pre-flight, before any HTTP call) ---
