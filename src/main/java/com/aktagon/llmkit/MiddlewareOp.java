@@ -2,10 +2,15 @@ package com.aktagon.llmkit;
 
 /**
  * The operation an {@link Event} describes (ADR-001). Mirrors the generated
- * {@code MiddlewareOp} in the other five SDKs (Go {@code providers.OpLLMRequest},
+ * {@code MiddlewareOp} in the other six SDKs (Go {@code providers.OpLLMRequest},
  * Rust {@code MiddlewareOp::LlmRequest}, Swift {@code .llmRequest}); Java
  * hand-writes it alongside the runtime rather than emitting it, exactly as
  * Swift's Phase 4a did (no generated middleware constants file yet, note #16).
+ *
+ * <p>Because it is hand-written, this enum must be kept in step with
+ *
+ * covers it (unlike the six generated copies, which {@code test_targets.py}
+ *
  */
 public enum MiddlewareOp {
     LLM_REQUEST("llm_request"),
@@ -16,7 +21,9 @@ public enum MiddlewareOp {
     IMAGE_GENERATION("image_generation"),
     MUSIC_GENERATION("music_generation"),
     VIDEO_GENERATION("video_generation"),
-    MODELS_LIST("models_list");
+    MODELS_LIST("models_list"),
+    SPEECH_GENERATION("speech_generation"),
+    TRANSCRIPTION("transcription");
 
     private final String label;
 
