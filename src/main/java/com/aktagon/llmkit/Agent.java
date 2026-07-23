@@ -116,10 +116,10 @@ public final class Agent {
                 HttpTransport.Result result =
                         RequestBuilder.send(config, url, built.body(), built.headers(), apiKey, http);
                 if (result.statusCode() < 200 || result.statusCode() >= 300) {
-                    throw ResponseParser.parseError(config, result.statusCode(), result.body());
+                    throw ResponseCodec.parseError(config, result.statusCode(), result.body());
                 }
                 raw = Json.parse(new String(result.body(), StandardCharsets.UTF_8));
-                parsed = ResponseParser.parse(config, result.body());
+                parsed = ResponseCodec.decodeResponse(provider, config.chatWireShape, result.body());
             } catch (RuntimeException e) {
                 Middleware.firePost(
                         options.middleware,
