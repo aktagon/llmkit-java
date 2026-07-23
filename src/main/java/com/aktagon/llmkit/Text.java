@@ -205,9 +205,10 @@ public final class Text {
             HttpTransport.Result result =
                     RequestBuilder.send(config, url, built.body(), built.headers(), apiKey, http);
             if (result.statusCode() < 200 || result.statusCode() >= 300) {
-                throw ResponseParser.parseError(config, result.statusCode(), result.body());
+                throw ResponseCodec.parseError(config, result.statusCode(), result.body());
             }
-            Response response = ResponseParser.parse(config, result.body());
+            Response response =
+                    ResponseCodec.decodeResponse(provider, resolved.wireShape(), result.body());
             Middleware.firePost(
                     options.middleware,
                     baseEvent.toPost("", response.usage(), null, Middleware.elapsedMillis(startNanos)));

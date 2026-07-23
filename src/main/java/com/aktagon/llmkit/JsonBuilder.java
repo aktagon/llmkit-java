@@ -1,12 +1,15 @@
 package com.aktagon.llmkit;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import java.util.Map;
 
 /**
  * Mutation helpers over Gson's insertion-ordered {@link JsonObject} used while
- * constructing a request body. These re-express the operations Rust's
+ * constructing a JSON body. These re-express the operations Rust's
  * {@code request.rs} performs on {@code serde_json::Map} — nested insert, merge
  * into parent, deep merge — mirroring Swift's {@code JSONObject} helpers
  * (which operate over an ordered-pair waist). Gson's {@code JsonObject} already
@@ -35,6 +38,91 @@ final class JsonBuilder {
             current = childObj;
         }
         current.add(parts[parts.length - 1], value);
+    }
+
+    /**
+     * Place {@code value} at a dotted {@code path} with array index support
+     * ({@code choices[0].message.content}), creating intermediate objects and
+     * array elements as it descends. It is the navigate-or-create inverse of
+     * {@link Json#at} and walks the identical generated path strings (ADR-076
+     * SYM-005). Unlike {@link #setNested}, ANY segment may be indexed —
+     * Google's response text path is {@code candidates[0].content.parts[0].text},
+     * two array levels created in one descent.
+     *
+     * <p>An empty path (the provider declares no location for this field) or an
+     * empty value is a no-op: there is nothing to write, and materializing a
+     * zero would invent a field the provider never sent.
+     */
+    static void setWirePath(JsonObject obj, String path, JsonElement value) {
+        if (path.isEmpty() || isEmptyWireValue(value)) {
+            return;
+        }
+        String[] parts = path.split("\\.");
+        JsonObject current = obj;
+        for (int i = 0; i < parts.length; i++) {
+            boolean last = i == parts.length - 1;
+            String part = parts[i];
+            int bracket = part.indexOf('[');
+            if (bracket < 0) {
+                if (last) {
+                    current.add(part, value);
+                    return;
+                }
+                current = childObject(current, part);
+                continue;
+            }
+            String field = part.substring(0, bracket);
+            int index = Integer.parseInt(part.substring(bracket + 1, part.length() - 1));
+            JsonElement existing = current.get(field);
+            JsonArray items = existing != null && existing.isJsonArray()
+                    ? existing.getAsJsonArray()
+                    : new JsonArray();
+            current.add(field, items);
+            while (items.size() <= index) {
+                items.add(JsonNull.INSTANCE);
+            }
+            if (last) {
+                items.set(index, value);
+                return;
+            }
+            JsonElement element = items.get(index);
+            if (element != null && element.isJsonObject()) {
+                current = element.getAsJsonObject();
+            } else {
+                current = new JsonObject();
+                items.set(index, current);
+            }
+        }
+    }
+
+    /** {@code obj[field]} as an object, creating it when absent or mistyped. */
+    private static JsonObject childObject(JsonObject obj, String field) {
+        JsonElement child = obj.get(field);
+        if (child != null && child.isJsonObject()) {
+            return child.getAsJsonObject();
+        }
+        JsonObject created = new JsonObject();
+        obj.add(field, created);
+        return created;
+    }
+
+    /**
+     * Whether {@code value} is the zero of its canonical type. Empty values are
+     * skipped rather than written, so the encoder never claims a provider
+     * reported zero tokens when the canonical {@code Response} simply had none.
+     */
+    private static boolean isEmptyWireValue(JsonElement value) {
+        if (value == null || value.isJsonNull()) {
+            return true;
+        }
+        if (!value.isJsonPrimitive()) {
+            return false;
+        }
+        JsonPrimitive primitive = value.getAsJsonPrimitive();
+        if (primitive.isString()) {
+            return primitive.getAsString().isEmpty();
+        }
+        return primitive.isNumber() && primitive.getAsDouble() == 0.0;
     }
 
     /**
