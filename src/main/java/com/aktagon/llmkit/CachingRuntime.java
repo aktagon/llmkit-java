@@ -157,7 +157,7 @@ final class CachingRuntime {
             Map<String, String> headers = RequestBuilder.buildAuthHeaders(config, apiKey);
             HttpTransport.Result result = http.postJson(createUrl, Json.serialize(createBody), headers);
             if (result.statusCode() < 200 || result.statusCode() >= 300) {
-                throw ResponseParser.parseError(config, result.statusCode(), result.body());
+                throw ResponseCodec.parseError(config, result.statusCode(), result.body());
             }
             JsonElement parsed = Json.parse(new String(result.body(), StandardCharsets.UTF_8));
             resourceId = Json.stringAt(parsed, lifecycle.responseIdPath);

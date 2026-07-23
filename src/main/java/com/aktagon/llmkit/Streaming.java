@@ -92,7 +92,7 @@ final class Streaming {
             try (java.util.stream.Stream<String> errorLines = result.lines()) {
                 raw = errorLines.collect(Collectors.joining("\n"));
             }
-            throw ResponseParser.parseError(
+            throw ResponseCodec.parseError(
                     config, result.statusCode(), raw.getBytes(StandardCharsets.UTF_8));
         }
 

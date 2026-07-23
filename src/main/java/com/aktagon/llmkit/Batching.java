@@ -96,7 +96,7 @@ final class Batching {
         String url = base + lifecycle.createEndpoint;
         HttpTransport.Result result = http.postJson(url, Json.serialize(body), headers);
         if (result.statusCode() < 200 || result.statusCode() >= 300) {
-            throw ResponseParser.parseError(config, result.statusCode(), result.body());
+            throw ResponseCodec.parseError(config, result.statusCode(), result.body());
         }
         JsonElement parsed = Json.parse(new String(result.body(), StandardCharsets.UTF_8));
         String batchId = Json.stringAt(parsed, lifecycle.responseIdPath);
@@ -230,7 +230,7 @@ final class Batching {
         public Job.PollBody poll() {
             HttpTransport.Result result = http.getText(pollUrl, headers);
             if (result.statusCode() < 200 || result.statusCode() >= 300) {
-                throw ResponseParser.parseError(spec, result.statusCode(), result.body());
+                throw ResponseCodec.parseError(spec, result.statusCode(), result.body());
             }
             return new Job.PollBody(Json.parse(new String(result.body(), StandardCharsets.UTF_8)));
         }
@@ -262,7 +262,7 @@ final class Batching {
         private String fetch(String url) {
             HttpTransport.Result result = http.getText(url, headers);
             if (result.statusCode() < 200 || result.statusCode() >= 300) {
-                throw ResponseParser.parseError(spec, result.statusCode(), result.body());
+                throw ResponseCodec.parseError(spec, result.statusCode(), result.body());
             }
             return new String(result.body(), StandardCharsets.UTF_8);
         }
@@ -289,7 +289,11 @@ final class Batching {
                         }
                         responseText = Json.serialize(inner);
                     }
-                    responses.add(ResponseParser.parse(spec, responseText.getBytes(StandardCharsets.UTF_8)));
+                    // Batch is Chat-Completions-only (ADR-055): an empty wire
+                    // shape selects the provider's declared response paths, not
+                    // the Responses output[] arm.
+                    responses.add(ResponseCodec.decodeResponse(
+                            spec.name, "", responseText.getBytes(StandardCharsets.UTF_8)));
                 } catch (DecodingException e) {
                     continue;
                 }
