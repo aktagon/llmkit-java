@@ -137,7 +137,7 @@ public final class Speech {
             //
             HttpTransport.Result result = http.postJson(url, Json.serialize(body), headers);
             if (result.statusCode() < 200 || result.statusCode() >= 300) {
-                throw ResponseParser.parseError(config, result.statusCode(), result.body());
+                throw ResponseCodec.parseError(config, result.statusCode(), result.body());
             }
             SpeechResponse response =
                     parseResponse(config.slug, sgCfg.audioResponseEncoding(), modelDef.outputMime(), result.body());

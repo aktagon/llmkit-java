@@ -223,7 +223,7 @@ public final class Upload {
         HttpTransport.Result result =
                 http.postMultipart(url, fields, upload.fieldName, filename, mimeType, data, headers);
         if (result.statusCode() < 200 || result.statusCode() >= 300) {
-            throw ResponseParser.parseError(config, result.statusCode(), result.body());
+            throw ResponseCodec.parseError(config, result.statusCode(), result.body());
         }
 
         JsonElement parsed = Json.parse(new String(result.body(), StandardCharsets.UTF_8));

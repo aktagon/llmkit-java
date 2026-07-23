@@ -318,7 +318,7 @@ public final class Image {
 
         HttpTransport.Result result = http.postJson(url, Json.serialize(body), headers);
         if (result.statusCode() < 200 || result.statusCode() >= 300) {
-            throw ResponseParser.parseError(config, result.statusCode(), result.body());
+            throw ResponseCodec.parseError(config, result.statusCode(), result.body());
         }
         JsonElement raw = Json.parse(new String(result.body(), StandardCharsets.UTF_8));
         //
