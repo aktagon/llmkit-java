@@ -88,6 +88,59 @@ public final class Json {
                 && found.getAsJsonPrimitive().isNumber() ? found.getAsDouble() : 0.0;
     }
 
+    /**
+     * Integer at a dotted path, or {@code null} when the provider declares no
+     * path for this field or the response did not carry it (ADR-081). The
+     * distinction {@code longAt} cannot draw: a provider reporting
+     * {@code cached_tokens: 0} and a provider that never mentions caching are
+     * different claims, and neither of them is the number zero.
+     */
+    public static Long optLong(JsonElement root, String path) {
+        if (path.isEmpty()) {
+            return null;
+        }
+        JsonElement found = at(root, path);
+        return found != null && found.isJsonPrimitive() && found.getAsJsonPrimitive().isNumber()
+                ? found.getAsLong()
+                : null;
+    }
+
+    /**
+     * {@code optLong} for the fractional provider-reported USD cost (ADR-027).
+     * An unreported cost is not a free request (AVAIL-007).
+     */
+    public static Double optDouble(JsonElement root, String path) {
+        if (path.isEmpty()) {
+            return null;
+        }
+        JsonElement found = at(root, path);
+        return found != null && found.isJsonPrimitive() && found.getAsJsonPrimitive().isNumber()
+                ? found.getAsDouble()
+                : null;
+    }
+
+    /**
+     * String at a dotted path as an optional canonical signal: an empty
+     * extraction means the provider declared no path or sent no value, which is
+     * absence, not the empty string.
+     */
+    public static String optString(JsonElement root, String path) {
+        String value = stringAt(root, path);
+        return value.isEmpty() ? null : value;
+    }
+
+    /**
+     * A parsed signal string as an optional canonical field. Java's
+     * {@code String} is already a nullable reference type, so a bare {@code ""}
+     * compiles happily and stores a REPORTED empty string — the wrong side of
+     * the very distinction ADR-081 draws, and one the compiler will not flag.
+     * Media parsers build a {@code String} accumulator and pass it through here
+     * at the container boundary.
+     */
+    public static String optString(String value) {
+        return value == null || value.isEmpty() ? null : value;
+    }
+
     /** An empty insertion-ordered object (the request-body builder's root). */
     static JsonObject object() {
         return new JsonObject();

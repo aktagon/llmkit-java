@@ -49,24 +49,37 @@ public final class ResponseCodec {
         }
 
         Providers.Spec config = Providers.config(provider);
-        Caching.UsagePaths cachePaths = Caching.usagePaths(config.name);
-        String costPath = ResponsePaths.usageCostPath(config.name);
-        Usage usage = new Usage(
-                Json.longAt(raw, config.usageInputPath),
-                Json.longAt(raw, config.usageOutputPath),
-                cachePaths.write.isEmpty() ? 0 : Json.longAt(raw, cachePaths.write),
-                cachePaths.read.isEmpty() ? 0 : Json.longAt(raw, cachePaths.read),
-                config.reasoningTokensPath.isEmpty() ? 0 : Json.longAt(raw, config.reasoningTokensPath),
-                costPath.isEmpty()
-                        ? 0.0
-                        : Json.doubleAt(raw, costPath) * ResponsePaths.usageCostScale(config.name));
-
         return new Response(
                 Json.stringAt(raw, config.responseTextPath),
-                usage,
-                config.finishReasonPath.isEmpty() ? "" : Json.stringAt(raw, config.finishReasonPath),
-                config.finishMessagePath.isEmpty() ? "" : Json.stringAt(raw, config.finishMessagePath),
+                decodeUsage(raw, provider),
+                Json.optString(raw, config.finishReasonPath),
+                Json.optString(raw, config.finishMessagePath),
                 null);
+    }
+
+    /**
+     * Reads every canonical {@code Usage} dimension out of a provider response
+     * body. The ONE usage reader (ADR-076 SYM-004): the codec, the chat send
+     * path and the agent loop all call this, so a dimension cannot be read in
+     * one place and forgotten in another — which is how the agent loop came to
+     * accumulate a subset of the six across the SDK pack (BUG-045).
+     *
+     * <p>A dimension is null when the provider declares no path for it OR the
+     * response did not carry it. Neither is zero.
+     */
+    static Usage decodeUsage(JsonElement raw, ProviderName provider) {
+        Providers.Spec config = Providers.config(provider);
+        Caching.UsagePaths cachePaths = Caching.usagePaths(config.name);
+        Double cost = Json.optDouble(raw, ResponsePaths.usageCostPath(config.name));
+        return new Usage(
+                Json.optLong(raw, config.usageInputPath),
+                Json.optLong(raw, config.usageOutputPath),
+                Json.optLong(raw, cachePaths.write),
+                Json.optLong(raw, cachePaths.read),
+                Json.optLong(raw, config.reasoningTokensPath),
+                // Scaling PRESERVES absence: an unreported cost stays
+                // unreported rather than becoming 0.0 * scale (AVAIL-007).
+                cost == null ? null : cost * ResponsePaths.usageCostScale(config.name));
     }
 
     /**
@@ -95,20 +108,21 @@ public final class ResponseCodec {
 
         JsonObject raw = new JsonObject();
         JsonBuilder.setWirePath(raw, config.responseTextPath, new JsonPrimitive(response.text()));
-        JsonBuilder.setWirePath(raw, config.usageInputPath, new JsonPrimitive(response.usage().input()));
-        JsonBuilder.setWirePath(raw, config.usageOutputPath, new JsonPrimitive(response.usage().output()));
-        JsonBuilder.setWirePath(raw, cachePaths.write, new JsonPrimitive(response.usage().cacheWrite()));
-        JsonBuilder.setWirePath(raw, cachePaths.read, new JsonPrimitive(response.usage().cacheRead()));
+        JsonBuilder.setWirePath(raw, config.usageInputPath, JsonBuilder.wire(response.usage().input()));
+        JsonBuilder.setWirePath(raw, config.usageOutputPath, JsonBuilder.wire(response.usage().output()));
+        JsonBuilder.setWirePath(raw, cachePaths.write, JsonBuilder.wire(response.usage().cacheWrite()));
+        JsonBuilder.setWirePath(raw, cachePaths.read, JsonBuilder.wire(response.usage().cacheRead()));
         JsonBuilder.setWirePath(
-                raw, config.reasoningTokensPath, new JsonPrimitive(response.usage().reasoning()));
+                raw, config.reasoningTokensPath, JsonBuilder.wire(response.usage().reasoning()));
         if (costScale != 0) {
+            Double cost = response.usage().cost();
             JsonBuilder.setWirePath(
                     raw,
                     ResponsePaths.usageCostPath(config.name),
-                    new JsonPrimitive(response.usage().cost() / costScale));
+                    JsonBuilder.wire(cost == null ? null : cost / costScale));
         }
-        JsonBuilder.setWirePath(raw, config.finishReasonPath, new JsonPrimitive(response.finishReason()));
-        JsonBuilder.setWirePath(raw, config.finishMessagePath, new JsonPrimitive(response.finishMessage()));
+        JsonBuilder.setWirePath(raw, config.finishReasonPath, JsonBuilder.wire(response.finishReason()));
+        JsonBuilder.setWirePath(raw, config.finishMessagePath, JsonBuilder.wire(response.finishMessage()));
         return serialize(raw);
     }
 
@@ -125,7 +139,13 @@ public final class ResponseCodec {
      * {@code invertibilityNote} verbatim.
      */
     static void guardOneWayFields(ProviderName provider, Response response) {
-        if (provider == ProviderName.VERTEX && !response.finishReason().isEmpty()) {
+        // Non-empty, not merely present: the guard exists to refuse
+        // FABRICATION, and neither an unreported field nor a reported empty one
+        // would write anything (see isEmptyWireValue). Only a value that would
+        // reach the wire lies.
+        if (provider == ProviderName.VERTEX
+                && response.finishReason() != null
+                && !response.finishReason().isEmpty()) {
             throw new ValidationException(
                     "response.finish_reason",
                     "Vertex carries no finish-reason field. Its path reads predictions[0].raiFilteredReason — a safety-filter explanation surfaced AS the finish reason. Extraction is a deliberate fusion, so the reverse leg cannot decide whether a given canonical finish_reason originated as a safety verdict, and writing an ordinary stop signal into that field would fabricate one.");
@@ -142,14 +162,17 @@ public final class ResponseCodec {
      * by tests, not by declared response paths).
      */
     static Response parseResponsesEnvelope(JsonElement raw) {
+        // The Responses envelope carries no cache-write or cost field at all.
+        // That is not a zero: it is the provider never making the claim.
         Usage usage = new Usage(
-                Json.longAt(raw, "usage.input_tokens"),
-                Json.longAt(raw, "usage.output_tokens"),
-                0,
-                Json.longAt(raw, "usage.input_tokens_details.cached_tokens"),
-                Json.longAt(raw, "usage.output_tokens_details.reasoning_tokens"),
-                0.0);
-        return new Response(extractResponsesText(raw), usage, Json.stringAt(raw, "status"), "", null);
+                Json.optLong(raw, "usage.input_tokens"),
+                Json.optLong(raw, "usage.output_tokens"),
+                null,
+                Json.optLong(raw, "usage.input_tokens_details.cached_tokens"),
+                Json.optLong(raw, "usage.output_tokens_details.reasoning_tokens"),
+                null);
+        return new Response(
+                extractResponsesText(raw), usage, Json.optString(raw, "status"), null, null);
     }
 
     /**
@@ -172,17 +195,17 @@ public final class ResponseCodec {
             output.add(message);
             raw.add("output", output);
         }
-        JsonBuilder.setWirePath(raw, "usage.input_tokens", new JsonPrimitive(response.usage().input()));
-        JsonBuilder.setWirePath(raw, "usage.output_tokens", new JsonPrimitive(response.usage().output()));
+        JsonBuilder.setWirePath(raw, "usage.input_tokens", JsonBuilder.wire(response.usage().input()));
+        JsonBuilder.setWirePath(raw, "usage.output_tokens", JsonBuilder.wire(response.usage().output()));
         JsonBuilder.setWirePath(
                 raw,
                 "usage.input_tokens_details.cached_tokens",
-                new JsonPrimitive(response.usage().cacheRead()));
+                JsonBuilder.wire(response.usage().cacheRead()));
         JsonBuilder.setWirePath(
                 raw,
                 "usage.output_tokens_details.reasoning_tokens",
-                new JsonPrimitive(response.usage().reasoning()));
-        JsonBuilder.setWirePath(raw, "status", new JsonPrimitive(response.finishReason()));
+                JsonBuilder.wire(response.usage().reasoning()));
+        JsonBuilder.setWirePath(raw, "status", JsonBuilder.wire(response.finishReason()));
         return raw;
     }
 

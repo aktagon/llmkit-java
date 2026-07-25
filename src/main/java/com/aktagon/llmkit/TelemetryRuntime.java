@@ -48,8 +48,14 @@ final class TelemetryRuntime {
         if (op == null) {
             op = event.op().label();
         }
-        long input = event.usage() != null ? event.usage().input() : 0;
-        long output = event.usage() != null ? event.usage().output() : 0;
+        // NOT `: 0`: an event that reported no usage and an event that
+        // reported zero tokens must produce different spans (AVAIL-006). The
+        // outer null (no usage object on this event) and the inner one (this
+        // dimension unreported) both mean "not reported", so they flatten — but
+        // they flatten to null, never to zero. Declaring these `long` would
+        // also auto-unbox a null dimension straight into a NullPointerException.
+        Long input = event.usage() != null ? event.usage().input() : null;
+        Long output = event.usage() != null ? event.usage().output() : null;
         String errorType = event.errType() != null ? event.errType() : "";
         return buildOTLPTraces(
                 op, event.provider(), event.model(), input, output, errorType,
@@ -79,16 +85,20 @@ final class TelemetryRuntime {
      */
     static String buildOTLPTraces(
             String operationName, String provider, String model,
-            long inputTokens, long outputTokens, String errorType,
+            Long inputTokens, Long outputTokens, String errorType,
             String traceId, String spanId, String startNano, String endNano) {
         JsonArray attributes = new JsonArray();
         attributes.add(stringAttr(TelemetryGen.OTEL_ATTR_OP, operationName));
         attributes.add(stringAttr(TelemetryGen.OTEL_ATTR_PROVIDER, provider));
         attributes.add(stringAttr(TelemetryGen.OTEL_ATTR_MODEL, model));
-        if (inputTokens > 0) {
+        // The gate is reported-ness, not magnitude. OTEL omits UNSET
+        // attributes; it does not omit zero-valued ones, so a provider that
+        // genuinely reported 0 input tokens must still export the attribute.
+        // The old `> 0` test conflated "nobody said" with "said none".
+        if (inputTokens != null) {
             attributes.add(intAttr(TelemetryGen.OTEL_USAGE_INPUT, inputTokens));
         }
-        if (outputTokens > 0) {
+        if (outputTokens != null) {
             attributes.add(intAttr(TelemetryGen.OTEL_USAGE_OUTPUT, outputTokens));
         }
         boolean hasError = errorType != null && !errorType.isEmpty();
