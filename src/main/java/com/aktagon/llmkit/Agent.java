@@ -93,12 +93,11 @@ public final class Agent {
         Providers.Spec config = Providers.config(provider);
         String resolvedModel = RequestBuilder.resolveModel(config, model);
         String url = RequestBuilder.buildUrl(config, config.endpoint, apiKey, resolvedModel, baseUrlOverride);
-        long totalInput = 0;
-        long totalOutput = 0;
-        long totalCacheWrite = 0;
-        long totalCacheRead = 0;
-        long totalReasoning = 0;
-        double totalCost = 0.0;
+        // Seeded from the first turn, not from six zeroes: absorbing
+        // addition's identity is a REPORTED zero, so an all-zero seed would
+        // claim every dimension was reported even when no turn reported any
+        // (ADR-081 AVAIL-005).
+        Usage totalUsage = null;
 
         for (int iteration = 0; iteration < maxToolIterations; iteration++) {
             Event llmEvent = Event.of(MiddlewareOp.LLM_REQUEST, config.slug, resolvedModel);
@@ -130,20 +129,13 @@ public final class Agent {
                     options.middleware,
                     llmEvent.toPost("", parsed.usage(), null, Middleware.elapsedMillis(llmStartNanos)));
 
-            totalInput += parsed.usage().input();
-            totalOutput += parsed.usage().output();
-            totalCacheWrite += parsed.usage().cacheWrite();
-            totalCacheRead += parsed.usage().cacheRead();
-            totalReasoning += parsed.usage().reasoning();
-            totalCost += parsed.usage().cost();
+            totalUsage = totalUsage == null ? parsed.usage() : totalUsage.plus(parsed.usage());
 
             List<ToolCall> calls = Transforms.extractToolCalls(raw, config);
             if (calls.isEmpty()) {
                 history.add(new Msg.Text("assistant", parsed.text()));
-                Usage totalUsage = new Usage(
-                        totalInput, totalOutput, totalCacheWrite, totalCacheRead, totalReasoning, totalCost);
                 return new Response(
-                        parsed.text(), totalUsage, parsed.finishReason(), parsed.finishMessage(), null);
+                        parsed.text(), totalUsage == null ? Usage.none() : totalUsage, parsed.finishReason(), parsed.finishMessage(), null);
             }
 
             history.add(new Msg.Calls(calls));

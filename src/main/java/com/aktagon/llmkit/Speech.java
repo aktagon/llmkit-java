@@ -222,7 +222,7 @@ public final class Speech {
                         providerSlug + " speech response: invalid base64 in audioContent: " + e.getMessage(), e);
             }
         }
-        return new SpeechResponse(new AudioData(fallbackMime, bytes), Usage.zero(), "");
+        return new SpeechResponse(new AudioData(fallbackMime, bytes), Usage.none(), null);
     }
 
     private static SpeechModelDef findModel(SpeechGenDef cfg, String modelId) {

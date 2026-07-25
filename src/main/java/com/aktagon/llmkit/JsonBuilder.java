@@ -111,6 +111,18 @@ final class JsonBuilder {
      * skipped rather than written, so the encoder never claims a provider
      * reported zero tokens when the canonical {@code Response} simply had none.
      */
+    /**
+     * Whether {@code value} carries nothing to write. A JSON null (or a Java
+     * null) is the caller saying the field was never reported, so there is no
+     * location to fill.
+     *
+     * <p>A numeric zero is NOT empty (ADR-081). It used to be: the encoder
+     * dropped every zero, so a body that explicitly said {@code cached_tokens:
+     * 0} round-tripped to one that omitted the field — the reader then had to
+     * guess, and guessed zero, which happened to look right. Now absence
+     * arrives as null and a reported zero arrives as {@code 0}, so the encoder
+     * can tell them apart instead of inferring one from the other.
+     */
     private static boolean isEmptyWireValue(JsonElement value) {
         if (value == null || value.isJsonNull()) {
             return true;
@@ -119,10 +131,21 @@ final class JsonBuilder {
             return false;
         }
         JsonPrimitive primitive = value.getAsJsonPrimitive();
-        if (primitive.isString()) {
-            return primitive.getAsString().isEmpty();
-        }
-        return primitive.isNumber() && primitive.getAsDouble() == 0.0;
+        return primitive.isString() && primitive.getAsString().isEmpty();
+    }
+
+    /**
+     * An unreported canonical field becomes JSON null, which
+     * {@code setWirePath} skips; a reported value — zero included — becomes a
+     * real JSON value and is written.
+     */
+    static JsonElement wire(Number value) {
+        return value == null ? JsonNull.INSTANCE : new JsonPrimitive(value);
+    }
+
+    /** {@code wire(Number)} for the optional canonical signal strings. */
+    static JsonElement wire(String value) {
+        return value == null ? JsonNull.INSTANCE : new JsonPrimitive(value);
     }
 
     /**

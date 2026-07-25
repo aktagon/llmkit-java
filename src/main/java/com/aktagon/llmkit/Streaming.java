@@ -101,8 +101,8 @@ final class Streaming {
         String finishPath = finishSplit[1];
         StringBuilder fullText = new StringBuilder();
         String finishReason = "";
-        long usageInput = 0;
-        long usageOutput = 0;
+        Long usageInput = null;
+        Long usageOutput = null;
         String currentEvent = "";
 
         // The lines Stream owns the response subscription: close it on every
@@ -164,11 +164,9 @@ final class Streaming {
                             onDelta.accept(text);
                         }
                     }
-                    if (currentEvent.equals(stream.usageEvent) && !stream.usageOutputPath.isEmpty()) {
-                        usageOutput = Json.longAt(parsed, stream.usageOutputPath);
-                        if (!stream.usageInputPath.isEmpty()) {
-                            usageInput = Json.longAt(parsed, stream.usageInputPath);
-                        }
+                    if (currentEvent.equals(stream.usageEvent)) {
+                        usageOutput = Json.optLong(parsed, stream.usageOutputPath);
+                        usageInput = Json.optLong(parsed, stream.usageInputPath);
                     }
                 } else {
                     String text = Json.stringAt(parsed, stream.deltaTextPath);
@@ -176,17 +174,18 @@ final class Streaming {
                         fullText.append(text);
                         onDelta.accept(text);
                     }
-                    if (!stream.usageInputPath.isEmpty()) {
-                        long value = Json.longAt(parsed, stream.usageInputPath);
-                        if (value > 0) {
-                            usageInput = value;
-                        }
+                    // Usage arrives in ONE late frame; every earlier frame
+                    // carries none. The gate is therefore "did this frame
+                    // report it", not "is the number big enough" — the old
+                    // `> 0` test also threw away a genuinely reported zero
+                    // (ADR-081 AVAIL-001).
+                    Long reportedInput = Json.optLong(parsed, stream.usageInputPath);
+                    if (reportedInput != null) {
+                        usageInput = reportedInput;
                     }
-                    if (!stream.usageOutputPath.isEmpty()) {
-                        long value = Json.longAt(parsed, stream.usageOutputPath);
-                        if (value > 0) {
-                            usageOutput = value;
-                        }
+                    Long reportedOutput = Json.optLong(parsed, stream.usageOutputPath);
+                    if (reportedOutput != null) {
+                        usageOutput = reportedOutput;
                     }
                 }
                 currentEvent = "";
@@ -198,8 +197,8 @@ final class Streaming {
         }
     }
 
-    private static Response assemble(String text, long input, long output, String finishReason) {
-        return new Response(text, new Usage(input, output, 0, 0, 0, 0.0), finishReason, "", null);
+    private static Response assemble(String text, Long input, Long output, String finishReason) {
+        return new Response(text, new Usage(input, output, null, null, null, null), Json.optString(finishReason), null, null);
     }
 
     /**
