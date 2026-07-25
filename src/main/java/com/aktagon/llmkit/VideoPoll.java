@@ -241,7 +241,7 @@ final class VideoPoll {
                     throw new DecodingException("invalid base64 in video bytesBase64Encoded: " + e.getMessage(), e);
                 }
                 yield new VideoResponse(
-                        List.of(new VideoData(vmime, "", decoded, 0)), Usage.zero(), "", "", null);
+                        List.of(new VideoData(vmime, "", decoded, 0)), Usage.none(), "", "", null);
             }
             case "VideoMinimax" -> resolveFile(vgCfg, raw, base, headers, http, mime);
             default -> emptyResponse();
@@ -286,7 +286,7 @@ final class VideoPoll {
 
     private static VideoResponse single(String mime, String url, long duration) {
         return new VideoResponse(
-                List.of(new VideoData(mime, url, new byte[0], duration)), Usage.zero(), "", "", null);
+                List.of(new VideoData(mime, url, new byte[0], duration)), Usage.none(), "", "", null);
     }
 
     /**
@@ -299,7 +299,7 @@ final class VideoPoll {
 
     /** The empty video response (a failed or still-empty poll). */
     private static VideoResponse emptyResponse() {
-        return new VideoResponse(List.of(), Usage.zero(), "", "", null);
+        return new VideoResponse(List.of(), Usage.none(), null, null, null);
     }
 
     private static Job.Classification succeeded(String status) {

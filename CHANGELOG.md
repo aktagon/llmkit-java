@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING — an unreported usage dimension or finish signal is now absent, not zero.**
+  The six `Usage` dimensions (input, output, cache read, cache write, reasoning,
+  cost) and the finish reason / finish message on every response container are
+  now boxed `Long` / `Double` / `String`. Previously a provider that reported no
+  cached tokens and one that never mentioned caching both produced `0`, and an
+  unreported cost read as a free request.
+
+  Migration: `resp.usage().input()` may be `null`; check before unboxing, and note that auto-unboxing a missing count now throws rather than yielding `0`.
+
+  Aggregation across agent turns is **absorbing** — a total is reported only when
+  every turn reported that dimension, so a partial sum is never presented as a
+  total. Telemetry now exports a usage attribute when the value is *reported*,
+  zero included, instead of when it is greater than zero.
+
 ## [1.0.0] — 2026-07-19
 
 First release. Java 17 floor, one dependency (Gson) over the JDK's own

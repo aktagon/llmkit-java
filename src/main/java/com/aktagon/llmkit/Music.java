@@ -397,7 +397,7 @@ public final class Music {
                 audio.add(new AudioData(mime, decoded));
             }
         }
-        return new MusicResponse(audio, "", Usage.zero(), finishReason, "", null);
+        return new MusicResponse(audio, "", Usage.none(), Json.optString(finishReason), null, null);
     }
 
     /**
@@ -410,11 +410,11 @@ public final class Music {
         if (candidatesElement == null
                 || !candidatesElement.isJsonArray()
                 || candidatesElement.getAsJsonArray().size() == 0) {
-            return new MusicResponse(List.of(), "", Usage.zero(), "", "", null);
+            return new MusicResponse(List.of(), "", Usage.none(), null, null, null);
         }
         JsonElement firstElement = candidatesElement.getAsJsonArray().get(0);
         if (!firstElement.isJsonObject()) {
-            return new MusicResponse(List.of(), "", Usage.zero(), "", "", null);
+            return new MusicResponse(List.of(), "", Usage.none(), null, null, null);
         }
         JsonObject first = firstElement.getAsJsonObject();
         String finishReason = Json.stringAt(first, "finishReason");
@@ -448,7 +448,7 @@ public final class Music {
                 }
             }
         }
-        return new MusicResponse(audio, text.toString(), Usage.zero(), finishReason, "", null);
+        return new MusicResponse(audio, text.toString(), Usage.none(), Json.optString(finishReason), null, null);
     }
 
     /**
@@ -469,7 +469,7 @@ public final class Music {
         if (!statusMsg.isEmpty() && !"success".equals(statusMsg)) {
             finishMessage = statusMsg;
         }
-        return new MusicResponse(audio, "", Usage.zero(), "", finishMessage, null);
+        return new MusicResponse(audio, "", Usage.none(), null, Json.optString(finishMessage), null);
     }
 
     /**
