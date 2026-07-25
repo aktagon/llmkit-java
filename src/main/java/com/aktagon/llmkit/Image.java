@@ -560,10 +560,10 @@ public final class Image {
             }
         }
         Usage usage = new Usage(
-                inputPath.isEmpty() ? 0 : Json.longAt(raw, inputPath),
-                outputPath.isEmpty() ? 0 : Json.longAt(raw, outputPath),
-                0, 0, 0, 0.0);
-        return new ImageResponse(images, String.join("\n", revised), usage, "", "", null);
+                Json.optLong(raw, inputPath),
+                Json.optLong(raw, outputPath),
+                null, null, null, null);
+        return new ImageResponse(images, String.join("\n", revised), usage, null, null, null);
     }
 
     /**
@@ -600,7 +600,7 @@ public final class Image {
                 images.add(new ImageData(mime, decoded));
             }
         }
-        return new ImageResponse(images, "", Usage.zero(), finishReason, "", null);
+        return new ImageResponse(images, "", Usage.none(), Json.optString(finishReason), null, null);
     }
 
     /** Google {@code candidates[].content.parts} inline-data shape. */
@@ -654,8 +654,8 @@ public final class Image {
         Usage usage = new Usage(
                 cfg.usageInputPath().isEmpty() ? 0 : Json.longAt(raw, cfg.usageInputPath()),
                 cfg.usageOutputPath().isEmpty() ? 0 : Json.longAt(raw, cfg.usageOutputPath()),
-                0, 0, 0, 0.0);
-        return new ImageResponse(images, text.toString(), usage, finishReason, finishMessage, null);
+                null, null, null, null);
+        return new ImageResponse(images, text.toString(), usage, Json.optString(finishReason), Json.optString(finishMessage), null);
     }
 
     /**

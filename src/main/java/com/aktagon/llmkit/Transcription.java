@@ -320,7 +320,7 @@ public final class Transcription {
                 segments.add(new TranscriptSegment(Json.stringAt(item, "text"), start, end, ""));
             }
         }
-        return new TranscriptionResponse(text, segments, Usage.zero());
+        return new TranscriptionResponse(text, segments, Usage.none());
     }
 
     /**
@@ -344,7 +344,7 @@ public final class Transcription {
                         Json.stringAt(word, "speaker")));
             }
         }
-        return new TranscriptionResponse(text, segments, Usage.zero());
+        return new TranscriptionResponse(text, segments, Usage.none());
     }
 
     /**
