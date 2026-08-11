@@ -25,7 +25,7 @@ public record ProviderInfo(
             case ASSEMBLYAI:
                 return new ProviderInfo(ProviderName.ASSEMBLYAI, "assemblyai", "ASSEMBLYAI_API_KEY", "best", "https://api.assemblyai.com", false);
             case AZURE:
-                return new ProviderInfo(ProviderName.AZURE, "azure", "AZURE_OPENAI_API_KEY", "gpt-4o", "https://REPLACE-WITH-YOUR-RESOURCE.openai.azure.com", false);
+                return new ProviderInfo(ProviderName.AZURE, "azure", "AZURE_OPENAI_API_KEY", "gpt-4o", "https://{resource}.openai.azure.com", false);
             case BEDROCK:
                 return new ProviderInfo(ProviderName.BEDROCK, "bedrock", "AWS_ACCESS_KEY_ID", "anthropic.claude-sonnet-4-20250514-v1:0", "https://bedrock-runtime.{region}.amazonaws.com", false);
             case CEREBRAS:
