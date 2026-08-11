@@ -505,7 +505,7 @@ public final class Providers {
                     /* slug */ "fireworks",
                     /* baseUrl */ "https://api.fireworks.ai/inference",
                     /* endpoint */ "/v1/chat/completions",
-                    /* defaultModel */ "accounts/fireworks/models/llama-v3p3-70b-instruct",
+                    /* defaultModel */ "accounts/fireworks/models/gpt-oss-120b",
                     /* envVar */ "FIREWORKS_API_KEY",
                     /* defaultMaxTokens */ 4096,
                     /* responseTextPath */ "choices[0].message.content",

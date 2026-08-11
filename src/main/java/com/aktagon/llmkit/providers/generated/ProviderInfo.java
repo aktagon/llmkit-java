@@ -39,7 +39,7 @@ public record ProviderInfo(
             case ERNIE:
                 return new ProviderInfo(ProviderName.ERNIE, "ernie", "QIANFAN_API_KEY", "ernie-4.0-8k", "https://qianfan.baidubce.com/v2", false);
             case FIREWORKS:
-                return new ProviderInfo(ProviderName.FIREWORKS, "fireworks", "FIREWORKS_API_KEY", "accounts/fireworks/models/llama-v3p3-70b-instruct", "https://api.fireworks.ai/inference", false);
+                return new ProviderInfo(ProviderName.FIREWORKS, "fireworks", "FIREWORKS_API_KEY", "accounts/fireworks/models/gpt-oss-120b", "https://api.fireworks.ai/inference", false);
             case GOOGLE:
                 return new ProviderInfo(ProviderName.GOOGLE, "google", "GOOGLE_API_KEY", "gemini-2.5-flash", "https://generativelanguage.googleapis.com", true);
             case GROK:
