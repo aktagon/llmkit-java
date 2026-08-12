@@ -135,7 +135,7 @@ public final class Agent {
             if (calls.isEmpty()) {
                 history.add(new Msg.Text("assistant", parsed.text()));
                 return new Response(
-                        parsed.text(), totalUsage == null ? Usage.none() : totalUsage, parsed.finishReason(), parsed.finishMessage(), null);
+                        parsed.text(), totalUsage == null ? Usage.none() : totalUsage, parsed.finishReason(), parsed.finishMessage(), null, null);
             }
 
             history.add(new Msg.Calls(calls));
