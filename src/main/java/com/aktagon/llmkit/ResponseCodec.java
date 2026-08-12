@@ -54,6 +54,7 @@ public final class ResponseCodec {
                 decodeUsage(raw, provider),
                 Json.optString(raw, config.finishReasonPath),
                 Json.optString(raw, config.finishMessagePath),
+                null,
                 null);
     }
 
@@ -172,7 +173,7 @@ public final class ResponseCodec {
                 Json.optLong(raw, "usage.output_tokens_details.reasoning_tokens"),
                 null);
         return new Response(
-                extractResponsesText(raw), usage, Json.optString(raw, "status"), null, null);
+                extractResponsesText(raw), usage, Json.optString(raw, "status"), null, null, null);
     }
 
     /**
