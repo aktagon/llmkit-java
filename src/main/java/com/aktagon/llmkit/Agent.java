@@ -1,6 +1,7 @@
 package com.aktagon.llmkit;
 
 import com.aktagon.llmkit.providers.generated.ProviderName;
+import com.aktagon.llmkit.providers.generated.ProviderTurn;
 import com.aktagon.llmkit.providers.generated.Providers;
 import com.aktagon.llmkit.providers.generated.Response;
 import com.aktagon.llmkit.providers.generated.ToolCall;
@@ -133,12 +134,21 @@ public final class Agent {
 
             List<ToolCall> calls = Transforms.extractToolCalls(raw, config);
             if (calls.isEmpty()) {
-                history.add(new Msg.Text("assistant", parsed.text()));
+                // The terminal turn is captured too: an agent kept alive for another
+                // prompt replays it like any other, and Response carries it so a
+                // caller running their own loop can thread the turn forward without
+                // parsing raw per provider (ADR-085 § 6).
+                history.add(replayable(new Msg.Text("assistant", parsed.text()), parsed.providerTurn()));
                 return new Response(
-                        parsed.text(), totalUsage == null ? Usage.none() : totalUsage, parsed.finishReason(), parsed.finishMessage(), null, null);
+                        parsed.text(), totalUsage == null ? Usage.none() : totalUsage, parsed.finishReason(), parsed.finishMessage(), null, parsed.providerTurn());
             }
 
-            history.add(new Msg.Calls(calls));
+            // Record the assistant turn. The calls are the projection the loop runs
+            // tools from; the payload is the same turn as the provider wrote it, and
+            // is what the NEXT request sends (ADR-085). Before this, the turn was
+            // rebuilt from the calls alone, which silently dropped any prose the
+            // model emitted alongside them.
+            history.add(replayable(new Msg.Calls(calls), parsed.providerTurn()));
             for (ToolCall call : calls) {
                 Map<String, JsonElement> args = Map.of();
                 if (call.input() != null && call.input().isJsonObject()) {
@@ -183,4 +193,14 @@ public final class Agent {
         throw new ValidationException(
                 "max_tool_iterations", "max tool iterations (" + maxToolIterations + ") reached");
     }
+
+    /**
+     * Wraps a projected turn with the provider's own serialization of it, when the
+     * response carried one (ADR-085). Without a payload the projection is the turn,
+     * exactly as before this ADR.
+     */
+    private static Msg replayable(Msg projected, ProviderTurn turn) {
+        return turn == null ? projected : new Msg.Turn(turn.wireShape(), turn.wire(), projected);
+    }
+
 }

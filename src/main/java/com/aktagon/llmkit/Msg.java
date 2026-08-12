@@ -21,4 +21,15 @@ sealed interface Msg {
     record Calls(List<ToolCall> calls) implements Msg {}
 
     record ToolOutput(ToolResult result) implements Msg {}
+
+    /**
+     * An assistant turn the provider itself serialized, replayed verbatim
+     * instead of rebuilt (ADR-085). It carries the projection it replaces so
+     * {@code ProviderTurnCapture.resolveTurns} can drop back to reconstruction
+     * when the payload was captured under a different wire shape — the
+     * alternative, deciding that at transform time, would put the same check in
+     * two places. Not a fifth carrier: it WRAPS one of the others, which stays
+     * the projection consumers read.
+     */
+    record Turn(String shape, String wire, Msg fallback) implements Msg {}
 }

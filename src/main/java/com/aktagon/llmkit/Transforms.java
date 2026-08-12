@@ -74,34 +74,111 @@ final class Transforms {
         }
 
         for (Msg msg : msgs) {
-            if (msg instanceof Msg.ToolOutput output) {
-                messages.add(toolResultMessage(config, output.result()));
-            } else if (msg instanceof Msg.Calls calls) {
-                messages.add(toolCallMessage(config, calls.calls()));
-            } else if (msg instanceof Msg.Text text) {
-                JsonObject message = new JsonObject();
-                message.addProperty("role", mapRole(text.role(), config));
-                if (bedrock) {
-                    JsonObject block = new JsonObject();
-                    block.addProperty("text", text.text());
-                    JsonArray content = new JsonArray();
-                    content.add(block);
-                    message.add("content", content);
-                } else {
-                    message.addProperty("content", text.text());
-                }
-                messages.add(message);
-            } else if (msg instanceof Msg.Media media) {
-                JsonArray content = bedrock
-                        ? bedrockContentParts(media.images(), media.text())
-                        : flatContentParts(media.images(), media.files(), media.text(), wireShape);
-                JsonObject message = new JsonObject();
-                message.addProperty("role", mapRole(media.role(), config));
-                message.add("content", content);
-                messages.add(message);
+            if (msg instanceof Msg.Turn turn
+                    && appendFlatReplayedTurn(messages, turn, config, bedrock)) {
+                continue;
             }
+            messages.add(flatProjectedEntry(msg, wireShape, config, bedrock));
         }
         return messages;
+    }
+
+    /**
+     * Renders one canonical message as a flat-envelope entry — the reconstruction
+     * path, unchanged from before ADR-085 and still what every caller-authored
+     * turn takes.
+     */
+    private static JsonObject flatProjectedEntry(
+            Msg msg, String wireShape, Providers.Spec config, boolean bedrock) {
+        if (msg instanceof Msg.ToolOutput output) {
+            return toolResultMessage(config, output.result());
+        }
+        if (msg instanceof Msg.Calls calls) {
+            return toolCallMessage(config, calls.calls());
+        }
+        if (msg instanceof Msg.Text text) {
+            JsonObject message = new JsonObject();
+            message.addProperty("role", mapRole(text.role(), config));
+            if (bedrock) {
+                JsonObject block = new JsonObject();
+                block.addProperty("text", text.text());
+                JsonArray content = new JsonArray();
+                content.add(block);
+                message.add("content", content);
+            } else {
+                message.addProperty("content", text.text());
+            }
+            return message;
+        }
+        if (msg instanceof Msg.Media media) {
+            JsonArray content = bedrock
+                    ? bedrockContentParts(media.images(), media.text())
+                    : flatContentParts(media.images(), media.files(), media.text(), wireShape);
+            JsonObject message = new JsonObject();
+            message.addProperty("role", mapRole(media.role(), config));
+            message.add("content", content);
+            return message;
+        }
+        // A payload the splice could not place falls back to its projection.
+        // resolveTurns should already have unwrapped anything unplaceable — this
+        // arm is what keeps "should" from being load-bearing, and it is the arm
+        // Bedrock takes: ChatBedrock declares assistantTurnUnanchored
+        // rather than a position (ADR-085 OQ-5), so there is no container to
+        // splice into. When OQ-5 anchors Converse, this becomes a real splice.
+        Msg.Turn turn = (Msg.Turn) msg;
+        return flatProjectedEntry(turn.fallback(), wireShape, config, bedrock);
+    }
+
+    /**
+     * Appends a captured assistant turn to a flat-envelope array in whatever
+     * container that wire family expects, returning false when the payload cannot
+     * be placed so the caller reconstructs instead.
+     *
+     * <p>The three families disagree on what {@code assistantTurnPath} even
+     * points at, which is why this cannot be one append:
+     *
+     * <ul>
+     *   <li>{@code ChatOpenAI} {@code choices[0].message} -> an assistant message
+     *       object
+     *   <li>{@code ChatAnthropic} {@code content} -> the block ARRAY, with no
+     *       message object around it; the role wrapper below is llmkit's, the
+     *       blocks are the provider's
+     *   <li>{@code ChatResponsesOpenAI} {@code output} -> an ITEM LIST that spreads
+     *       across N input entries rather than becoming one (ADR-085 OQ-1)
+     * </ul>
+     */
+    private static boolean appendFlatReplayedTurn(
+            JsonArray messages, Msg.Turn turn, Providers.Spec config, boolean bedrock) {
+        if (bedrock) {
+            return false;
+        }
+        JsonElement payload;
+        try {
+            payload = Json.parse(turn.wire());
+        } catch (RuntimeException e) {
+            return false;
+        }
+        if ("ChatAnthropic".equals(turn.shape())) {
+            JsonObject message = new JsonObject();
+            message.addProperty("role", mapRole("assistant", config));
+            message.add("content", payload);
+            messages.add(message);
+            return true;
+        }
+        if ("ChatResponsesOpenAI".equals(turn.shape())) {
+            if (!payload.isJsonArray()) {
+                return false;
+            }
+            for (JsonElement item : payload.getAsJsonArray()) {
+                messages.add(item);
+            }
+            return true;
+        }
+        if (!payload.isJsonObject()) {
+            return false;
+        }
+        messages.add(payload);
+        return true;
     }
 
     /**
@@ -252,35 +329,71 @@ final class Transforms {
         Map<String, String> idToName = new HashMap<>();
         JsonArray contents = new JsonArray();
         for (Msg msg : msgs) {
-            if (msg instanceof Msg.ToolOutput output) {
-                ToolResult result = output.result();
-                String name = idToName.get(result.toolUseId());
-                if (name != null) {
-                    result = new ToolResult(name, result.content());
+            // A replayed Google turn is candidates[0].content verbatim — the same
+            // {role, parts} object the contents array takes, so it drops straight
+            // in. It still has to feed idToName below, because a LATER tool result
+            // is matched by name against calls made on this turn; that lookup reads
+            // the canonical projection, which the fallback still carries even when
+            // the payload is what gets sent.
+            if (msg instanceof Msg.Turn turn && "ChatGoogle".equals(turn.shape())) {
+                if (turn.fallback() instanceof Msg.Calls calls) {
+                    for (ToolCall call : calls.calls()) {
+                        idToName.put(call.id(), call.name());
+                    }
                 }
-                contents.add(toolResultMessage(config, result));
-            } else if (msg instanceof Msg.Calls calls) {
-                for (ToolCall call : calls.calls()) {
-                    idToName.put(call.id(), call.name());
+                try {
+                    JsonElement payload = Json.parse(turn.wire());
+                    if (payload.isJsonObject()) {
+                        contents.add(payload);
+                        continue;
+                    }
+                } catch (RuntimeException e) {
+                    // fall through to the projection
                 }
-                contents.add(toolCallMessage(config, calls.calls()));
-            } else if (msg instanceof Msg.Text text) {
-                JsonObject part = new JsonObject();
-                part.addProperty("text", text.text());
-                JsonArray parts = new JsonArray();
-                parts.add(part);
-                JsonObject content = new JsonObject();
-                content.addProperty("role", mapRole(text.role(), config));
-                content.add("parts", parts);
-                contents.add(content);
-            } else if (msg instanceof Msg.Media media) {
-                JsonObject content = new JsonObject();
-                content.addProperty("role", mapRole(media.role(), config));
-                content.add("parts", googleParts(media.images(), media.files(), media.text()));
-                contents.add(content);
             }
+            contents.add(googleProjectedEntry(msg, config, idToName));
         }
         return contents;
+    }
+
+    /**
+     * Renders one canonical message as a Google {@code contents} entry — the
+     * reconstruction path. Mirrors {@code flatProjectedEntry}, final arm included.
+     */
+    private static JsonElement googleProjectedEntry(
+            Msg msg, Providers.Spec config, Map<String, String> idToName) {
+        if (msg instanceof Msg.ToolOutput output) {
+            ToolResult result = output.result();
+            String name = idToName.get(result.toolUseId());
+            if (name != null) {
+                result = new ToolResult(name, result.content());
+            }
+            return toolResultMessage(config, result);
+        }
+        if (msg instanceof Msg.Calls calls) {
+            for (ToolCall call : calls.calls()) {
+                idToName.put(call.id(), call.name());
+            }
+            return toolCallMessage(config, calls.calls());
+        }
+        if (msg instanceof Msg.Text text) {
+            JsonObject part = new JsonObject();
+            part.addProperty("text", text.text());
+            JsonArray parts = new JsonArray();
+            parts.add(part);
+            JsonObject content = new JsonObject();
+            content.addProperty("role", mapRole(text.role(), config));
+            content.add("parts", parts);
+            return content;
+        }
+        if (msg instanceof Msg.Media media) {
+            JsonObject content = new JsonObject();
+            content.addProperty("role", mapRole(media.role(), config));
+            content.add("parts", googleParts(media.images(), media.files(), media.text()));
+            return content;
+        }
+        Msg.Turn turn = (Msg.Turn) msg;
+        return googleProjectedEntry(turn.fallback(), config, idToName);
     }
 
     // --- Tool definitions ---
