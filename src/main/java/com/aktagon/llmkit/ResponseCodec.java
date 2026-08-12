@@ -2,6 +2,7 @@ package com.aktagon.llmkit;
 
 import com.aktagon.llmkit.providers.generated.Caching;
 import com.aktagon.llmkit.providers.generated.ProviderName;
+import com.aktagon.llmkit.providers.generated.ProviderTurn;
 import com.aktagon.llmkit.providers.generated.Providers;
 import com.aktagon.llmkit.providers.generated.Response;
 import com.aktagon.llmkit.providers.generated.ResponsePaths;
@@ -43,19 +44,30 @@ public final class ResponseCodec {
             ProviderName provider, String chatWireShape, byte[] body) {
         String text = new String(body, StandardCharsets.UTF_8);
         JsonElement raw = Json.parse(text);
+        Providers.Spec config = Providers.config(provider);
+        // ADR-085: capture the assistant turn as the provider serialized it, from
+        // the ORIGINAL text rather than from `raw` — re-serializing the parsed tree
+        // would emit Gson's rendering, not the provider's.
+        ProviderTurn providerTurn = ProviderTurnCapture.capture(text, config, chatWireShape);
 
         if ("ChatResponsesOpenAI".equals(chatWireShape)) {
-            return parseResponsesEnvelope(raw);
+            Response envelope = parseResponsesEnvelope(raw);
+            return new Response(
+                    envelope.text(),
+                    envelope.usage(),
+                    envelope.finishReason(),
+                    envelope.finishMessage(),
+                    envelope.raw(),
+                    providerTurn);
         }
 
-        Providers.Spec config = Providers.config(provider);
         return new Response(
                 Json.stringAt(raw, config.responseTextPath),
                 decodeUsage(raw, provider),
                 Json.optString(raw, config.finishReasonPath),
                 Json.optString(raw, config.finishMessagePath),
                 null,
-                null);
+                providerTurn);
     }
 
     /**
