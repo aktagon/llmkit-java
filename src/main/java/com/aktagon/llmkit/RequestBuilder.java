@@ -115,7 +115,11 @@ final class RequestBuilder {
             default -> { } // MessageInArray
         }
 
-        Transforms.applyMessageShape(body, msgs, system, wireShape, config);
+        // resolveTurns runs first and only here: it is the one place the config and
+        // the message list meet, so the ADR-085 RSN-006 shape check is made once
+        // rather than remembered in each transform.
+        Transforms.applyMessageShape(
+                body, ProviderTurnCapture.resolveTurns(msgs, config, wireShape), system, wireShape, config);
         Transforms.applyToolDefs(body, config, tools);
 
         // Options. When the provider wraps options (Google's generationConfig),

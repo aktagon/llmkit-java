@@ -279,15 +279,19 @@ final class Batching {
                 // configured body path) must not destroy the completed batch:
                 // skip it and return the successful subset, mirroring Go.
                 try {
+                    // VERBATIM, not parse-navigate-re-serialize: the inner body is
+                    // what ADR-085 captures the assistant turn from, and serializing
+                    // a parsed tree emits Gson's rendering, not the provider's.
+                    // Harmless while only scalars were read out of it; not harmless
+                    // once a payload is captured from the same bytes.
                     String responseText;
                     if (batch.resultBodyPath.isEmpty()) {
                         responseText = line;
                     } else {
-                        JsonElement inner = Json.at(Json.parse(line), batch.resultBodyPath);
-                        if (inner == null) {
+                        responseText = ProviderTurnCapture.extractRawJsonPath(line, batch.resultBodyPath);
+                        if (responseText == null) {
                             continue;
                         }
-                        responseText = Json.serialize(inner);
                     }
                     // Batch is Chat-Completions-only (ADR-055): an empty wire
                     // shape selects the provider's declared response paths, not
