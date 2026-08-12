@@ -8,4 +8,4 @@ import com.google.gson.JsonElement;
 /**
  * Response is the universal response container returned by text-generation terminals (Text.Prompt, Agent.Prompt). Five fields; all five are core (no per-capability augmentation).
  */
-public record Response(String text, Usage usage, String finishReason, String finishMessage, JsonElement raw) {}
+public record Response(String text, Usage usage, String finishReason, String finishMessage, JsonElement raw, ProviderTurn providerTurn) {}

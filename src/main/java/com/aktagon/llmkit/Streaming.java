@@ -198,7 +198,7 @@ final class Streaming {
     }
 
     private static Response assemble(String text, Long input, Long output, String finishReason) {
-        return new Response(text, new Usage(input, output, null, null, null, null), Json.optString(finishReason), null, null);
+        return new Response(text, new Usage(input, output, null, null, null, null), Json.optString(finishReason), null, null, null);
     }
 
     /**
