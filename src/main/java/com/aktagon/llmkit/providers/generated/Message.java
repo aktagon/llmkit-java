@@ -5,4 +5,4 @@ package com.aktagon.llmkit.providers.generated;
 /**
  * Message is a single turn in a multi-turn conversation. Discriminated by role: text turns set content; assistant-with-tools turns set tool_calls; tool turns set tool_result. Consumers MUST inspect role before reading the optional tool-turn fields. ADR-020 extends Message with tool_calls and tool_result so *Agent history round-trips fully across process boundaries.
  */
-public record Message(String role, String content, java.util.List<ToolCall> toolCalls, ToolResult toolResult) {}
+public record Message(String role, String content, java.util.List<ToolCall> toolCalls, ToolResult toolResult, ProviderTurn providerTurn) {}
