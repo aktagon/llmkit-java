@@ -29,7 +29,7 @@ public record ProviderInfo(
             case BEDROCK:
                 return new ProviderInfo(ProviderName.BEDROCK, "bedrock", "AWS_ACCESS_KEY_ID", "anthropic.claude-sonnet-4-20250514-v1:0", "https://bedrock-runtime.{region}.amazonaws.com", false);
             case CEREBRAS:
-                return new ProviderInfo(ProviderName.CEREBRAS, "cerebras", "CEREBRAS_API_KEY", "llama-3.3-70b", "https://api.cerebras.ai", false);
+                return new ProviderInfo(ProviderName.CEREBRAS, "cerebras", "CEREBRAS_API_KEY", "gpt-oss-120b", "https://api.cerebras.ai", false);
             case COHERE:
                 return new ProviderInfo(ProviderName.COHERE, "cohere", "COHERE_API_KEY", "command-r-plus", "https://api.cohere.com/compatibility", false);
             case DEEPSEEK:
