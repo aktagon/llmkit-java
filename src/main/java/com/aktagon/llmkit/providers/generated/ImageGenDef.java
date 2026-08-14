@@ -60,6 +60,25 @@ public record ImageGenDef(
                                 new ImageModelDef("gpt-image-1.5", "GPT Image 1.5", java.util.List.of(), java.util.List.of(), 0),
                                 new ImageModelDef("gpt-image-2", "GPT Image 2", java.util.List.of(), java.util.List.of(), 0)
                         ));
+            case OPENROUTER:
+                return new ImageGenDef(
+                        "JSONGenerations",
+                        "Base64Inline",
+                        "DataArrayB64Json",
+                        "usage.prompt_tokens",
+                        "usage.completion_tokens",
+                        0,
+                        "/v1/images",
+                        "",
+                        java.util.List.of(
+                                new ImageModelDef("google/gemini-2.5-flash-image", "Nano Banana (Gemini 2.5 Flash Image)", java.util.List.of(), java.util.List.of(), 0),
+                                new ImageModelDef("google/gemini-3-pro-image", "Nano Banana Pro (Gemini 3 Pro Image)", java.util.List.of(), java.util.List.of(), 0),
+                                new ImageModelDef("google/gemini-3.1-flash-image", "Nano Banana 2 (Gemini 3.1 Flash Image)", java.util.List.of(), java.util.List.of(), 0),
+                                new ImageModelDef("google/gemini-3.1-flash-lite-image", "Nano Banana 2 Lite (Gemini 3.1 Flash Lite Image)", java.util.List.of(), java.util.List.of(), 0),
+                                new ImageModelDef("openai/gpt-5-image", "GPT-5 Image", java.util.List.of(), java.util.List.of(), 0),
+                                new ImageModelDef("openai/gpt-5-image-mini", "GPT-5 Image Mini", java.util.List.of(), java.util.List.of(), 0),
+                                new ImageModelDef("openai/gpt-5.4-image-2", "GPT-5.4 Image 2", java.util.List.of(), java.util.List.of(), 0)
+                        ));
             case RECRAFT:
                 return new ImageGenDef(
                         "JSONGenerations",
