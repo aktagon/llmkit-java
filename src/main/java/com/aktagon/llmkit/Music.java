@@ -223,7 +223,12 @@ public final class Music {
     // --- Send ---
 
     private MusicResponse send(List<Part> parts, MusicModelDef modelDef, MusicGenDef mgCfg, Providers.Spec config) {
-        String base = baseUrlOverride != null ? baseUrlOverride : config.baseUrl;
+        // Explicit override > the provider's distinct music base > the chat
+        // base. mgCfg.baseUrl() is "" for every provider whose music API shares
+        // the chat host, so this is a no-op except for MiniMax.
+        String base = baseUrlOverride != null
+                ? baseUrlOverride
+                : (mgCfg.baseUrl().isEmpty() ? config.baseUrl : mgCfg.baseUrl());
         Map<String, String> headers = RequestBuilder.buildAuthHeaders(config, apiKey);
 
         String url;
@@ -236,7 +241,7 @@ public final class Music {
                 body = buildVertexBody(parts);
             }
             case "MusicMinimax" -> {
-                url = mgCfg.genEndpoint().startsWith("http") ? mgCfg.genEndpoint() : base + mgCfg.genEndpoint();
+                url = base + mgCfg.genEndpoint();
                 body = buildMinimaxBody(parts, model);
             }
             default -> { // MusicGenerateContent (Gemini)
