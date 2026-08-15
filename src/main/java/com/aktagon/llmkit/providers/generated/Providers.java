@@ -197,7 +197,7 @@ public final class Providers {
                     /* roleMappings */ java.util.Map.of("assistant", "assistant", "user", "user"),
                     /* usageInputPath */ "usage.input_tokens",
                     /* usageOutputPath */ "usage.output_tokens",
-                    /* reasoningTokensPath */ "",
+                    /* reasoningTokensPath */ "usage.output_tokens_details.thinking_tokens",
                     /* finishReasonPath */ "stop_reason",
                     /* finishMessagePath */ "",
                     /* streamFinishReasonPath */ "message_stop:stop_reason",
