@@ -71,6 +71,54 @@ public final class Json {
         return current;
     }
 
+    /**
+     * Elements of the array at {@code blocksPath} that the marker identifies,
+     * in wire order. The single primitive behind every "which blocks in this
+     * response are of kind X" question — text extraction and tool-call
+     * extraction both run through it, so the two cannot come to disagree about
+     * what an array element is.
+     *
+     * <p>Marker semantics are exactly the generated config contract:
+     * {@code markerPath} empty means the array is homogeneous and every element
+     * matches; {@code markerPath} set with an empty {@code markerValue} matches
+     * on the key being PRESENT; both set matches on the key EQUALLING the value.
+     *
+     * <p>Presence rather than equality is not a shortcut: a Bedrock
+     * ContentBlock and a Gemini Part are UNIONS whose text member carries no
+     * type key at all, so an equality test there would match nothing.
+     *
+     * <p>Navigation reuses {@link #at}, so there is no second path grammar here
+     * — which matters more in Java than anywhere else, because {@link #at}
+     * calls {@code Integer.parseInt} on the bracket body and a filter grammar
+     * like {@code content[type=text].text} would throw on every decode.
+     */
+    public static java.util.List<JsonObject> matchingBlocks(
+            JsonElement root, String blocksPath, String markerPath, String markerValue) {
+        java.util.List<JsonObject> out = new java.util.ArrayList<>();
+        JsonElement arr = at(root, blocksPath);
+        if (arr == null || !arr.isJsonArray()) {
+            return out;
+        }
+        for (JsonElement elem : arr.getAsJsonArray()) {
+            if (!elem.isJsonObject()) {
+                continue;
+            }
+            JsonObject block = elem.getAsJsonObject();
+            if (!markerPath.isEmpty()) {
+                JsonElement marker = block.get(markerPath);
+                if (marker == null) {
+                    continue;
+                }
+                if (!markerValue.isEmpty()
+                        && !(marker.isJsonPrimitive() && markerValue.equals(marker.getAsString()))) {
+                    continue;
+                }
+            }
+            out.add(block);
+        }
+        return out;
+    }
+
     public static String stringAt(JsonElement root, String path) {
         JsonElement found = at(root, path);
         return found != null && found.isJsonPrimitive() ? found.getAsString() : "";
