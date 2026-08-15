@@ -40,8 +40,30 @@ public final class ResponseCodec {
      * mis-parses (SYM-003). This is the same function the chat send path calls
      * (SYM-004).
      */
+    /**
+     * Fill in an unspecified wire shape with the provider's DEFAULT chat protocol.
+     *
+     * <p>Callers that decode a body they know is Chat Completions — batch result
+     * lines, chiefly — pass "" to mean "not the Responses envelope". Harmless
+     * while the shape only chose between the Responses arm and the provider's
+     * declared paths; NOT harmless once it also selects the TEXT READER, because
+     * "" resolved to no config, which is the positional reader BUG-053 removed.
+     * Batched Anthropic replies with a leading thinking block decoded to "" long
+     * after the send path was fixed.
+     *
+     * <p>Resolving here keeps N=1. ADR-055 requires every provider's default
+     * protocol to be a Chat Completions family, so this can never resolve INTO
+     * the Responses arm.
+     */
+    static String resolveChatWireShape(ProviderName provider, String chatWireShape) {
+        return chatWireShape == null || chatWireShape.isEmpty()
+                ? Providers.config(provider).chatWireShape
+                : chatWireShape;
+    }
+
     public static Response decodeResponse(
-            ProviderName provider, String chatWireShape, byte[] body) {
+            ProviderName provider, String rawWireShape, byte[] body) {
+        String chatWireShape = resolveChatWireShape(provider, rawWireShape);
         String text = new String(body, StandardCharsets.UTF_8);
         JsonElement raw = Json.parse(text);
         Providers.Spec config = Providers.config(provider);
@@ -109,7 +131,8 @@ public final class ResponseCodec {
      * point, {@code decode(encode(decode(b))) == decode(b)} (SYM-006).
      */
     public static byte[] encodeResponse(
-            ProviderName provider, String chatWireShape, Response response) {
+            ProviderName provider, String rawWireShape, Response response) {
+        String chatWireShape = resolveChatWireShape(provider, rawWireShape);
         guardOneWayFields(provider, response);
         if ("ChatResponsesOpenAI".equals(chatWireShape)) {
             return serialize(encodeResponsesEnvelope(response));
