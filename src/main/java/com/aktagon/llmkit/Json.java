@@ -109,8 +109,16 @@ public final class Json {
                 if (marker == null) {
                     continue;
                 }
+                // isString() is load-bearing: Gson's getAsString() RENDERS
+                // numbers and booleans, so without it {"type":1} would match a
+                // markerValue of "1" here while the other six SDKs reject it —
+                // every one of them requires the marker to BE a string. A
+                // cross-SDK selector that disagrees about what matches is the
+                // drift this primitive exists to prevent.
                 if (!markerValue.isEmpty()
-                        && !(marker.isJsonPrimitive() && markerValue.equals(marker.getAsString()))) {
+                        && !(marker.isJsonPrimitive()
+                                && marker.getAsJsonPrimitive().isString()
+                                && markerValue.equals(marker.getAsString()))) {
                     continue;
                 }
             }
