@@ -667,20 +667,14 @@ final class Transforms {
         return result;
     }
 
+    // The N=1 proof for Json.matchingBlocks: the SAME call the text reader
+    // makes, with a different marker value. Before BUG-053 these were two
+    // hand-rolled scans over one array that happened to agree; agreement by
+    // coincidence is what let text extraction break on thinking blocks while
+    // tool-call extraction, scanning the very same array, kept working.
     private static List<ToolCall> extractAnthropicToolCalls(JsonElement raw) {
         List<ToolCall> result = new ArrayList<>();
-        JsonElement blocks = Json.at(raw, "content");
-        if (blocks == null || !blocks.isJsonArray()) {
-            return result;
-        }
-        for (JsonElement blockElement : blocks.getAsJsonArray()) {
-            if (!blockElement.isJsonObject()) {
-                continue;
-            }
-            JsonObject block = blockElement.getAsJsonObject();
-            if (!"tool_use".equals(Json.stringAt(block, "type"))) {
-                continue;
-            }
+        for (JsonObject block : Json.matchingBlocks(raw, "content", "type", "tool_use")) {
             result.add(new ToolCall(
                     Json.stringAt(block, "id"), Json.stringAt(block, "name"), objectOrEmpty(block.get("input"))));
         }

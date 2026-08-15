@@ -62,7 +62,7 @@ public final class ResponseCodec {
         }
 
         return new Response(
-                Json.stringAt(raw, config.responseTextPath),
+                extractResponseText(raw, config, chatWireShape),
                 decodeUsage(raw, provider),
                 Json.optString(raw, config.finishReasonPath),
                 Json.optString(raw, config.finishMessagePath),
@@ -120,7 +120,7 @@ public final class ResponseCodec {
         double costScale = ResponsePaths.usageCostScale(config.name);
 
         JsonObject raw = new JsonObject();
-        JsonBuilder.setWirePath(raw, config.responseTextPath, new JsonPrimitive(response.text()));
+        encodeResponseText(raw, config, chatWireShape, response.text());
         JsonBuilder.setWirePath(raw, config.usageInputPath, JsonBuilder.wire(response.usage().input()));
         JsonBuilder.setWirePath(raw, config.usageOutputPath, JsonBuilder.wire(response.usage().output()));
         JsonBuilder.setWirePath(raw, cachePaths.write, JsonBuilder.wire(response.usage().cacheWrite()));
@@ -220,6 +220,63 @@ public final class ResponseCodec {
                 JsonBuilder.wire(response.usage().reasoning()));
         JsonBuilder.setWirePath(raw, "status", JsonBuilder.wire(response.finishReason()));
         return raw;
+    }
+
+    /**
+     * Reads the assistant's text out of a parsed provider body.
+     *
+     * <p>Two readers, selected by the WIRE SHAPE, never by provider name:
+     * block-array families declare a {@code responseTextConfig} and are read by
+     * DISCRIMINATOR, because array position is not stable — Opus 5 and Sonnet 5
+     * think by default, so {@code content[0]} is a thinking block (BUG-053);
+     * scalar families declare none, and null SELECTS the fixed-path reader.
+     *
+     * <p>An empty result is a real answer, not a failure: every tool-use turn
+     * carries no text block at all. {@code finishReason} is what says why.
+     */
+    static String extractResponseText(
+            JsonElement raw, Providers.Spec config, String chatWireShape) {
+        ResponsePaths.ResponseTextConfig textConfig =
+                ResponsePaths.responseTextConfig(chatWireShape);
+        if (textConfig == null) {
+            return Json.stringAt(raw, config.responseTextPath);
+        }
+        java.util.List<JsonObject> blocks =
+                Json.matchingBlocks(
+                        raw, textConfig.blocksPath, textConfig.markerPath, textConfig.markerValue);
+        if (blocks.isEmpty()) {
+            return "";
+        }
+        return Json.stringAt(blocks.get(0), textConfig.valuePath);
+    }
+
+    /**
+     * {@link #extractResponseText}'s inverse, driven by the SAME config so the
+     * two cannot drift apart.
+     *
+     * <p>The marker is WRITTEN, not just tested. Emitting only the value path
+     * would produce {@code {"content":[{"text":"pong"}]}} — a body with no type
+     * discriminator, which the reader above then finds no matching block in.
+     * That is the ADR-076 fixed point breaking, and it is why
+     * {@code textMarkerValue} is documented as a write instruction rather
+     * than a read predicate.
+     */
+    static void encodeResponseText(
+            JsonObject raw, Providers.Spec config, String chatWireShape, String text) {
+        ResponsePaths.ResponseTextConfig textConfig =
+                ResponsePaths.responseTextConfig(chatWireShape);
+        if (textConfig == null) {
+            JsonBuilder.setWirePath(raw, config.responseTextPath, new JsonPrimitive(text));
+            return;
+        }
+        String block = textConfig.blocksPath + "[0]";
+        if (!textConfig.markerValue.isEmpty()) {
+            JsonBuilder.setWirePath(
+                    raw,
+                    block + "." + textConfig.markerPath,
+                    new JsonPrimitive(textConfig.markerValue));
+        }
+        JsonBuilder.setWirePath(raw, block + "." + textConfig.valuePath, new JsonPrimitive(text));
     }
 
     /**
