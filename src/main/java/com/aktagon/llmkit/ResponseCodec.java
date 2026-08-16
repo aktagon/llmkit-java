@@ -40,8 +40,30 @@ public final class ResponseCodec {
      * mis-parses (SYM-003). This is the same function the chat send path calls
      * (SYM-004).
      */
+    /**
+     * Fill in an unspecified wire shape with the provider's DEFAULT chat protocol.
+     *
+     * <p>Callers that decode a body they know is Chat Completions — batch result
+     * lines, chiefly — pass "" to mean "not the Responses envelope". Harmless
+     * while the shape only chose between the Responses arm and the provider's
+     * declared paths; NOT harmless once it also selects the TEXT READER, because
+     * "" resolved to no config, which is the positional reader BUG-053 removed.
+     * Batched Anthropic replies with a leading thinking block decoded to "" long
+     * after the send path was fixed.
+     *
+     * <p>Resolving here keeps N=1. ADR-055 requires every provider's default
+     * protocol to be a Chat Completions family, so this can never resolve INTO
+     * the Responses arm.
+     */
+    static String resolveChatWireShape(ProviderName provider, String chatWireShape) {
+        return chatWireShape == null || chatWireShape.isEmpty()
+                ? Providers.config(provider).chatWireShape
+                : chatWireShape;
+    }
+
     public static Response decodeResponse(
-            ProviderName provider, String chatWireShape, byte[] body) {
+            ProviderName provider, String rawWireShape, byte[] body) {
+        String chatWireShape = resolveChatWireShape(provider, rawWireShape);
         String text = new String(body, StandardCharsets.UTF_8);
         JsonElement raw = Json.parse(text);
         Providers.Spec config = Providers.config(provider);
@@ -62,7 +84,7 @@ public final class ResponseCodec {
         }
 
         return new Response(
-                Json.stringAt(raw, config.responseTextPath),
+                extractResponseText(raw, config, chatWireShape),
                 decodeUsage(raw, provider),
                 Json.optString(raw, config.finishReasonPath),
                 Json.optString(raw, config.finishMessagePath),
@@ -109,7 +131,8 @@ public final class ResponseCodec {
      * point, {@code decode(encode(decode(b))) == decode(b)} (SYM-006).
      */
     public static byte[] encodeResponse(
-            ProviderName provider, String chatWireShape, Response response) {
+            ProviderName provider, String rawWireShape, Response response) {
+        String chatWireShape = resolveChatWireShape(provider, rawWireShape);
         guardOneWayFields(provider, response);
         if ("ChatResponsesOpenAI".equals(chatWireShape)) {
             return serialize(encodeResponsesEnvelope(response));
@@ -120,7 +143,7 @@ public final class ResponseCodec {
         double costScale = ResponsePaths.usageCostScale(config.name);
 
         JsonObject raw = new JsonObject();
-        JsonBuilder.setWirePath(raw, config.responseTextPath, new JsonPrimitive(response.text()));
+        encodeResponseText(raw, config, chatWireShape, response.text());
         JsonBuilder.setWirePath(raw, config.usageInputPath, JsonBuilder.wire(response.usage().input()));
         JsonBuilder.setWirePath(raw, config.usageOutputPath, JsonBuilder.wire(response.usage().output()));
         JsonBuilder.setWirePath(raw, cachePaths.write, JsonBuilder.wire(response.usage().cacheWrite()));
@@ -220,6 +243,63 @@ public final class ResponseCodec {
                 JsonBuilder.wire(response.usage().reasoning()));
         JsonBuilder.setWirePath(raw, "status", JsonBuilder.wire(response.finishReason()));
         return raw;
+    }
+
+    /**
+     * Reads the assistant's text out of a parsed provider body.
+     *
+     * <p>Two readers, selected by the WIRE SHAPE, never by provider name:
+     * block-array families declare a {@code responseTextConfig} and are read by
+     * DISCRIMINATOR, because array position is not stable — Opus 5 and Sonnet 5
+     * think by default, so {@code content[0]} is a thinking block (BUG-053);
+     * scalar families declare none, and null SELECTS the fixed-path reader.
+     *
+     * <p>An empty result is a real answer, not a failure: every tool-use turn
+     * carries no text block at all. {@code finishReason} is what says why.
+     */
+    static String extractResponseText(
+            JsonElement raw, Providers.Spec config, String chatWireShape) {
+        ResponsePaths.ResponseTextConfig textConfig =
+                ResponsePaths.responseTextConfig(chatWireShape);
+        if (textConfig == null) {
+            return Json.stringAt(raw, config.responseTextPath);
+        }
+        java.util.List<JsonObject> blocks =
+                Json.matchingBlocks(
+                        raw, textConfig.blocksPath, textConfig.markerPath, textConfig.markerValue);
+        if (blocks.isEmpty()) {
+            return "";
+        }
+        return Json.stringAt(blocks.get(0), textConfig.valuePath);
+    }
+
+    /**
+     * {@link #extractResponseText}'s inverse, driven by the SAME config so the
+     * two cannot drift apart.
+     *
+     * <p>The marker is WRITTEN, not just tested. Emitting only the value path
+     * would produce {@code {"content":[{"text":"pong"}]}} — a body with no type
+     * discriminator, which the reader above then finds no matching block in.
+     * That is the ADR-076 fixed point breaking, and it is why
+     * {@code textMarkerValue} is documented as a write instruction rather
+     * than a read predicate.
+     */
+    static void encodeResponseText(
+            JsonObject raw, Providers.Spec config, String chatWireShape, String text) {
+        ResponsePaths.ResponseTextConfig textConfig =
+                ResponsePaths.responseTextConfig(chatWireShape);
+        if (textConfig == null) {
+            JsonBuilder.setWirePath(raw, config.responseTextPath, new JsonPrimitive(text));
+            return;
+        }
+        String block = textConfig.blocksPath + "[0]";
+        if (!textConfig.markerValue.isEmpty()) {
+            JsonBuilder.setWirePath(
+                    raw,
+                    block + "." + textConfig.markerPath,
+                    new JsonPrimitive(textConfig.markerValue));
+        }
+        JsonBuilder.setWirePath(raw, block + "." + textConfig.valuePath, new JsonPrimitive(text));
     }
 
     /**
