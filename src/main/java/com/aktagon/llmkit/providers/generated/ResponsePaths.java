@@ -59,6 +59,49 @@ public final class ResponsePaths {
         }
     }
 
+    /**
+     * Where the assistant's text sits in a block-ARRAY response, located by
+     * discriminator rather than array position: a leading thinking block or
+     * non-text part shifts text out from under a fixed path (BUG-053).
+     *
+     * <p>markerPath empty: every element is a text block. markerPath set with
+     * markerValue empty: element is text if the key is PRESENT. Both set:
+     * element is text if the key EQUALS the value.
+     *
+     * <p>markerValue is also a WRITE instruction: encodeResponse stamps it onto
+     * the block it writes, so an emitted body reads back through this table.
+     */
+    public static final class ResponseTextConfig {
+        public final String blocksPath;
+        public final String markerPath;
+        public final String markerValue;
+        public final String valuePath;
+
+        ResponseTextConfig(String blocksPath, String markerPath, String markerValue, String valuePath) {
+            this.blocksPath = blocksPath;
+            this.markerPath = markerPath;
+            this.markerValue = markerValue;
+            this.valuePath = valuePath;
+        }
+    }
+
+    /**
+     * Text-block selector for a chat wire shape, or null when the shape carries
+     * text as a plain scalar — null SELECTS the responseTextPath reader above,
+     * it does not mean the shape has no text.
+     */
+    public static ResponseTextConfig responseTextConfig(String chatWireShape) {
+        switch (chatWireShape) {
+            case "ChatAnthropic":
+                return new ResponseTextConfig("content", "type", "text", "text");
+            case "ChatBedrock":
+                return new ResponseTextConfig("output.message.content", "text", "", "text");
+            case "ChatGoogle":
+                return new ResponseTextConfig("candidates[0].content.parts", "text", "", "text");
+            default: return null;
+        }
+    }
+
     public static UsagePaths usagePaths(ProviderName provider) {
         switch (provider) {
             case AI21: return new UsagePaths("usage.prompt_tokens", "usage.completion_tokens");
