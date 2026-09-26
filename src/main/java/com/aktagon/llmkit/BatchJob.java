@@ -39,9 +39,16 @@ public final class BatchJob {
     }
 
     /**
-     * Poll until a terminal state, returning the ordered responses. Named
-     * {@code await} (not {@code wait}) because {@code Object.wait()} is final
-     * in Java — the one per-language rename in the Wait entry point.
+     * Poll until a terminal state, returning one Response per prompt, at the
+     * prompt's index. A failed request keeps its slot: empty text,
+     * finishReason set to the provider's result status ("errored", "expired",
+     * "canceled"; "error" when the provider has none) and finishMessage set to
+     * the provider's error message. A request with no result line reads
+     * finishReason "missing". Results whose request id is not one this SDK
+     * assigned (a batch created elsewhere, resumed by ID) follow the indexed
+     * ones in file order. Named {@code await} (not {@code wait}) because
+     * {@code Object.wait()} is final in Java — the one per-language rename in
+     * the Wait entry point.
      */
     public List<Response> await() {
         Batching.BatchAdapter adapter = adapter();
