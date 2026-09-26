@@ -267,42 +267,121 @@ final class Batching {
             return new String(result.body(), StandardCharsets.UTF_8);
         }
 
+        /**
+         * Parses JSONL batch result data into one Response per submitted
+         * request, at that request's index (BUG-072).
+         *
+         * <p>Providers return result lines in any order, so a line is placed by
+         * the request id at {@code resultKeyPath}: "req-N" goes to index N. A
+         * line whose body is missing at {@code resultBodyPath} is a failed
+         * request; it keeps its slot as a Response with empty text,
+         * finishReason from {@code resultStatusPath} ("error" when the provider
+         * has no status) and finishMessage from {@code resultErrorPath}. An
+         * index with no line gets finishReason "missing". Lines whose id is not
+         * "req-N" (a batch created outside llmkit, or a repeated id) follow the
+         * indexed slots in file order. A line that is not JSON cannot be placed
+         * and is skipped; its index reads "missing".
+         */
         private List<Response> parseResults(String data) {
-            List<Response> responses = new ArrayList<>();
+            List<Response> slots = new ArrayList<>();
+            List<Response> unkeyed = new ArrayList<>();
             for (String rawLine : data.split("\n")) {
                 String line = rawLine.trim();
                 if (line.isEmpty()) {
                     continue;
                 }
-                // A malformed or errored item line (e.g. Anthropic
-                // result.type=errored, which carries no result.message at the
-                // configured body path) must not destroy the completed batch:
-                // skip it and return the successful subset, mirroring Go.
+                JsonElement wrapper;
                 try {
-                    // VERBATIM, not parse-navigate-re-serialize: the inner body is
-                    // what ADR-085 captures the assistant turn from, and serializing
-                    // a parsed tree emits Gson's rendering, not the provider's.
-                    // Harmless while only scalars were read out of it; not harmless
-                    // once a payload is captured from the same bytes.
-                    String responseText;
-                    if (batch.resultBodyPath.isEmpty()) {
-                        responseText = line;
-                    } else {
-                        responseText = ProviderTurnCapture.extractRawJsonPath(line, batch.resultBodyPath);
-                        if (responseText == null) {
-                            continue;
-                        }
-                    }
-                    // Batch is Chat-Completions-only (ADR-055): an empty wire
-                    // shape selects the provider's declared response paths, not
-                    // the Responses output[] arm.
-                    responses.add(ResponseCodec.decodeResponse(
-                            spec.name, "", responseText.getBytes(StandardCharsets.UTF_8)));
+                    wrapper = Json.parse(line);
                 } catch (DecodingException e) {
                     continue;
                 }
+                Response resp = parseResultLine(line, wrapper);
+
+                int index = batch.resultKeyPath.isEmpty()
+                        ? -1
+                        : requestIndex(Json.stringAt(wrapper, batch.resultKeyPath));
+                if (index < 0 || (index < slots.size() && slots.get(index) != null)) {
+                    unkeyed.add(resp);
+                    continue;
+                }
+                while (slots.size() <= index) {
+                    slots.add(null);
+                }
+                slots.set(index, resp);
             }
+
+            List<Response> responses = new ArrayList<>(slots.size() + unkeyed.size());
+            for (Response slot : slots) {
+                responses.add(slot != null ? slot : failed("missing", null));
+            }
+            responses.addAll(unkeyed);
             return responses;
+        }
+
+        /**
+         * Decodes one result line. A line whose body is missing at
+         * {@code resultBodyPath}, or does not decode, becomes a failed Response.
+         */
+        private Response parseResultLine(String line, JsonElement wrapper) {
+            // VERBATIM, not parse-navigate-re-serialize: the inner body is
+            // what ADR-085 captures the assistant turn from, and serializing
+            // a parsed tree emits Gson's rendering, not the provider's.
+            // Harmless while only scalars were read out of it; not harmless
+            // once a payload is captured from the same bytes.
+            String responseText = batch.resultBodyPath.isEmpty()
+                    ? line
+                    : ProviderTurnCapture.extractRawJsonPath(line, batch.resultBodyPath);
+            if (responseText != null && responseText.startsWith("{")) {
+                try {
+                    // Batch is Chat-Completions-only (ADR-055): an empty wire
+                    // shape selects the provider's declared response paths, not
+                    // the Responses output[] arm.
+                    return ResponseCodec.decodeResponse(
+                            spec.name, "", responseText.getBytes(StandardCharsets.UTF_8));
+                } catch (DecodingException e) {
+                    // Falls through to a failed Response.
+                }
+            }
+
+            String reason = "error";
+            if (!batch.resultStatusPath.isEmpty()) {
+                String status = Json.stringAt(wrapper, batch.resultStatusPath);
+                if (!status.isEmpty()) {
+                    reason = status;
+                }
+            }
+            String message = batch.resultErrorPath.isEmpty()
+                    ? null
+                    : Json.optString(wrapper, batch.resultErrorPath);
+            return failed(reason, message);
+        }
+
+        private static Response failed(String finishReason, String finishMessage) {
+            return new Response(
+                    "", new Usage(null, null, null, null, null, null), finishReason, finishMessage, null, null);
+        }
+
+        /**
+         * Reads N out of the "req-N" id the SDK sends with request N. Any
+         * other id reports -1.
+         */
+        private static int requestIndex(String id) {
+            if (!id.startsWith("req-") || id.length() == 4) {
+                return -1;
+            }
+            String digits = id.substring(4);
+            for (int i = 0; i < digits.length(); i++) {
+                char c = digits.charAt(i);
+                if (c < '0' || c > '9') {
+                    return -1;
+                }
+            }
+            try {
+                return Integer.parseInt(digits);
+            } catch (NumberFormatException e) {
+                return -1;
+            }
         }
     }
 }
