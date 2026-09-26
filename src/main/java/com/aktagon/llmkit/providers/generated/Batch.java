@@ -17,6 +17,9 @@ public final class Batch {
         public final String endpointPath;
         public final String itemBodyField;
         public final String resultBodyPath;
+        public final String resultKeyPath;
+        public final String resultStatusPath;
+        public final String resultErrorPath;
         /** Nullable. */
         public final Caching.ResourceLifecycleDef lifecycle;
 
@@ -29,6 +32,9 @@ public final class Batch {
                 String endpointPath,
                 String itemBodyField,
                 String resultBodyPath,
+                String resultKeyPath,
+                String resultStatusPath,
+                String resultErrorPath,
                 Caching.ResourceLifecycleDef lifecycle) {
             this.inputMode = inputMode;
             this.inputField = inputField;
@@ -38,6 +44,9 @@ public final class Batch {
             this.endpointPath = endpointPath;
             this.itemBodyField = itemBodyField;
             this.resultBodyPath = resultBodyPath;
+            this.resultKeyPath = resultKeyPath;
+            this.resultStatusPath = resultStatusPath;
+            this.resultErrorPath = resultErrorPath;
             this.lifecycle = lifecycle;
         }
     }
@@ -54,6 +63,9 @@ public final class Batch {
                         "",
                         "params",
                         "result.message",
+                        "custom_id",
+                        "result.type",
+                        "result.error.error.message",
                         new Caching.ResourceLifecycleDef(
                                 "/v1/messages/batches",
                                 "id",
@@ -76,6 +88,9 @@ public final class Batch {
                         "",
                         "",
                         "",
+                        "",
+                        "",
+                        "",
                         null);
             case OPENAI:
                 return new Def(
@@ -87,6 +102,9 @@ public final class Batch {
                         "/v1/chat/completions",
                         "",
                         "response.body",
+                        "custom_id",
+                        "",
+                        "error.message",
                         new Caching.ResourceLifecycleDef(
                                 "/v1/batches",
                                 "id",
