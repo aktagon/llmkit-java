@@ -34,6 +34,7 @@ final class Batching {
             List<String> prompts,
             List<InputImage> images,
             List<FileRef> files,
+            List<Msg> history,
             PromptOptions options) {
         Batch.Def batch = Batch.config(config.name);
         if (batch == null) {
@@ -50,7 +51,7 @@ final class Batching {
         switch (batch.inputMode) {
             case FILE_REFERENCE_INPUT -> {
                 byte[] jsonl = buildJsonl(
-                        prompts, config, apiKey, model, system, images, files, batch, options, http, baseUrlOverride);
+                        prompts, config, apiKey, model, system, images, files, history, batch, options, http, baseUrlOverride);
                 String fileId = uploadFile(base, headers, batch, jsonl, http, config);
                 body.addProperty(batch.inputField, fileId);
                 body.addProperty("endpoint", batch.endpointPath);
@@ -68,7 +69,7 @@ final class Batching {
                 for (int index = 0; index < prompts.size(); index++) {
                     RequestBuilder.Built built = RequestBuilder.buildBody(
                             config, config.chatWireShape, apiKey, model, system,
-                            itemMsgs(prompts.get(index), images, files), List.of(), options);
+                            itemMsgs(prompts.get(index), images, files, history), List.of(), options);
                     CachingRuntime.apply(built.body(), config, model, apiKey, options, http, baseUrlOverride);
                     String itemBeta = built.headers().get("anthropic-beta");
                     if (itemBeta != null) {
@@ -111,13 +112,18 @@ final class Batching {
      * The per-item user turn — a media turn when the builder carried
      * image/file parts (ADR-060), else a plain text turn. Batch applies the
      * builder's media to every item (the ADR-064 {@code batch(prompts...)}
-     * shape carries builder-level config uniformly).
+     * shape carries builder-level config uniformly). The builder's history
+     * precedes the user turn in every item.
      */
-    private static List<Msg> itemMsgs(String prompt, List<InputImage> images, List<FileRef> files) {
+    private static List<Msg> itemMsgs(
+            String prompt, List<InputImage> images, List<FileRef> files, List<Msg> history) {
+        List<Msg> msgs = new java.util.ArrayList<>(history);
         if (images.isEmpty() && files.isEmpty()) {
-            return List.of(new Msg.Text("user", prompt));
+            msgs.add(new Msg.Text("user", prompt));
+        } else {
+            msgs.add(new Msg.Media("user", prompt, images, files));
         }
-        return List.of(new Msg.Media("user", prompt, images, files));
+        return msgs;
     }
 
     private static byte[] buildJsonl(
@@ -128,6 +134,7 @@ final class Batching {
             String system,
             List<InputImage> images,
             List<FileRef> files,
+            List<Msg> history,
             Batch.Def batch,
             PromptOptions options,
             HttpTransport http,
@@ -136,7 +143,7 @@ final class Batching {
         for (int index = 0; index < prompts.size(); index++) {
             RequestBuilder.Built built = RequestBuilder.buildBody(
                     config, config.chatWireShape, apiKey, model, system,
-                    itemMsgs(prompts.get(index), images, files), List.of(), options);
+                    itemMsgs(prompts.get(index), images, files, history), List.of(), options);
             CachingRuntime.apply(built.body(), config, model, apiKey, options, http, baseUrlOverride);
             JsonObject line = new JsonObject();
             line.addProperty("custom_id", Batch.BATCH_REQUEST_ID_PREFIX + index);

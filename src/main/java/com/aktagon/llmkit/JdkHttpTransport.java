@@ -35,14 +35,8 @@ final class JdkHttpTransport implements HttpTransport {
 
     @Override
     public Result postMultipart(
-            String url,
-            Map<String, String> fields,
-            String fileField,
-            String filename,
-            String fileContentType,
-            byte[] data,
-            Map<String, String> headers) {
-        Multipart.Encoded encoded = Multipart.encode(fields, fileField, filename, fileContentType, data);
+            String url, Map<String, String> fields, java.util.List<Multipart.FilePart> files, Map<String, String> headers) {
+        Multipart.Encoded encoded = Multipart.encode(fields, files);
         HttpRequest.Builder builder = requestBuilder(url);
         builder.setHeader("Content-Type", "multipart/form-data; boundary=" + encoded.boundary());
         applyHeaders(builder, headers);

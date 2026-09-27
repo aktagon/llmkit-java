@@ -49,14 +49,8 @@ final class HeaderInjectingTransport implements HttpTransport {
 
     @Override
     public Result postMultipart(
-            String url,
-            Map<String, String> fields,
-            String fileField,
-            String filename,
-            String fileContentType,
-            byte[] data,
-            Map<String, String> headers) {
-        return delegate.postMultipart(url, fields, fileField, filename, fileContentType, data, inject(headers));
+            String url, Map<String, String> fields, java.util.List<Multipart.FilePart> files, Map<String, String> headers) {
+        return delegate.postMultipart(url, fields, files, inject(headers));
     }
 
     @Override

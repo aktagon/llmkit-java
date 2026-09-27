@@ -31,6 +31,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of typing the strings.
 - `Text.raw()`: opts into the provider body on `Response.raw`, on the prompt
   and batch paths.
+- `Text.history(...)` and `Text.text(...)`: seed the conversation, and add
+  text parts sent before the prompt.
+- `Agent` takes the same generation options as `Text`: `temperature`,
+  `maxTokens`, `topP`, `topK`, `seed`, `stopSequences`, `frequencyPenalty`,
+  `presencePenalty`, `reasoningEffort`, `thinkingBudget` and
+  `safetySettings`. `Agent.history(...)` seeds the conversation, and
+  `Agent.raw()` puts the last turn's provider body on `Response.raw`.
+- `Image.mask(...)`, `Image.safetyFilter(...)`, `Image.safetySettings(...)`,
+  `Image.text(...)` and `Image.raw()`, and `Video.text(...)`. OpenAI image
+  edits with reference images now work; they used to be refused.
 
 ### Fixed
 
