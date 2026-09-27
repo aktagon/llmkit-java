@@ -6,6 +6,15 @@ package com.aktagon.llmkit.providers.generated;
 public final class Batch {
     private Batch() {}
 
+    // Batch contract constants shared by every SDK (ADR-091).
+
+    /** Prefix + the request index is the id sent with each batch request. */
+    public static final String BATCH_REQUEST_ID_PREFIX = "req-";
+    /** finishReason of a batch slot whose request has no result line. */
+    public static final String BATCH_SLOT_MISSING = "missing";
+    /** finishReason of a failed batch slot when the provider gives no reason. */
+    public static final String BATCH_SLOT_ERROR = "error";
+
     public enum InputMode { INLINE_REQUESTS, FILE_REFERENCE_INPUT }
 
     public static final class Def {
@@ -19,7 +28,10 @@ public final class Batch {
         public final String resultBodyPath;
         public final String resultKeyPath;
         public final String resultStatusPath;
-        public final String resultErrorPath;
+        public final java.util.List<String> resultSuccessValues;
+        public final java.util.List<String> resultReasonPaths;
+        public final java.util.List<String> resultMessagePaths;
+        public final java.util.List<String> requestCountPaths;
         /** Nullable. */
         public final Caching.ResourceLifecycleDef lifecycle;
 
@@ -34,7 +46,10 @@ public final class Batch {
                 String resultBodyPath,
                 String resultKeyPath,
                 String resultStatusPath,
-                String resultErrorPath,
+                java.util.List<String> resultSuccessValues,
+                java.util.List<String> resultReasonPaths,
+                java.util.List<String> resultMessagePaths,
+                java.util.List<String> requestCountPaths,
                 Caching.ResourceLifecycleDef lifecycle) {
             this.inputMode = inputMode;
             this.inputField = inputField;
@@ -46,7 +61,10 @@ public final class Batch {
             this.resultBodyPath = resultBodyPath;
             this.resultKeyPath = resultKeyPath;
             this.resultStatusPath = resultStatusPath;
-            this.resultErrorPath = resultErrorPath;
+            this.resultSuccessValues = resultSuccessValues;
+            this.resultReasonPaths = resultReasonPaths;
+            this.resultMessagePaths = resultMessagePaths;
+            this.requestCountPaths = requestCountPaths;
             this.lifecycle = lifecycle;
         }
     }
@@ -65,7 +83,10 @@ public final class Batch {
                         "result.message",
                         "custom_id",
                         "result.type",
-                        "result.error.error.message",
+                        java.util.List.of("succeeded"),
+                        java.util.List.of("result.type"),
+                        java.util.List.of("result.error.error.message"),
+                        java.util.List.of("request_counts.processing", "request_counts.succeeded", "request_counts.errored", "request_counts.canceled", "request_counts.expired"),
                         new Caching.ResourceLifecycleDef(
                                 "/v1/messages/batches",
                                 "id",
@@ -75,6 +96,7 @@ public final class Batch {
                                 "ended",
                                 java.util.List.of(),
                                 "/v1/messages/batches/{id}/results",
+                                "",
                                 "",
                                 "",
                                 ""));
@@ -90,7 +112,10 @@ public final class Batch {
                         "",
                         "",
                         "",
-                        "",
+                        java.util.List.of(),
+                        java.util.List.of(),
+                        java.util.List.of(),
+                        java.util.List.of(),
                         null);
             case OPENAI:
                 return new Def(
@@ -103,8 +128,11 @@ public final class Batch {
                         "",
                         "response.body",
                         "custom_id",
-                        "",
-                        "error.message",
+                        "response.status_code",
+                        java.util.List.of("200"),
+                        java.util.List.of("error.code", "response.body.error.code"),
+                        java.util.List.of("error.message", "response.body.error.message"),
+                        java.util.List.of("request_counts.total"),
                         new Caching.ResourceLifecycleDef(
                                 "/v1/batches",
                                 "id",
@@ -116,6 +144,7 @@ public final class Batch {
                                 "",
                                 "",
                                 "output_file_id",
+                                "error_file_id",
                                 "/v1/files/{id}/content"));
             default: return null;
         }
