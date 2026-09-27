@@ -30,9 +30,9 @@ import java.util.function.Consumer;
  * validation rejects unsupported aspect ratios / sizes / reference-image
  * counts before any HTTP call.
  *
- * <p>Scope: the JSON generation path for every provider. OpenAI's
- * {@code multipart/form-data} edit branch is a documented wire exclusion
- * (WIRE-008) and is not implemented here.
+ * <p>Scope: the JSON generation path for every provider, plus OpenAI's
+ * {@code multipart/form-data} edit branch ({@code image[]} files and an
+ * optional {@code mask}; mirror of Go).
  */
 public final class Image {
     private final ProviderName provider;
@@ -43,6 +43,8 @@ public final class Image {
     private final ImageOptions options;
     /** Accumulated reference images for the edit path (caller order preserved). */
     private final List<MediaRef> inputImages;
+    /** Ordered text parts sent before the terminal's own prompt argument. */
+    private final List<String> textParts;
 
     private Image(
             ProviderName provider,
@@ -51,7 +53,8 @@ public final class Image {
             HttpTransport http,
             String model,
             ImageOptions options,
-            List<MediaRef> inputImages) {
+            List<MediaRef> inputImages,
+            List<String> textParts) {
         this.provider = provider;
         this.apiKey = apiKey;
         this.baseUrlOverride = baseUrlOverride;
@@ -59,15 +62,16 @@ public final class Image {
         this.model = model;
         this.options = options;
         this.inputImages = inputImages;
+        this.textParts = textParts;
     }
 
     static Image root(ProviderName provider, String apiKey, String baseUrlOverride, HttpTransport http) {
-        return new Image(provider, apiKey, baseUrlOverride, http, null, new ImageOptions(), List.of());
+        return new Image(provider, apiKey, baseUrlOverride, http, null, new ImageOptions(), List.of(), List.of());
     }
 
     /** Select the image-generation model. */
     public Image model(String model) {
-        return new Image(provider, apiKey, baseUrlOverride, http, model, options, inputImages);
+        return new Image(provider, apiKey, baseUrlOverride, http, model, options, inputImages, textParts);
     }
 
     /** Request an aspect ratio (validated against the model's whitelist). */
@@ -116,12 +120,47 @@ public final class Image {
     public Image image(String mimeType, byte[] data) {
         List<MediaRef> images = new ArrayList<>(inputImages);
         images.add(new MediaRef(mimeType, data));
-        return new Image(provider, apiKey, baseUrlOverride, http, model, options, List.copyOf(images));
+        return new Image(provider, apiKey, baseUrlOverride, http, model, options, List.copyOf(images), textParts);
     }
 
     /** Register a middleware hook (observation + pre-phase veto). */
     public Image addMiddleware(MiddlewareFn hook) {
         return withOptions(o -> o.middleware.add(hook));
+    }
+
+    /**
+     * Append a text part. Text parts are sent in call order, after any
+     * reference images and before the terminal's own prompt argument.
+     */
+    public Image text(String value) {
+        List<String> parts = new ArrayList<>(textParts);
+        parts.add(value);
+        return new Image(provider, apiKey, baseUrlOverride, http, model, options, inputImages, List.copyOf(parts));
+    }
+
+    /**
+     * Attach an inpainting mask (transparent pixels mark the region to edit).
+     * OpenAI edits (requires a reference image) and Vertex Imagen only; other
+     * providers reject it before any HTTP call.
+     */
+    public Image mask(String mimeType, byte[] data) {
+        MediaRef ref = new MediaRef(mimeType, data.clone());
+        return withOptions(o -> o.mask = ref);
+    }
+
+    /** Vertex Imagen global safety threshold ({@code parameters.safetySetting}); rejected elsewhere. */
+    public Image safetyFilter(String threshold) {
+        return withOptions(o -> o.safetyFilter = threshold);
+    }
+
+    /** Google per-category safety thresholds ({@code safetySettings[]}); rejected elsewhere. */
+    public Image safetySettings(List<SafetySetting> values) {
+        return withOptions(o -> o.safetySettings = new ArrayList<>(values));
+    }
+
+    /** Attach the provider's response body to the ImageResponse as {@code raw} (ADR-014). */
+    public Image raw() {
+        return withOptions(o -> o.raw = true);
     }
 
     /**
@@ -172,7 +211,7 @@ public final class Image {
     private Image withOptions(Consumer<ImageOptions> mutate) {
         ImageOptions copy = options.copy();
         mutate.accept(copy);
-        return new Image(provider, apiKey, baseUrlOverride, http, model, copy, inputImages);
+        return new Image(provider, apiKey, baseUrlOverride, http, model, copy, inputImages, textParts);
     }
 
     // --- Parts ---
@@ -199,20 +238,27 @@ public final class Image {
      * validation error.
      */
     private List<Part> normalizeParts(String prompt) {
+        List<Part> texts = new ArrayList<>();
+        for (String text : textParts) {
+            if (!text.isEmpty()) {
+                texts.add(new Part.Text(text));
+            }
+        }
+        if (prompt != null && !prompt.isEmpty()) {
+            texts.add(new Part.Text(prompt));
+        }
         if (!inputImages.isEmpty()) {
             List<Part> parts = new ArrayList<>();
             for (MediaRef ref : inputImages) {
                 parts.add(new Part.ImagePart(ref));
             }
-            if (prompt != null && !prompt.isEmpty()) {
-                parts.add(new Part.Text(prompt));
-            }
+            parts.addAll(texts);
             return parts;
         }
-        if (prompt == null || prompt.isEmpty()) {
+        if (texts.isEmpty()) {
             throw new ValidationException("prompt", "set either prompt or parts");
         }
-        return List.of(new Part.Text(prompt));
+        return texts;
     }
 
     private static String joinText(List<Part> parts) {
@@ -255,19 +301,35 @@ public final class Image {
         // Per-provider knob validation. Quality / output_format / background are
         // OpenAI-only on the wire; count (n) is OpenAI + Recraft + xAI. Recraft
         // additionally has no aspect_ratio wire field (it sizes by WxH).
+        //
+        // Mask is OpenAI edits (MultipartForm with image parts) + Vertex only;
+        // safetyFilter is Vertex only; safetySettings is Google only (Go parity).
+        Object safetySettings = options.safetySettings.isEmpty() ? null : options.safetySettings;
         if ("InlineParts".equals(imgCfg.inputMode())) {
             reject(options.quality, "quality", slug);
             reject(options.outputFormat, "output_format", slug);
             reject(options.background, "background", slug);
             reject(options.count, "count", slug);
+            reject(options.mask, "mask", slug);
+            if (options.safetyFilter != null) {
+                throw new ValidationException(
+                        "safety_filter", "not supported by " + slug + "; use safetySettings for text-gen");
+            }
         } else if ("JSONInlineRefs".equals(imgCfg.inputMode())) {
             reject(options.quality, "quality", slug);
             reject(options.outputFormat, "output_format", slug);
             reject(options.background, "background", slug);
+            reject(options.mask, "mask", slug);
+            reject(options.safetyFilter, "safety_filter", slug);
+            reject(safetySettings, "safety_settings", slug);
         } else if ("JSONPredict".equals(imgCfg.inputMode())) {
             reject(options.quality, "quality", slug);
             reject(options.outputFormat, "output_format", slug);
             reject(options.background, "background", slug);
+            if (safetySettings != null) {
+                throw new ValidationException(
+                        "safety_settings", "not supported by " + slug + "; use safetyFilter for Vertex Imagen");
+            }
         } else if ("JSONGenerations".equals(imgCfg.inputMode())) {
             if (options.aspectRatio != null) {
                 throw new ValidationException(
@@ -276,8 +338,16 @@ public final class Image {
             reject(options.quality, "quality", slug);
             reject(options.outputFormat, "output_format", slug);
             reject(options.background, "background", slug);
+            reject(options.mask, "mask", slug);
+            reject(options.safetyFilter, "safety_filter", slug);
+            reject(safetySettings, "safety_settings", slug);
+        } else { // MultipartForm: quality / output_format / background / count all valid.
+            if (options.mask != null && imageCount == 0) {
+                throw new ValidationException("mask", "requires at least one image part (edits branch only)");
+            }
+            reject(options.safetyFilter, "safety_filter", slug);
+            reject(safetySettings, "safety_settings", slug);
         }
-        // else MultipartForm: quality / output_format / background / count all valid.
     }
 
     private static void reject(Object value, String field, String slug) {
@@ -295,6 +365,11 @@ public final class Image {
 
         String url;
         JsonObject body;
+        if ("MultipartForm".equals(imgCfg.inputMode()) && hasImages) {
+            HttpTransport.Result result = http.postMultipart(
+                    base + imgCfg.editEndpoint(), openAIEditFields(parts), openAIEditFiles(parts), headers);
+            return decode(result, imgCfg, config);
+        }
         if ("JSONInlineRefs".equals(imgCfg.inputMode())) {
             body = hasImages ? buildXAIEditBody(parts) : buildXAIGenBody(parts);
             url = base + (hasImages ? imgCfg.editEndpoint() : imgCfg.genEndpoint());
@@ -302,10 +377,6 @@ public final class Image {
             body = buildRecraftBody(parts);
             url = base + imgCfg.genEndpoint();
         } else if ("MultipartForm".equals(imgCfg.inputMode())) {
-            if (hasImages) {
-                throw new ValidationException(
-                        "parts", "image editing (multipart/form-data) is not supported by the Java SDK (WIRE-008)");
-            }
             body = buildOpenAIBody(parts);
             url = base + imgCfg.genEndpoint();
         } else if ("JSONPredict".equals(imgCfg.inputMode())) {
@@ -316,13 +387,77 @@ public final class Image {
             url = RequestBuilder.buildUrl(config, config.endpoint, apiKey, model, baseUrlOverride);
         }
 
-        HttpTransport.Result result = http.postJson(url, Json.serialize(body), headers);
+        return decode(http.postJson(url, Json.serialize(body), headers), imgCfg, config);
+    }
+
+    /** Status check, then the config-selected parser; attaches {@code raw} when opted in (ADR-014). */
+    private ImageResponse decode(HttpTransport.Result result, ImageGenDef imgCfg, Providers.Spec config) {
         if (result.statusCode() < 200 || result.statusCode() >= 300) {
             throw ResponseCodec.parseError(config, result.statusCode(), result.body());
         }
         JsonElement raw = Json.parse(new String(result.body(), StandardCharsets.UTF_8));
         // Response parser selected by config shape, never provider name (BUG-024).
-        return parseResponse(raw, imgCfg);
+        ImageResponse parsed = parseResponse(raw, imgCfg);
+        if (!options.raw) {
+            return parsed;
+        }
+        return new ImageResponse(
+                parsed.images(), parsed.text(), parsed.usage(), parsed.finishReason(), parsed.finishMessage(), raw);
+    }
+
+    /**
+     * OpenAI {@code /v1/images/edits} text fields: model, the joined prompt,
+     * then the optional gpt-image knobs (mirror of Go's
+     * {@code buildOpenAIEditMultipart}).
+     */
+    private Map<String, String> openAIEditFields(List<Part> parts) {
+        Map<String, String> fields = new java.util.LinkedHashMap<>();
+        fields.put("model", model);
+        fields.put("prompt", joinText(parts));
+        if (options.imageSize != null) {
+            fields.put("size", options.imageSize);
+        }
+        if (options.quality != null) {
+            fields.put("quality", options.quality);
+        }
+        if (options.outputFormat != null) {
+            fields.put("output_format", options.outputFormat);
+        }
+        if (options.background != null) {
+            fields.put("background", options.background);
+        }
+        if (options.count != null) {
+            fields.put("n", String.valueOf(options.count));
+        }
+        return fields;
+    }
+
+    /** One {@code image[]} file per reference image in caller order, then the optional {@code mask}. */
+    private List<Multipart.FilePart> openAIEditFiles(List<Part> parts) {
+        List<Multipart.FilePart> files = new ArrayList<>();
+        int index = 0;
+        for (Part part : parts) {
+            if (part instanceof Part.ImagePart imagePart) {
+                MediaRef media = imagePart.media();
+                String mime = media.mimeType().isEmpty() ? "image/png" : media.mimeType();
+                files.add(new Multipart.FilePart("image[]", "image-" + index + extFromMime(mime), mime, media.bytes()));
+                index++;
+            }
+        }
+        if (options.mask != null) {
+            String mime = options.mask.mimeType().isEmpty() ? "image/png" : options.mask.mimeType();
+            files.add(new Multipart.FilePart("mask", "mask" + extFromMime(mime), mime, options.mask.bytes()));
+        }
+        return files;
+    }
+
+    private static String extFromMime(String mime) {
+        return switch (mime) {
+            case "image/png" -> ".png";
+            case "image/jpeg", "image/jpg" -> ".jpg";
+            case "image/webp" -> ".webp";
+            default -> ".bin";
+        };
     }
 
     // --- Request bodies ---
@@ -378,6 +513,16 @@ public final class Image {
         JsonObject body = new JsonObject();
         body.add("contents", contents);
         body.add("generationConfig", generationConfig);
+        if (!options.safetySettings.isEmpty()) {
+            JsonArray settings = new JsonArray();
+            for (SafetySetting setting : options.safetySettings) {
+                JsonObject entry = new JsonObject();
+                entry.addProperty("category", setting.category());
+                entry.addProperty("threshold", setting.threshold());
+                settings.add(entry);
+            }
+            body.add("safetySettings", settings);
+        }
         return body;
     }
 
@@ -493,11 +638,21 @@ public final class Image {
                 break; // Vertex Imagen takes a single edit-target image
             }
         }
+        if (options.mask != null) {
+            JsonObject maskImage = new JsonObject();
+            maskImage.addProperty("bytesBase64Encoded", Base64.getEncoder().encodeToString(options.mask.bytes()));
+            JsonObject mask = new JsonObject();
+            mask.add("image", maskImage);
+            instance.add("mask", mask);
+        }
 
         JsonObject parameters = new JsonObject();
         parameters.addProperty("sampleCount", options.count != null ? options.count : 1);
         if (options.aspectRatio != null) {
             parameters.addProperty("aspectRatio", options.aspectRatio);
+        }
+        if (options.safetyFilter != null) {
+            parameters.addProperty("safetySetting", options.safetyFilter);
         }
 
         JsonArray instances = new JsonArray();

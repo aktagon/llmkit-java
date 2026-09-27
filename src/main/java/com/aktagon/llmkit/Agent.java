@@ -1,5 +1,6 @@
 package com.aktagon.llmkit;
 
+import com.aktagon.llmkit.providers.generated.Message;
 import com.aktagon.llmkit.providers.generated.ProviderName;
 import com.aktagon.llmkit.providers.generated.ProviderTurn;
 import com.aktagon.llmkit.providers.generated.Providers;
@@ -84,6 +85,93 @@ public final class Agent {
         return this;
     }
 
+    /** Set the maximum output tokens per turn. Returns this. */
+    public Agent maxTokens(int maxTokens) {
+        options.maxTokens = maxTokens;
+        return this;
+    }
+
+    /** Sampling temperature. Returns this. */
+    public Agent temperature(double value) {
+        options.temperature = value;
+        return this;
+    }
+
+    /** Nucleus-sampling probability mass. Returns this. */
+    public Agent topP(double value) {
+        options.topP = value;
+        return this;
+    }
+
+    /** Top-k sampling cutoff. Returns this. */
+    public Agent topK(int value) {
+        options.topK = value;
+        return this;
+    }
+
+    /** Deterministic sampling seed. Returns this. */
+    public Agent seed(long value) {
+        options.seed = value;
+        return this;
+    }
+
+    /** Frequency penalty. Returns this. */
+    public Agent frequencyPenalty(double value) {
+        options.frequencyPenalty = value;
+        return this;
+    }
+
+    /** Presence penalty. Returns this. */
+    public Agent presencePenalty(double value) {
+        options.presencePenalty = value;
+        return this;
+    }
+
+    /** Extended-thinking token budget (Anthropic / Google). Returns this. */
+    public Agent thinkingBudget(int value) {
+        options.thinkingBudget = value;
+        return this;
+    }
+
+    /** Reasoning-effort level (provider-validated whitelist). Returns this. */
+    public Agent reasoningEffort(String value) {
+        options.reasoningEffort = value;
+        return this;
+    }
+
+    /** Stop sequences. Returns this. */
+    public Agent stopSequences(List<String> values) {
+        options.stopSequences = new ArrayList<>(values);
+        return this;
+    }
+
+    /** Google safety settings. Returns this. */
+    public Agent safetySettings(List<SafetySetting> values) {
+        options.safetySettings = new ArrayList<>(values);
+        return this;
+    }
+
+    /**
+     * Replace the conversation history the next prompt continues from
+     * (ADR-020 HIST-007). A message authored here carries no captured provider
+     * payload, so its reasoning is not replayed (ADR-085 RSN-005); pass back
+     * messages this SDK produced to keep it. Returns this.
+     */
+    public Agent history(Message... messages) {
+        history.clear();
+        history.addAll(Msg.fromHistory(List.of(messages)));
+        return this;
+    }
+
+    /**
+     * Attach the provider's response body of the final turn to the returned
+     * Response as {@code raw} (ADR-014). Returns this.
+     */
+    public Agent raw() {
+        options.raw = true;
+        return this;
+    }
+
     /** Append a user turn and run the tool loop to a final text answer. */
     public Response prompt(String message) {
         history.add(new Msg.Text("user", message));
@@ -106,6 +194,7 @@ public final class Agent {
             Middleware.firePre(options.middleware, llmEvent);
 
             JsonElement raw;
+            byte[] body;
             Response parsed;
             try {
                 // Caching is a shared request-construction step (ADR-026 / BUG-004):
@@ -118,8 +207,9 @@ public final class Agent {
                 if (result.statusCode() < 200 || result.statusCode() >= 300) {
                     throw ResponseCodec.parseError(config, result.statusCode(), result.body());
                 }
-                raw = Json.parse(new String(result.body(), StandardCharsets.UTF_8));
-                parsed = ResponseCodec.decodeResponse(provider, config.chatWireShape, result.body());
+                body = result.body();
+                raw = Json.parse(new String(body, StandardCharsets.UTF_8));
+                parsed = ResponseCodec.decodeResponse(provider, config.chatWireShape, body);
             } catch (RuntimeException e) {
                 Middleware.firePost(
                         options.middleware,
@@ -139,8 +229,11 @@ public final class Agent {
                 // caller running their own loop can thread the turn forward without
                 // parsing raw per provider (ADR-085 § 6).
                 history.add(replayable(new Msg.Text("assistant", parsed.text()), parsed.providerTurn()));
-                return new Response(
-                        parsed.text(), totalUsage == null ? Usage.none() : totalUsage, parsed.finishReason(), parsed.finishMessage(), null, parsed.providerTurn());
+                return ResponseCodec.attachRaw(
+                        new Response(
+                                parsed.text(), totalUsage == null ? Usage.none() : totalUsage, parsed.finishReason(), parsed.finishMessage(), null, parsed.providerTurn()),
+                        body,
+                        options.raw);
             }
 
             // Record the assistant turn. The calls are the projection the loop runs

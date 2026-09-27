@@ -32,15 +32,27 @@ interface HttpTransport {
      * the real audio mime (audio/mpeg), not a blanket octet-stream. Fields
      * are emitted in the caller's iteration order so the encoded body decodes
      * to the same canonical descriptor across all six SDKs (ADR-051 OQ-3).
+     * A single-file form of {@link #postMultipart(String, Map, java.util.List, Map)}.
      */
-    Result postMultipart(
+    default Result postMultipart(
             String url,
             Map<String, String> fields,
             String fileField,
             String filename,
             String fileContentType,
             byte[] data,
-            Map<String, String> headers);
+            Map<String, String> headers) {
+        return postMultipart(
+                url, fields, java.util.List.of(new Multipart.FilePart(fileField, filename, fileContentType, data)), headers);
+    }
+
+    /**
+     * POST a {@code multipart/form-data} body with text fields (caller order)
+     * followed by one or more file parts in order — e.g. the OpenAI image
+     * edit request, which carries {@code image[]} files plus a {@code mask}.
+     */
+    Result postMultipart(
+            String url, Map<String, String> fields, java.util.List<Multipart.FilePart> files, Map<String, String> headers);
 
     /**
      * POST raw bytes with an {@code application/octet-stream} body — the
