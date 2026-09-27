@@ -33,6 +33,8 @@ final class PromptOptions {
     Integer cacheTtl;
     /** Observation + veto hooks fired around each operation site. */
     List<MiddlewareFn> middleware = new ArrayList<>();
+    /** Attach the provider's response body to each Response (ADR-014 raw opt-in). */
+    boolean raw = false;
 
     PromptOptions() {}
 
@@ -55,6 +57,7 @@ final class PromptOptions {
         o.caching = caching;
         o.cacheTtl = cacheTtl;
         o.middleware = new ArrayList<>(middleware);
+        o.raw = raw;
         return o;
     }
 }

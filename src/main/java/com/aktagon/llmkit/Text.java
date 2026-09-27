@@ -135,6 +135,14 @@ public final class Text {
         return withOptions(o -> o.cacheTtl = seconds);
     }
 
+    /**
+     * Attach the provider's response body to each Response as {@code raw}
+     * (ADR-014): the prompt body, or per batch slot the result body.
+     */
+    public Text raw() {
+        return withOptions(o -> o.raw = true);
+    }
+
     /** Register a middleware hook (observation + pre-phase veto). */
     public Text addMiddleware(MiddlewareFn hook) {
         return withOptions(o -> o.middleware.add(hook));
@@ -207,8 +215,8 @@ public final class Text {
             if (result.statusCode() < 200 || result.statusCode() >= 300) {
                 throw ResponseCodec.parseError(config, result.statusCode(), result.body());
             }
-            Response response =
-                    ResponseCodec.decodeResponse(provider, resolved.wireShape(), result.body());
+            Response response = ResponseCodec.decodeResponseRaw(
+                    provider, resolved.wireShape(), result.body(), options.raw);
             Middleware.firePost(
                     options.middleware,
                     baseEvent.toPost("", response.usage(), null, Middleware.elapsedMillis(startNanos)));
