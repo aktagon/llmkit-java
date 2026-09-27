@@ -93,6 +93,31 @@ public final class ResponseCodec {
     }
 
     /**
+     * {@link #decodeResponse} plus the ADR-014 raw opt-in. Every Response send
+     * path with a raw opt-in (prompt, batch) decodes or attaches through here,
+     * so none can forget the caller's {@code .raw()} (BUG-073). The public
+     * codec keeps its signature (ADR-076).
+     */
+    static Response decodeResponseRaw(
+            ProviderName provider, String rawWireShape, byte[] body, boolean raw) {
+        return attachRaw(decodeResponse(provider, rawWireShape, body), body, raw);
+    }
+
+    /** Sets the Response's raw to the parsed body when the caller opted in. */
+    static Response attachRaw(Response response, byte[] body, boolean raw) {
+        if (!raw) {
+            return response;
+        }
+        return new Response(
+                response.text(),
+                response.usage(),
+                response.finishReason(),
+                response.finishMessage(),
+                Json.parse(new String(body, StandardCharsets.UTF_8)),
+                response.providerTurn());
+    }
+
+    /**
      * Reads every canonical {@code Usage} dimension out of a provider response
      * body. The ONE usage reader (ADR-076 SYM-004): the codec, the chat send
      * path and the agent loop all call this, so a dimension cannot be read in
