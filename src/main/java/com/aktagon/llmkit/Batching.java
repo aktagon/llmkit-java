@@ -78,7 +78,7 @@ final class Batching {
                         items.add(built.body());
                     } else {
                         JsonObject item = new JsonObject();
-                        item.addProperty("custom_id", "req-" + index);
+                        item.addProperty("custom_id", Batch.BATCH_REQUEST_ID_PREFIX + index);
                         item.add(batch.itemBodyField, built.body());
                         items.add(item);
                     }
@@ -103,7 +103,7 @@ final class Batching {
         if (batchId.isEmpty()) {
             throw new DecodingException("batch create: empty batch ID");
         }
-        BatchHandle handle = new BatchHandle(batchId, config.name, false);
+        BatchHandle handle = new BatchHandle(batchId, config.name, options.raw);
         return new BatchJob(handle, apiKey, http, baseUrlOverride);
     }
 
@@ -139,7 +139,7 @@ final class Batching {
                     itemMsgs(prompts.get(index), images, files), List.of(), options);
             CachingRuntime.apply(built.body(), config, model, apiKey, options, http, baseUrlOverride);
             JsonObject line = new JsonObject();
-            line.addProperty("custom_id", "req-" + index);
+            line.addProperty("custom_id", Batch.BATCH_REQUEST_ID_PREFIX + index);
             line.addProperty("method", "POST");
             line.addProperty("url", batch.endpointPath);
             line.add("body", built.body());
@@ -187,8 +187,15 @@ final class Batching {
         private final Caching.ResourceLifecycleDef lifecycle;
         private final String pollUrl;
         private final HttpTransport http;
+        private final boolean raw;
 
-        BatchAdapter(ProviderName provider, String apiKey, HttpTransport http, String baseUrlOverride, String id) {
+        BatchAdapter(
+                ProviderName provider,
+                String apiKey,
+                HttpTransport http,
+                String baseUrlOverride,
+                String id,
+                boolean raw) {
             Providers.Spec config = Providers.config(provider);
             Batch.Def batch = Batch.config(provider);
             if (batch == null) {
@@ -209,6 +216,7 @@ final class Batching {
                     ? base + lifecycle.createEndpoint + "/" + id
                     : base + lifecycle.pollingEndpoint.replace("{id}", id);
             this.http = http;
+            this.raw = raw;
             this.lc = new Job.LifecycleConfig();
             lc.noun = "batch";
             lc.provider = config.slug;
@@ -240,23 +248,36 @@ final class Batching {
             return Job.classifyByConfig(lc, body);
         }
 
+        /**
+         * Reads every result source the lifecycle declares (HANDOFF-078), in
+         * order: the direct result endpoint (Anthropic), then the output file
+         * and the error file named in the status body (OpenAI). A file whose id
+         * is absent is skipped; the call fails only when no source was read.
+         * The status body is the already-decoded poll body (ADR-062 S1), so no
+         * second status GET is needed for the file ids or the request count.
+         */
         @Override
         public List<Response> result(Job.PollBody body) {
-            // The output file ID lives in the already-decoded poll body
-            // (ADR-062 S1) — no redundant status GET.
-            String responseBody;
-            if (!lifecycle.resultFileIdPath.isEmpty()) {
-                String fileId = Json.stringAt(body.raw(), lifecycle.resultFileIdPath);
-                if (fileId.isEmpty()) {
-                    throw new DecodingException("batch results: empty output file ID");
-                }
-                responseBody = fetch(base + lifecycle.fileContentEndpoint.replace("{id}", fileId));
-            } else if (!lifecycle.resultEndpoint.isEmpty()) {
-                responseBody = fetch(base + lifecycle.resultEndpoint.replace("{id}", lc.id));
-            } else {
-                throw new ValidationException("provider", "batch result endpoint not configured for " + spec.slug);
+            List<String> sources = new ArrayList<>();
+            if (!lifecycle.resultEndpoint.isEmpty()) {
+                sources.add(fetch(base + lifecycle.resultEndpoint.replace("{id}", lc.id)));
             }
-            return parseResults(responseBody);
+            for (String idPath : List.of(lifecycle.resultFileIdPath, lifecycle.errorFileIdPath)) {
+                if (idPath.isEmpty()) {
+                    continue;
+                }
+                String fileId = Json.stringAt(body.raw(), idPath);
+                if (fileId.isEmpty()) {
+                    continue;
+                }
+                sources.add(fetch(base + lifecycle.fileContentEndpoint.replace("{id}", fileId)));
+            }
+            if (sources.isEmpty()) {
+                throw new DecodingException(
+                        "batch results: no result source for " + spec.slug + " batch " + lc.id);
+            }
+            return parseResults(
+                    spec.name, sources, batch, raw, requestCount(body.raw(), batch.requestCountPaths));
         }
 
         private String fetch(String url) {
@@ -268,93 +289,147 @@ final class Batching {
         }
 
         /**
-         * Parses JSONL batch result data into one Response per submitted
-         * request, at that request's index (BUG-072).
+         * Sums the numbers at {@code paths} in the status body. Null when no
+         * path resolves to a number: there is no count.
+         */
+        static Integer requestCount(JsonElement status, List<String> paths) {
+            Integer total = null;
+            for (String path : paths) {
+                JsonElement found = Json.at(status, path);
+                if (found != null && found.isJsonPrimitive() && found.getAsJsonPrimitive().isNumber()) {
+                    total = (total == null ? 0 : total) + found.getAsInt();
+                }
+            }
+            return total;
+        }
+
+        /** One parsed result line waiting for its index. */
+        private record Slot(Response response, boolean succeeded) {}
+
+        /**
+         * Parses JSONL result sources into one Response per submitted request,
+         * at that request's index (BUG-072, HANDOFF-078).
          *
          * <p>Providers return result lines in any order, so a line is placed by
-         * the request id at {@code resultKeyPath}: "req-N" goes to index N. A
-         * line whose body is missing at {@code resultBodyPath} is a failed
-         * request; it keeps its slot as a Response with empty text,
-         * finishReason from {@code resultStatusPath} ("error" when the provider
-         * has no status) and finishMessage from {@code resultErrorPath}. An
-         * index with no line gets finishReason "missing". Lines whose id is not
-         * "req-N" (a batch created outside llmkit, or a repeated id) follow the
-         * indexed slots in file order. A line that is not JSON cannot be placed
-         * and is skipped; its index reads "missing".
+         * the request id at {@code resultKeyPath}: the generated
+         * {@link Batch#BATCH_REQUEST_ID_PREFIX} + N goes to index N. When one
+         * index appears twice, a line that succeeded replaces a failed one, a
+         * failed line never replaces a succeeded one, and a second line of the
+         * same class follows the indexed slots.
+         *
+         * <p>With a request {@code count}, there are exactly count slots, and an
+         * id at or above the count follows them. Without one (null), slots run
+         * to the highest index seen. An index with no line reads
+         * {@link Batch#BATCH_SLOT_MISSING}. Lines whose id has another form (a
+         * batch created outside llmkit) follow the indexed slots in source
+         * order. A line that is not JSON cannot be placed and is skipped.
+         *
+         * <p>When {@code raw} is on, a succeeded Response carries its body as
+         * raw and a failed Response carries the whole line; a missing slot has
+         * none.
          */
-        private List<Response> parseResults(String data) {
-            List<Response> slots = new ArrayList<>();
-            List<Response> unkeyed = new ArrayList<>();
-            for (String rawLine : data.split("\n")) {
-                String line = rawLine.trim();
-                if (line.isEmpty()) {
-                    continue;
-                }
-                JsonElement wrapper;
-                try {
-                    wrapper = Json.parse(line);
-                } catch (DecodingException e) {
-                    continue;
-                }
-                Response resp = parseResultLine(line, wrapper);
-
-                int index = batch.resultKeyPath.isEmpty()
-                        ? -1
-                        : requestIndex(Json.stringAt(wrapper, batch.resultKeyPath));
-                if (index < 0 || (index < slots.size() && slots.get(index) != null)) {
-                    unkeyed.add(resp);
-                    continue;
-                }
-                while (slots.size() <= index) {
+        static List<Response> parseResults(
+                ProviderName provider, List<String> sources, Batch.Def batch, boolean raw, Integer count) {
+            List<Slot> slots = new ArrayList<>();
+            if (count != null) {
+                for (int i = 0; i < count; i++) {
                     slots.add(null);
                 }
-                slots.set(index, resp);
+            }
+            List<Response> unkeyed = new ArrayList<>();
+            for (String data : sources) {
+                for (String rawLine : data.split("\n")) {
+                    String line = rawLine.trim();
+                    if (line.isEmpty()) {
+                        continue;
+                    }
+                    JsonElement wrapper;
+                    try {
+                        wrapper = Json.parse(line);
+                    } catch (DecodingException e) {
+                        continue;
+                    }
+                    Slot slot = parseResultLine(provider, line, wrapper, batch, raw);
+
+                    int index = batch.resultKeyPath.isEmpty()
+                            ? -1
+                            : requestIndex(Json.stringAt(wrapper, batch.resultKeyPath));
+                    if (index < 0 || (count != null && index >= count)) {
+                        unkeyed.add(slot.response());
+                        continue;
+                    }
+                    while (slots.size() <= index) {
+                        slots.add(null);
+                    }
+                    Slot existing = slots.get(index);
+                    if (existing == null || (slot.succeeded() && !existing.succeeded())) {
+                        slots.set(index, slot);
+                    } else if (existing.succeeded() && !slot.succeeded()) {
+                        // The request succeeded; a failed duplicate adds nothing.
+                    } else {
+                        unkeyed.add(slot.response());
+                    }
+                }
             }
 
             List<Response> responses = new ArrayList<>(slots.size() + unkeyed.size());
-            for (Response slot : slots) {
-                responses.add(slot != null ? slot : failed("missing", null));
+            for (Slot slot : slots) {
+                responses.add(slot != null ? slot.response() : failed(Batch.BATCH_SLOT_MISSING, null));
             }
             responses.addAll(unkeyed);
             return responses;
         }
 
         /**
-         * Decodes one result line. A line whose body is missing at
-         * {@code resultBodyPath}, or does not decode, becomes a failed Response.
+         * Decodes one result line. The line succeeded when the value at
+         * {@code resultStatusPath} is one of {@code resultSuccessValues} (any
+         * value when the provider declares no status path) and its body
+         * decodes. Every other line becomes a failed Response: empty text, the
+         * first reason path that resolves as finishReason
+         * ({@link Batch#BATCH_SLOT_ERROR} when none does) and the first message
+         * path that resolves as finishMessage.
          */
-        private Response parseResultLine(String line, JsonElement wrapper) {
-            // VERBATIM, not parse-navigate-re-serialize: the inner body is
-            // what ADR-085 captures the assistant turn from, and serializing
-            // a parsed tree emits Gson's rendering, not the provider's.
-            // Harmless while only scalars were read out of it; not harmless
-            // once a payload is captured from the same bytes.
-            String responseText = batch.resultBodyPath.isEmpty()
-                    ? line
-                    : ProviderTurnCapture.extractRawJsonPath(line, batch.resultBodyPath);
-            if (responseText != null && responseText.startsWith("{")) {
-                try {
-                    // Batch is Chat-Completions-only (ADR-055): an empty wire
-                    // shape selects the provider's declared response paths, not
-                    // the Responses output[] arm.
-                    return ResponseCodec.decodeResponse(
-                            spec.name, "", responseText.getBytes(StandardCharsets.UTF_8));
-                } catch (DecodingException e) {
-                    // Falls through to a failed Response.
+        private static Slot parseResultLine(
+                ProviderName provider, String line, JsonElement wrapper, Batch.Def batch, boolean raw) {
+            boolean signalled = batch.resultStatusPath.isEmpty()
+                    || batch.resultSuccessValues.contains(Json.stringAt(wrapper, batch.resultStatusPath));
+            if (signalled) {
+                // VERBATIM, not parse-navigate-re-serialize: the inner body is
+                // what ADR-085 captures the assistant turn from, and serializing
+                // a parsed tree emits Gson's rendering, not the provider's.
+                String responseText = batch.resultBodyPath.isEmpty()
+                        ? line
+                        : ProviderTurnCapture.extractRawJsonPath(line, batch.resultBodyPath);
+                if (responseText != null && responseText.startsWith("{")) {
+                    try {
+                        // Batch is Chat-Completions-only (ADR-055): an empty
+                        // wire shape selects the provider's declared response
+                        // paths, not the Responses output[] arm.
+                        Response response = ResponseCodec.decodeResponseRaw(
+                                provider, "", responseText.getBytes(StandardCharsets.UTF_8), raw);
+                        return new Slot(response, true);
+                    } catch (DecodingException e) {
+                        // Falls through to a failed Response.
+                    }
                 }
             }
 
-            String reason = "error";
-            if (!batch.resultStatusPath.isEmpty()) {
-                String status = Json.stringAt(wrapper, batch.resultStatusPath);
-                if (!status.isEmpty()) {
-                    reason = status;
+            String reason = firstPath(wrapper, batch.resultReasonPaths);
+            Response failed = failed(reason != null ? reason : Batch.BATCH_SLOT_ERROR,
+                    firstPath(wrapper, batch.resultMessagePaths));
+            return new Slot(
+                    ResponseCodec.attachRaw(failed, line.getBytes(StandardCharsets.UTF_8), raw), false);
+        }
+
+        /** The value at the first path that resolves to a non-empty string, or null. */
+        private static String firstPath(JsonElement data, List<String> paths) {
+            for (String path : paths) {
+                String value = Json.optString(data, path);
+                if (value != null) {
+                    return value;
                 }
             }
-            String message = batch.resultErrorPath.isEmpty()
-                    ? null
-                    : Json.optString(wrapper, batch.resultErrorPath);
-            return failed(reason, message);
+            return null;
         }
 
         private static Response failed(String finishReason, String finishMessage) {
@@ -363,14 +438,15 @@ final class Batching {
         }
 
         /**
-         * Reads N out of the "req-N" id the SDK sends with request N. Any
-         * other id reports -1.
+         * Reads N out of the {@link Batch#BATCH_REQUEST_ID_PREFIX} + N id the
+         * SDK sends with request N. Any other id reports -1.
          */
         private static int requestIndex(String id) {
-            if (!id.startsWith("req-") || id.length() == 4) {
+            String prefix = Batch.BATCH_REQUEST_ID_PREFIX;
+            if (!id.startsWith(prefix) || id.length() == prefix.length()) {
                 return -1;
             }
-            String digits = id.substring(4);
+            String digits = id.substring(prefix.length());
             for (int i = 0; i < digits.length(); i++) {
                 char c = digits.charAt(i);
                 if (c < '0' || c > '9') {
