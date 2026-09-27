@@ -1,5 +1,6 @@
 package com.aktagon.llmkit;
 
+import com.aktagon.llmkit.providers.generated.Message;
 import com.aktagon.llmkit.providers.generated.ProviderName;
 import com.aktagon.llmkit.providers.generated.Providers;
 import com.aktagon.llmkit.providers.generated.Response;
@@ -21,6 +22,10 @@ public final class Text {
     private final PromptOptions options;
     private final List<InputImage> inputImages;
     private final List<FileRef> inputFiles;
+    /** Caller-supplied conversation history sent before the user turn. */
+    private final List<Msg> history;
+    /** Ordered text parts sent before the terminal's own prompt argument. */
+    private final List<String> textParts;
 
     private Text(
             ProviderName provider,
@@ -31,7 +36,9 @@ public final class Text {
             String system,
             PromptOptions options,
             List<InputImage> inputImages,
-            List<FileRef> inputFiles) {
+            List<FileRef> inputFiles,
+            List<Msg> history,
+            List<String> textParts) {
         this.provider = provider;
         this.apiKey = apiKey;
         this.baseUrlOverride = baseUrlOverride;
@@ -41,23 +48,25 @@ public final class Text {
         this.options = options;
         this.inputImages = inputImages;
         this.inputFiles = inputFiles;
+        this.history = history;
+        this.textParts = textParts;
     }
 
     static Text root(ProviderName provider, String apiKey, String baseUrlOverride, HttpTransport http) {
         return new Text(
-                provider, apiKey, baseUrlOverride, http, null, null, new PromptOptions(), List.of(), List.of());
+                provider, apiKey, baseUrlOverride, http, null, null, new PromptOptions(), List.of(), List.of(), List.of(), List.of());
     }
 
     /** Select the model. */
     public Text model(String model) {
         return new Text(
-                provider, apiKey, baseUrlOverride, http, model, system, options, inputImages, inputFiles);
+                provider, apiKey, baseUrlOverride, http, model, system, options, inputImages, inputFiles, history, textParts);
     }
 
     /** Set the system instruction. */
     public Text system(String system) {
         return new Text(
-                provider, apiKey, baseUrlOverride, http, model, system, options, inputImages, inputFiles);
+                provider, apiKey, baseUrlOverride, http, model, system, options, inputImages, inputFiles, history, textParts);
     }
 
     /** Set the maximum output tokens. */
@@ -160,7 +169,7 @@ public final class Text {
                 mimeType, ""));
         return new Text(
                 provider, apiKey, baseUrlOverride, http, model, system, options,
-                List.copyOf(images), inputFiles);
+                List.copyOf(images), inputFiles, history, textParts);
     }
 
     /**
@@ -173,19 +182,57 @@ public final class Text {
         files.add(new FileRef(id, "", ""));
         return new Text(
                 provider, apiKey, baseUrlOverride, http, model, system, options,
-                inputImages, List.copyOf(files));
+                inputImages, List.copyOf(files), history, textParts);
     }
 
     /**
-     * The internal user turn: a plain text turn, or a media turn carrying the
-     * accumulated image/file parts (ADR-060). Files precede images precede
-     * text in the emitted content array.
+     * Replace the conversation history sent before the user turn (ADR-020).
+     * A message authored here carries no captured provider payload, so its
+     * reasoning is not replayed (ADR-085 RSN-005); pass back messages this
+     * SDK produced to keep it.
+     */
+    public Text history(Message... messages) {
+        return new Text(
+                provider, apiKey, baseUrlOverride, http, model, system, options,
+                inputImages, inputFiles, Msg.fromHistory(List.of(messages)), textParts);
+    }
+
+    /**
+     * Append a text part. Text parts are sent in call order, before the
+     * terminal's own prompt argument, in the same user turn.
+     */
+    public Text text(String value) {
+        List<String> parts = new java.util.ArrayList<>(textParts);
+        parts.add(value);
+        return new Text(
+                provider, apiKey, baseUrlOverride, http, model, system, options,
+                inputImages, inputFiles, history, List.copyOf(parts));
+    }
+
+    /**
+     * The history followed by the internal user turn: a plain text turn, or a
+     * media turn carrying the accumulated image/file parts (ADR-060). Files
+     * precede images precede text in the emitted content array. Text parts
+     * join the prompt with newlines, in call order (mirrors Swift).
      */
     private List<Msg> userMsgs(String prompt) {
-        if (inputImages.isEmpty() && inputFiles.isEmpty()) {
-            return List.of(new Msg.Text("user", prompt));
+        List<String> texts = new java.util.ArrayList<>();
+        for (String part : textParts) {
+            if (!part.isEmpty()) {
+                texts.add(part);
+            }
         }
-        return List.of(new Msg.Media("user", prompt, inputImages, inputFiles));
+        if (prompt != null && !prompt.isEmpty()) {
+            texts.add(prompt);
+        }
+        String text = String.join("\n", texts);
+        List<Msg> msgs = new java.util.ArrayList<>(history);
+        if (inputImages.isEmpty() && inputFiles.isEmpty()) {
+            msgs.add(new Msg.Text("user", text));
+        } else {
+            msgs.add(new Msg.Media("user", text, inputImages, inputFiles));
+        }
+        return msgs;
     }
 
     /**
@@ -261,7 +308,7 @@ public final class Text {
         try {
             BatchJob job = Batching.submit(
                     config, apiKey, http, baseUrlOverride, resolvedModel, system,
-                    java.util.Arrays.asList(prompts), inputImages, inputFiles, options);
+                    java.util.Arrays.asList(prompts), inputImages, inputFiles, history, options);
             Middleware.firePost(
                     options.middleware, baseEvent.toPost("", null, null, Middleware.elapsedMillis(startNanos)));
             return job;
@@ -310,6 +357,6 @@ public final class Text {
         PromptOptions copy = options.copy();
         mutate.accept(copy);
         return new Text(
-                provider, apiKey, baseUrlOverride, http, model, system, copy, inputImages, inputFiles);
+                provider, apiKey, baseUrlOverride, http, model, system, copy, inputImages, inputFiles, history, textParts);
     }
 }

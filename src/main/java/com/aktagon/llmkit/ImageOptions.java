@@ -1,5 +1,6 @@
 package com.aktagon.llmkit;
 
+import com.aktagon.llmkit.providers.generated.MediaRef;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,6 +25,14 @@ final class ImageOptions {
     Integer count;
     /** Observation + veto hooks fired around the {@code imageGeneration} op. */
     List<MiddlewareFn> middleware = new ArrayList<>();
+    /** Inpainting mask (OpenAI edits multipart {@code mask}; Vertex {@code instances[0].mask}). */
+    MediaRef mask;
+    /** Vertex Imagen global safety threshold; wire field {@code parameters.safetySetting}. */
+    String safetyFilter;
+    /** Google per-category safety thresholds; wire field {@code safetySettings[]}. */
+    List<SafetySetting> safetySettings = new ArrayList<>();
+    /** Attach the provider's response body to the ImageResponse (ADR-014 raw opt-in). */
+    boolean raw = false;
 
     ImageOptions() {}
 
@@ -38,6 +47,10 @@ final class ImageOptions {
         o.background = background;
         o.count = count;
         o.middleware = new ArrayList<>(middleware);
+        o.mask = mask;
+        o.safetyFilter = safetyFilter;
+        o.safetySettings = new ArrayList<>(safetySettings);
+        o.raw = raw;
         return o;
     }
 }
