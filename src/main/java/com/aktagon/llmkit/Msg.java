@@ -1,7 +1,10 @@
 package com.aktagon.llmkit;
 
+import com.aktagon.llmkit.providers.generated.Message;
+import com.aktagon.llmkit.providers.generated.ProviderTurn;
 import com.aktagon.llmkit.providers.generated.ToolCall;
 import com.aktagon.llmkit.providers.generated.ToolResult;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -32,4 +35,29 @@ sealed interface Msg {
      * the projection consumers read.
      */
     record Turn(String shape, String wire, Msg fallback) implements Msg {}
+
+    /**
+     * Projects caller-supplied history ({@code Text.history}, {@code
+     * Agent.history}) onto the internal union, in order. A tool turn is checked
+     * before a text turn because a tool result's content is empty by
+     * construction; a turn carrying a provider payload is replayed verbatim
+     * (ADR-085) with the projection as its fallback. Mirrors Swift's
+     * {@code Transforms.msgs(from:)}.
+     */
+    static List<Msg> fromHistory(List<Message> history) {
+        List<Msg> out = new ArrayList<>(history.size());
+        for (Message message : history) {
+            Msg fallback;
+            if (message.toolResult() != null) {
+                fallback = new ToolOutput(message.toolResult());
+            } else if (message.toolCalls() != null && !message.toolCalls().isEmpty()) {
+                fallback = new Calls(message.toolCalls());
+            } else {
+                fallback = new Text(message.role(), message.content() == null ? "" : message.content());
+            }
+            ProviderTurn turn = message.providerTurn();
+            out.add(turn == null ? fallback : new Turn(turn.wireShape(), turn.wire(), fallback));
+        }
+        return out;
+    }
 }

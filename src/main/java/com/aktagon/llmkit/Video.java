@@ -51,6 +51,8 @@ public final class Video {
     /** Accumulated seed frames for the image-to-video path (caller order). */
     private final List<MediaRef> inputImages;
     private final VideoOptions options;
+    /** Ordered text parts sent before the terminal's own prompt argument. */
+    private final List<String> textParts;
 
     private Video(
             ProviderName provider,
@@ -59,7 +61,8 @@ public final class Video {
             HttpTransport http,
             String model,
             List<MediaRef> inputImages,
-            VideoOptions options) {
+            VideoOptions options,
+            List<String> textParts) {
         this.provider = provider;
         this.apiKey = apiKey;
         this.baseUrlOverride = baseUrlOverride;
@@ -67,15 +70,16 @@ public final class Video {
         this.model = model;
         this.inputImages = inputImages;
         this.options = options;
+        this.textParts = textParts;
     }
 
     static Video root(ProviderName provider, String apiKey, String baseUrlOverride, HttpTransport http) {
-        return new Video(provider, apiKey, baseUrlOverride, http, null, List.of(), new VideoOptions());
+        return new Video(provider, apiKey, baseUrlOverride, http, null, List.of(), new VideoOptions(), List.of());
     }
 
     /** Select the video-generation model (required). */
     public Video model(String model) {
-        return new Video(provider, apiKey, baseUrlOverride, http, model, inputImages, options);
+        return new Video(provider, apiKey, baseUrlOverride, http, model, inputImages, options, textParts);
     }
 
     /**
@@ -86,7 +90,7 @@ public final class Video {
     public Video image(String mimeType, byte[] data) {
         List<MediaRef> images = new ArrayList<>(inputImages);
         images.add(new MediaRef(mimeType, data));
-        return new Video(provider, apiKey, baseUrlOverride, http, model, List.copyOf(images), options);
+        return new Video(provider, apiKey, baseUrlOverride, http, model, List.copyOf(images), options, textParts);
     }
 
     /**
@@ -105,6 +109,16 @@ public final class Video {
     /** Register a middleware hook (observation + pre-phase veto). */
     public Video addMiddleware(MiddlewareFn hook) {
         return withOptions(o -> o.middleware.add(hook));
+    }
+
+    /**
+     * Append a text part. Text parts are sent in call order, before the
+     * terminal's own prompt argument, joined into the prompt.
+     */
+    public Video text(String value) {
+        List<String> parts = new ArrayList<>(textParts);
+        parts.add(value);
+        return new Video(provider, apiKey, baseUrlOverride, http, model, inputImages, options, List.copyOf(parts));
     }
 
     /**
@@ -158,7 +172,7 @@ public final class Video {
     private Video withOptions(Consumer<VideoOptions> mutate) {
         VideoOptions copy = options.copy();
         mutate.accept(copy);
-        return new Video(provider, apiKey, baseUrlOverride, http, model, inputImages, copy);
+        return new Video(provider, apiKey, baseUrlOverride, http, model, inputImages, copy, textParts);
     }
 
     // --- Parts ---
@@ -180,20 +194,27 @@ public final class Video {
      * error.
      */
     private List<Part> normalizeParts(String prompt) {
+        List<Part> texts = new ArrayList<>();
+        for (String text : textParts) {
+            if (!text.isEmpty()) {
+                texts.add(new Part.Text(text));
+            }
+        }
+        if (prompt != null && !prompt.isEmpty()) {
+            texts.add(new Part.Text(prompt));
+        }
         if (!inputImages.isEmpty()) {
             List<Part> parts = new ArrayList<>();
             for (MediaRef ref : inputImages) {
                 parts.add(new Part.ImagePart(ref));
             }
-            if (prompt != null && !prompt.isEmpty()) {
-                parts.add(new Part.Text(prompt));
-            }
+            parts.addAll(texts);
             return parts;
         }
-        if (prompt == null || prompt.isEmpty()) {
+        if (texts.isEmpty()) {
             throw new ValidationException("prompt", "set either prompt or parts");
         }
-        return List.of(new Part.Text(prompt));
+        return texts;
     }
 
     private static String joinPromptText(List<Part> parts) {
