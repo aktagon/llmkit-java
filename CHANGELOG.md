@@ -23,8 +23,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   total. Telemetry now exports a usage attribute when the value is *reported*,
   zero included, instead of when it is greater than zero.
 
+### Added
+
+- `Batch.BATCH_SLOT_MISSING` and `Batch.BATCH_SLOT_ERROR`: the finish reasons
+  of a batch slot with no result, and of a
+  failed slot the provider gave no reason for. Compare against them instead
+  of typing the strings.
+- `Text.raw()`: opts into the provider body on `Response.raw`, on the prompt
+  and batch paths.
+
 ### Fixed
 
+- **OpenAI batch failures show the provider's error.** Waiting on an OpenAI
+  batch now also reads its error file. A failed request's finish reason is the
+  provider's error code (for example `batch_expired`), and its finish message
+  is the provider's error message.
+- **A batch result succeeds only when the provider says it did.** A result line
+  with a failure status and an empty body reads as failed, not as a success
+  with empty text.
+- **A batch returns one response per prompt, even when the last one has no
+  result.** The list length comes from the batch's request count, so a missing
+  last request keeps its slot and reads `missing`.
 - **Batch results are matched to prompts by request id, not by line order.**
   Providers return batch results in any order, and a failed request used to be
   dropped, so later answers moved up one place. Waiting on a batch now returns
