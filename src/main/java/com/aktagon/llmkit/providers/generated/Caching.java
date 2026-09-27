@@ -20,6 +20,7 @@ public final class Caching {
         public final String resultEndpoint;
         public final String resultResponsePath;
         public final String resultFileIdPath;
+        public final String errorFileIdPath;
         public final String fileContentEndpoint;
 
         ResourceLifecycleDef(
@@ -33,6 +34,7 @@ public final class Caching {
                 String resultEndpoint,
                 String resultResponsePath,
                 String resultFileIdPath,
+                String errorFileIdPath,
                 String fileContentEndpoint) {
             this.createEndpoint = createEndpoint;
             this.responseIdPath = responseIdPath;
@@ -44,6 +46,7 @@ public final class Caching {
             this.resultEndpoint = resultEndpoint;
             this.resultResponsePath = resultResponsePath;
             this.resultFileIdPath = resultFileIdPath;
+            this.errorFileIdPath = errorFileIdPath;
             this.fileContentEndpoint = fileContentEndpoint;
         }
     }
@@ -98,6 +101,7 @@ public final class Caching {
                                 "",
                                 "",
                                 java.util.List.of(),
+                                "",
                                 "",
                                 "",
                                 "",
