@@ -424,4 +424,16 @@ public final class Options {
             default: return java.util.List.of();
         }
     }
+
+    /**
+     * Wire keys a chat wire shape uses for generation params, for every model.
+     * They outrank {@link #modelOptionOverrides} and the provider's
+     * supported-options table (BUG-075).
+     */
+    public static java.util.Map<Key, String> wireShapeOptionOverrides(String chatWireShape) {
+        switch (chatWireShape) {
+            case "ChatResponsesOpenAI": return java.util.Map.of(Key.MAX_TOKENS, "max_output_tokens");
+            default: return java.util.Map.of();
+        }
+    }
 }
