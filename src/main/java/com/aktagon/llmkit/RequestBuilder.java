@@ -81,7 +81,7 @@ final class RequestBuilder {
         }
 
         int maxTokens = options.maxTokens != null ? options.maxTokens : config.defaultMaxTokens;
-        String maxKey = resolveOptionKey(config.name, model, Options.Key.MAX_TOKENS);
+        String maxKey = resolveOptionKey(config.name, model, wireShape, Options.Key.MAX_TOKENS);
         if (maxKey != null) {
             body.add(maxKey, new JsonPrimitive(maxTokens));
         }
@@ -127,7 +127,7 @@ final class RequestBuilder {
         // extras (ADR-029) always deep-merge at the true body root.
         if (!config.wrapsOptionsIn.isEmpty()) {
             JsonObject wrapped = new JsonObject();
-            JsonObject rootExtras = addOptions(wrapped, config.name, model, options);
+            JsonObject rootExtras = addOptions(wrapped, config.name, model, wireShape, options);
             if (maxKey != null) {
                 JsonBuilder.setNested(wrapped, maxKey, new JsonPrimitive(maxTokens));
                 body.remove(maxKey);
@@ -137,7 +137,7 @@ final class RequestBuilder {
             }
             JsonBuilder.deepMerge(body, rootExtras);
         } else {
-            JsonObject rootExtras = addOptions(body, config.name, model, options);
+            JsonObject rootExtras = addOptions(body, config.name, model, wireShape, options);
             JsonBuilder.deepMerge(body, rootExtras);
         }
 
@@ -170,14 +170,6 @@ final class RequestBuilder {
                         "anthropic-beta",
                         existing != null ? appendBeta(existing, upload.betaHeader) : upload.betaHeader);
             }
-        }
-
-        // ADR-055 Responses body fixup: the output-token cap is named
-        // `max_output_tokens` (not `max_tokens`) on the Responses envelope.
-        if ("ChatResponsesOpenAI".equals(wireShape) && body.has("max_tokens")) {
-            JsonElement value = body.get("max_tokens");
-            body.remove("max_tokens");
-            body.add("max_output_tokens", value);
         }
 
         return new Built(body, headers);
@@ -371,24 +363,24 @@ final class RequestBuilder {
      * root.
      */
     private static JsonObject addOptions(
-            JsonObject body, ProviderName provider, String model, PromptOptions options) {
+            JsonObject body, ProviderName provider, String model, String wireShape, PromptOptions options) {
         JsonObject rootExtras = new JsonObject();
-        maybeInsert(body, provider, model, Options.Key.TEMPERATURE, num(options.temperature), rootExtras);
-        maybeInsert(body, provider, model, Options.Key.TOP_P, num(options.topP), rootExtras);
-        maybeInsert(body, provider, model, Options.Key.TOP_K, num(options.topK), rootExtras);
-        maybeInsert(body, provider, model, Options.Key.SEED, num(options.seed), rootExtras);
+        maybeInsert(body, provider, model, wireShape, Options.Key.TEMPERATURE, num(options.temperature), rootExtras);
+        maybeInsert(body, provider, model, wireShape, Options.Key.TOP_P, num(options.topP), rootExtras);
+        maybeInsert(body, provider, model, wireShape, Options.Key.TOP_K, num(options.topK), rootExtras);
+        maybeInsert(body, provider, model, wireShape, Options.Key.SEED, num(options.seed), rootExtras);
         maybeInsert(
-                body, provider, model, Options.Key.FREQUENCY_PENALTY, num(options.frequencyPenalty), rootExtras);
+                body, provider, model, wireShape, Options.Key.FREQUENCY_PENALTY, num(options.frequencyPenalty), rootExtras);
         maybeInsert(
-                body, provider, model, Options.Key.PRESENCE_PENALTY, num(options.presencePenalty), rootExtras);
-        maybeInsert(body, provider, model, Options.Key.THINKING_BUDGET, num(options.thinkingBudget), rootExtras);
-        maybeInsert(body, provider, model, Options.Key.REASONING_EFFORT, str(options.reasoningEffort), rootExtras);
+                body, provider, model, wireShape, Options.Key.PRESENCE_PENALTY, num(options.presencePenalty), rootExtras);
+        maybeInsert(body, provider, model, wireShape, Options.Key.THINKING_BUDGET, num(options.thinkingBudget), rootExtras);
+        maybeInsert(body, provider, model, wireShape, Options.Key.REASONING_EFFORT, str(options.reasoningEffort), rootExtras);
         if (!options.stopSequences.isEmpty()) {
             JsonArray arr = new JsonArray();
             for (String value : options.stopSequences) {
                 arr.add(value);
             }
-            maybeInsert(body, provider, model, Options.Key.STOP_SEQUENCES, arr, rootExtras);
+            maybeInsert(body, provider, model, wireShape, Options.Key.STOP_SEQUENCES, arr, rootExtras);
         }
         return rootExtras;
     }
@@ -397,13 +389,14 @@ final class RequestBuilder {
             JsonObject body,
             ProviderName provider,
             String model,
+            String wireShape,
             Options.Key key,
             JsonElement value,
             JsonObject rootExtras) {
         if (value == null) {
             return;
         }
-        String jsonKey = resolveOptionKey(provider, model, key);
+        String jsonKey = resolveOptionKey(provider, model, wireShape, key);
         if (jsonKey == null) {
             return;
         }
@@ -435,13 +428,19 @@ final class RequestBuilder {
     }
 
     /**
-     * Wire (JSON) key for {@code key} on {@code (provider, model)}. Per-model
-     * overrides (ADR-024) outrank the provider default: an exact id match wins
-     * outright, else the longest-prefix glob wins, else the provider's
-     * supported-options key. Returns null when the provider does not support the
-     * option.
+     * Wire (JSON) key for {@code key} on {@code (provider, model)} under the
+     * effective chat wire shape. A wire-shape key (BUG-075) outranks everything:
+     * the Responses shape names MaxTokens {@code max_output_tokens} for every
+     * model. Next, per-model overrides (ADR-024) outrank the provider default:
+     * an exact id match wins outright, else the longest-prefix glob wins, else
+     * the provider's supported-options key. Returns null when the provider does
+     * not support the option.
      */
-    static String resolveOptionKey(ProviderName provider, String model, Options.Key key) {
+    static String resolveOptionKey(ProviderName provider, String model, String wireShape, Options.Key key) {
+        String shapeKey = Options.wireShapeOptionOverrides(wireShape).get(key);
+        if (shapeKey != null) {
+            return shapeKey;
+        }
         String bestKey = null;
         int bestLen = -1;
         for (Options.ModelOptionOverrideDef override : Options.modelOptionOverrides(provider)) {
