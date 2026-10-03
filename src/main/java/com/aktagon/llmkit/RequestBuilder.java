@@ -157,7 +157,6 @@ final class RequestBuilder {
         //
         //
         //
-        //
         if (Transforms.hasFileParts(msgs)) {
             Request.FileUploadDef upload = Request.fileUploadConfig(config.name);
             if (upload != null && !upload.betaHeader.isEmpty()) {
