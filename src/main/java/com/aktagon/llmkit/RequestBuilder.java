@@ -169,10 +169,17 @@ final class RequestBuilder {
 
         //
         //
-        if ("ChatResponsesOpenAI".equals(wireShape) && body.has("max_tokens")) {
-            JsonElement value = body.get("max_tokens");
-            body.remove("max_tokens");
-            body.add("max_output_tokens", value);
+        //
+        //
+        //
+        if ("ChatResponsesOpenAI".equals(wireShape)) {
+            for (String key : new String[] {"max_tokens", "max_completion_tokens"}) {
+                if (body.has(key)) {
+                    JsonElement value = body.get(key);
+                    body.remove(key);
+                    body.add("max_output_tokens", value);
+                }
+            }
         }
 
         return new Built(body, headers);
