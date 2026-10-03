@@ -308,7 +308,7 @@ public final class Request {
                         "/v1/files",
                         "file",
                         "",
-                        "files-api-2025-04-14",
+                        "",
                         "id",
                         "",
                         "filename",
