@@ -168,11 +168,18 @@ final class RequestBuilder {
         }
 
         // ADR-055 Responses body fixup: the output-token cap is named
-        // `max_output_tokens` (not `max_tokens`) on the Responses envelope.
-        if ("ChatResponsesOpenAI".equals(wireShape) && body.has("max_tokens")) {
-            JsonElement value = body.get("max_tokens");
-            body.remove("max_tokens");
-            body.add("max_output_tokens", value);
+        // `max_output_tokens` (not `max_tokens`) on the Responses envelope. A
+        // per-model override may already have renamed the cap to
+        // `max_completion_tokens` (gpt-5, o-series), which Responses rejects
+        // too (BUG-075), so both keys are renamed.
+        if ("ChatResponsesOpenAI".equals(wireShape)) {
+            for (String key : new String[] {"max_tokens", "max_completion_tokens"}) {
+                if (body.has(key)) {
+                    JsonElement value = body.get(key);
+                    body.remove(key);
+                    body.add("max_output_tokens", value);
+                }
+            }
         }
 
         return new Built(body, headers);
