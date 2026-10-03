@@ -152,12 +152,11 @@ final class RequestBuilder {
             addStructuredOutput(body, headers, options.schema, config.name);
         }
 
-        // BUG-017: a text request referencing an uploaded file emits an
-        // Anthropic {"type":"document","source":{"type":"file",...}} block,
-        // which the Messages API rejects unless the files-api beta rides
-        // along. Compose it with any existing anthropic-beta (e.g. the
-        // structured-output beta) — comma-separated, deduped — never
-        // overwriting.
+        // BUG-017: a text request referencing an uploaded file carries the
+        // beta the provider's upload declares (uploadBetaHeader), composed
+        // with any existing anthropic-beta (e.g. the structured-output beta) —
+        // comma-separated, deduped — never overwriting. Anthropic declares
+        // none since its Files API left beta (BUG-078).
         if (Transforms.hasFileParts(msgs)) {
             Request.FileUploadDef upload = Request.fileUploadConfig(config.name);
             if (upload != null && !upload.betaHeader.isEmpty()) {
