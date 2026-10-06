@@ -66,4 +66,14 @@ interface HttpTransport {
      * stream; the caller parses {@code event:} / {@code data:} frames.
      */
     StreamResult postJsonStreaming(String url, String body, Map<String, String> headers);
+
+    /**
+     * A copy of this transport that waits at most {@code timeout} for the
+     * next bytes on every send path; {@link java.time.Duration#ZERO}
+     * disables the limit (BUG-062). Fakes that never touch a socket keep the
+     * default, which returns {@code this}.
+     */
+    default HttpTransport withTimeout(java.time.Duration timeout) {
+        return this;
+    }
 }
