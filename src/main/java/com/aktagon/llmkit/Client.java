@@ -2,9 +2,11 @@ package com.aktagon.llmkit;
 
 import com.aktagon.llmkit.providers.generated.Batch;
 import com.aktagon.llmkit.providers.generated.Caching;
+import com.aktagon.llmkit.providers.generated.ClientDefaults;
 import com.aktagon.llmkit.providers.generated.ImageGenDef;
 import com.aktagon.llmkit.providers.generated.ProviderName;
 import com.aktagon.llmkit.providers.generated.Request;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,7 +26,7 @@ public final class Client {
 
     /** Create a client for a provider. */
     public Client(ProviderName provider, String apiKey) {
-        this(provider, apiKey, new JdkHttpTransport());
+        this(provider, apiKey, new JdkHttpTransport(ClientDefaults.DEFAULT_TIMEOUT));
     }
 
     /** Transport-injecting constructor (tests supply a capturing fake). */
@@ -56,6 +58,27 @@ public final class Client {
      */
     public Client baseUrl(String url) {
         return new Client(provider, apiKey, url, http, defaultMiddleware);
+    }
+
+    /**
+     * Set how long the client waits for the next bytes from the provider: the
+     * response headers, then every gap between body chunks (BUG-062). A
+     * stream that keeps sending never times out. {@link Duration#ZERO}
+     * disables the limit. The default is {@link ClientDefaults#DEFAULT_TIMEOUT}.
+     * On expiry the call throws {@link TransportException} caused by
+     * {@link java.net.http.HttpTimeoutException}. Returns a new {@code Client}
+     * for chaining.
+     */
+    public Client timeout(Duration d) {
+        if (d == null || d.isNegative()) {
+            throw new ValidationException("timeout", "must be zero or positive");
+        }
+        return new Client(provider, apiKey, baseUrlOverride, http.withTimeout(d), defaultMiddleware);
+    }
+
+    /** Internal seam: the transport every builder receives (tests read its timeout). */
+    HttpTransport http() {
+        return http;
     }
 
     /**

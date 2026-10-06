@@ -62,4 +62,9 @@ final class HeaderInjectingTransport implements HttpTransport {
     public StreamResult postJsonStreaming(String url, String body, Map<String, String> headers) {
         return delegate.postJsonStreaming(url, body, inject(headers));
     }
+
+    @Override
+    public HttpTransport withTimeout(java.time.Duration timeout) {
+        return new HeaderInjectingTransport(delegate.withTimeout(timeout), name, value);
+    }
 }
