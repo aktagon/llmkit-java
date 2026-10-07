@@ -6,7 +6,7 @@ plugins {
     // not a plain Maven repo URL. This plugin builds the required
     // jar/-sources/-javadoc, generates the POM, GPG-signs every artifact, and
     // uploads the bundle. Build-time only — it never ships in the artifact, so
-    // the runtime dependency set stays {Gson} (ADR-068 JAVA-002).
+    // the runtime dependency set stays {Gson}.
     id("com.vanniktech.maven.publish") version "0.30.0"
 }
 
@@ -18,7 +18,7 @@ repositories {
 }
 
 dependencies {
-    // The single permitted dependency (ADR-068 JAVA-002): Java has no stdlib
+    // The single runtime dependency: Java has no stdlib
     // JSON; Gson's JsonObject is the insertion-ordered dynamic-map waist the
     // shared request pipeline requires. One artifact, zero transitive deps.
     api("com.google.code.gson:gson:2.13.1")
@@ -29,7 +29,7 @@ dependencies {
 }
 
 tasks.withType<JavaCompile> {
-    // Java 17 floor (ADR-068 JAVA-003) regardless of the JDK running Gradle.
+    // Java 17 floor, regardless of the JDK running Gradle.
     options.release.set(17)
     options.encoding = "UTF-8"
 }
