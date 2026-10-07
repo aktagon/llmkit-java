@@ -50,8 +50,7 @@ mavenPublishing {
     coordinates("com.aktagon", "llmkit", version.toString())
     pom {
         name.set("llmkit")
-        // Public package metadata — describe what it does, not how it is built
-        //
+        // Public package metadata: describe what the library does.
         description.set("A unified, typed LLM client for Java: one API across many model providers.")
         url.set("https://github.com/aktagon/llmkit-java")
         licenses {
