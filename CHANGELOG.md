@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] — 2026-10-07
+
+### Changed
+- The javadoc jar and the sources jar carry their documentation comments.
+- The error for a chat protocol on a terminal other than prompt no longer ends with an internal reference.
+- 1.1.0 was not published to Maven Central. 1.1.1 is the first Maven release after 1.0.0 and includes the 1.1.0 changes below.
+
 ## [1.1.0] — 2026-10-04
 
 ### Added
