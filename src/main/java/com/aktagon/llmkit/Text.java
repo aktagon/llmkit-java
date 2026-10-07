@@ -282,7 +282,7 @@ public final class Text {
         }
         throw new ValidationException(
                 "protocol",
-                "protocol (e.g. Responses) is only supported on the prompt terminal, not " + terminal + " (ADR-055)");
+                "protocol (e.g. Responses) is only supported on the prompt terminal, not " + terminal);
     }
 
     private String resolveModel(Providers.Spec config) {

@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 First release. Java 17 floor, one dependency (Gson) over the JDK's own
 `java.net.http` and `javax.crypto`. Synchronous API mirroring the Go SDK.
-Distributed via Maven Central. Born on the post-ADR-064 API so it enters the
+Distributed via Maven Central. Born on the handle-based batch API so it enters the
 pack at parity with the other SDKs' v2.0.0/v3.0.0 line.
 
 ### Added
