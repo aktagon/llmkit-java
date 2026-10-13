@@ -668,7 +668,8 @@ public final class Image {
 
     private static ImageResponse parseResponse(JsonElement raw, ImageGenDef cfg) {
         return switch (cfg.responseShape()) {
-            case "DataArrayB64Json" -> parseDataArray(raw, cfg.usageInputPath(), cfg.usageOutputPath());
+            case "DataArrayB64Json" -> parseDataArray(
+                    raw, cfg.usageInputPath(), cfg.usageOutputPath(), cfg.usageReasoningPath());
             case "VertexPredictions" -> parseVertexResponse(raw);
             default -> parseGoogleParts(raw, cfg); // GoogleParts
         };
@@ -679,7 +680,8 @@ public final class Image {
      * vector models) are sniffed to {@code image/svg+xml} when the provider
      * echoes no mime.
      */
-    private static ImageResponse parseDataArray(JsonElement raw, String inputPath, String outputPath) {
+    private static ImageResponse parseDataArray(
+            JsonElement raw, String inputPath, String outputPath, String reasoningPath) {
         List<ImageData> images = new ArrayList<>();
         List<String> revised = new ArrayList<>();
         JsonElement dataElement = Json.at(raw, "data");
@@ -717,7 +719,7 @@ public final class Image {
         Usage usage = new Usage(
                 Json.optLong(raw, inputPath),
                 Json.optLong(raw, outputPath),
-                null, null, null, null);
+                null, null, Json.optLong(raw, reasoningPath), null);
         return new ImageResponse(images, String.join("\n", revised), usage, null, null, null);
     }
 
@@ -809,7 +811,7 @@ public final class Image {
         Usage usage = new Usage(
                 cfg.usageInputPath().isEmpty() ? 0 : Json.longAt(raw, cfg.usageInputPath()),
                 cfg.usageOutputPath().isEmpty() ? 0 : Json.longAt(raw, cfg.usageOutputPath()),
-                null, null, null, null);
+                null, null, Json.optLong(raw, cfg.usageReasoningPath()), null);
         return new ImageResponse(images, text.toString(), usage, Json.optString(finishReason), Json.optString(finishMessage), null);
     }
 
