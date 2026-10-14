@@ -275,8 +275,9 @@ public final class Image {
 
     /**
      * Per-provider pre-flight rejects. Aspect ratio / size are checked against
-     * the model whitelist (empty = pass-through); reference-image count against
-     * {@code maxInputCount}; the OpenAI-only knobs (quality / output_format /
+     * the model whitelist (empty = pass-through); image parts against the
+     * model's {@code supportsImageInput} and {@code maxInputImages} (0 = no
+     * llmkit limit); the OpenAI-only knobs (quality / output_format /
      * background / count) are rejected on the wire shapes that do not accept
      * them. Mirror of Swift's {@code validate}.
      */
@@ -292,10 +293,15 @@ public final class Image {
             throw new ValidationException("image_size", options.imageSize + " not supported by " + model);
         }
         long imageCount = parts.stream().filter(Image::isImage).count();
-        if (imageCount > imgCfg.maxInputCount()) {
+        // BUG-096: both limits are llmkit wire facts per model. maxInputImages 0
+        // means no llmkit limit; the provider decides volume.
+        if (imageCount > 0 && !modelDef.supportsImageInput()) {
+            throw new ValidationException("parts", model + " takes no image parts");
+        }
+        if (modelDef.maxInputImages() > 0 && imageCount > modelDef.maxInputImages()) {
             throw new ValidationException(
                     "parts",
-                    imageCount + " image parts exceeds maximum " + imgCfg.maxInputCount() + " for " + slug);
+                    imageCount + " image parts exceeds maximum " + modelDef.maxInputImages() + " for " + model);
         }
 
         // Per-provider knob validation. Quality / output_format / background are
