@@ -1,0 +1,21 @@
+// Code generated — DO NOT EDIT.
+
+package com.aktagon.llmkit.providers.generated;
+
+/** One wire request of an image or video config, keyed by the inputs it
+ * carries (ADR-096). {@code shape} is empty on a video variant; an empty
+ * {@code endpoint} means the provider's main endpoint template. */
+public record RequestVariant(String carries, String shape, String endpoint) {
+    /** Carried input: text only. */
+    public static final String TEXT_ONLY = "TextOnly";
+    /** Carried input: one or more reference images. */
+    public static final String WITH_REFERENCE_IMAGES = "WithReferenceImages";
+
+    // Image request shapes: each names one request body.
+    public static final String INLINE_PARTS = "InlineParts";
+    public static final String JSON_GENERATIONS_OPENAI = "JSONGenerationsOpenAI";
+    public static final String MULTIPART_FORM = "MultipartForm";
+    public static final String JSON_INLINE_REFS = "JSONInlineRefs";
+    public static final String JSON_PREDICT = "JSONPredict";
+    public static final String JSON_GENERATIONS = "JSONGenerations";
+}
