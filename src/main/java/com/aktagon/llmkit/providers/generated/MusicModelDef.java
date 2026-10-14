@@ -10,4 +10,6 @@ public record MusicModelDef(
         String outputMime,
         /** ADR-037 advisory facts (queryable, never gated); 0 when unverified. */
         int sampleRateHz,
-        java.util.List<String> availableOutputFormats) {}
+        java.util.List<String> availableOutputFormats,
+        /** Whether llmkit sends Image Parts for this model. */
+        boolean supportsImageInput) {}

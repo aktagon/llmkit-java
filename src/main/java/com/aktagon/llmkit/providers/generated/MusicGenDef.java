@@ -17,8 +17,8 @@ public record MusicGenDef(
                         "",
                         "",
                         java.util.List.of(
-                                new MusicModelDef("lyria-3-clip-preview", "Lyria 3 Clip", true, 30, "audio/mpeg", 0, java.util.List.of("audio/mpeg")),
-                                new MusicModelDef("lyria-3-pro-preview", "Lyria 3 Pro", true, 120, "audio/mpeg", 0, java.util.List.of("audio/mpeg"))
+                                new MusicModelDef("lyria-3-clip-preview", "Lyria 3 Clip", true, 30, "audio/mpeg", 0, java.util.List.of("audio/mpeg"), false),
+                                new MusicModelDef("lyria-3-pro-preview", "Lyria 3 Pro", true, 120, "audio/mpeg", 0, java.util.List.of("audio/mpeg"), false)
                         ));
             case MINIMAX:
                 return new MusicGenDef(
@@ -26,7 +26,7 @@ public record MusicGenDef(
                         "/v1/music_generation",
                         "https://api.minimax.io",
                         java.util.List.of(
-                                new MusicModelDef("music-2.6", "MiniMax Music 2.6", true, 0, "audio/mpeg", 44100, java.util.List.of("audio/mpeg", "audio/wav"))
+                                new MusicModelDef("music-2.6", "MiniMax Music 2.6", true, 0, "audio/mpeg", 44100, java.util.List.of("audio/mpeg", "audio/wav"), false)
                         ));
             case VERTEX:
                 return new MusicGenDef(
@@ -34,7 +34,7 @@ public record MusicGenDef(
                         "",
                         "",
                         java.util.List.of(
-                                new MusicModelDef("lyria-002", "Lyria 2", false, 30, "audio/wav", 48000, java.util.List.of("audio/wav"))
+                                new MusicModelDef("lyria-002", "Lyria 2", false, 30, "audio/wav", 48000, java.util.List.of("audio/wav"), false)
                         ));
             default: return null;
         }
