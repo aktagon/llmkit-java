@@ -11,14 +11,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING — image and video configs list request variants.**
+  `ImageGenDef.inputMode()`, `genEndpoint()`, `editEndpoint()` and
+  `VideoGenDef.genEndpoint()` are removed. Each config now has `variants()`, a
+  `List<RequestVariant>`: one the `RequestVariant(carries, shape, endpoint)`
+  record per wire request, keyed by whether the request carries reference
+  images. The request is picked from the parts you pass, so builder calls do not
+  change. Migration: read the variant whose carried input matches your request
+  from `variants()` instead of the removed fields.
+
+- **Vertex Imagen is text-to-image only.** Image parts and a mask on a
+  Vertex image request are now rejected before the request is sent. Google's
+  reference documents no reference-image field for these models.
+
+- **A mask is accepted only on an OpenAI request with reference images.** A
+  mask on any other image request is rejected before the request is sent.
+
 - **BREAKING — image input limits are per model, and the provider-level count is gone.**
   `ImageGenDef.maxInputCount()` is removed. It mixed two kinds of number: wire limits, and
   provider maxima (Google 14, OpenAI and Grok 16) that no source confirmed.
   When a provider raised its limit, image generation rejected calls the
   provider would accept. Each image model now carries `ImageModelDef.supportsImageInput()`,
   added as the last field. Image generation rejects image parts when it is
-  false (OpenRouter and Recraft models), and rejects more than
-  `ImageModelDef.maxInputImages()` when that is not 0 (Vertex Imagen: 1). Every
+  false (OpenRouter, Recraft and Vertex models), and rejects more than
+  `ImageModelDef.maxInputImages()` when that is not 0. Every
   other model sends all image parts and lets the provider decide.
   Migration: read `ImageModelDef.supportsImageInput()` and `ImageModelDef.maxInputImages()`
   on the model instead of the provider-level count.
