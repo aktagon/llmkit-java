@@ -10,7 +10,6 @@ public record ImageGenDef(
         String usageInputPath,
         String usageOutputPath,
         String usageReasoningPath,
-        int maxInputCount,
         String genEndpoint,
         String editEndpoint,
         java.util.List<ImageModelDef> models) {
@@ -26,12 +25,11 @@ public record ImageGenDef(
                         "usageMetadata.promptTokenCount",
                         "usageMetadata.candidatesTokenCount",
                         "usageMetadata.thoughtsTokenCount",
-                        14,
                         "",
                         "",
                         java.util.List.of(
-                                new ImageModelDef("gemini-3-pro-image-preview", "Nano Banana Pro", java.util.List.of("16:9", "1:1", "21:9", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16"), java.util.List.of("1K", "2K", "4K"), 0),
-                                new ImageModelDef("gemini-3.1-flash-image-preview", "Nano Banana 2", java.util.List.of("16:9", "1:1", "1:4", "1:8", "21:9", "2:3", "3:2", "3:4", "4:1", "4:3", "4:5", "5:4", "8:1", "9:16"), java.util.List.of("1K", "2K", "4K", "512"), 0)
+                                new ImageModelDef("gemini-3-pro-image-preview", "Nano Banana Pro", java.util.List.of("16:9", "1:1", "21:9", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16"), java.util.List.of("1K", "2K", "4K"), 0, true),
+                                new ImageModelDef("gemini-3.1-flash-image-preview", "Nano Banana 2", java.util.List.of("16:9", "1:1", "1:4", "1:8", "21:9", "2:3", "3:2", "3:4", "4:1", "4:3", "4:5", "5:4", "8:1", "9:16"), java.util.List.of("1K", "2K", "4K", "512"), 0, true)
                         ));
             case GROK:
                 return new ImageGenDef(
@@ -41,11 +39,10 @@ public record ImageGenDef(
                         "",
                         "",
                         "",
-                        16,
                         "/v1/images/generations",
                         "/v1/images/edits",
                         java.util.List.of(
-                                new ImageModelDef("grok-imagine-image-quality", "Grok Imagine Quality", java.util.List.of("16:9", "19.5:9", "1:1", "1:2", "20:9", "2:1", "2:3", "3:2", "3:4", "4:3", "9:16", "9:19.5", "9:20", "auto"), java.util.List.of(), 0)
+                                new ImageModelDef("grok-imagine-image-quality", "Grok Imagine Quality", java.util.List.of("16:9", "19.5:9", "1:1", "1:2", "20:9", "2:1", "2:3", "3:2", "3:4", "4:3", "9:16", "9:19.5", "9:20", "auto"), java.util.List.of(), 0, true)
                         ));
             case OPENAI:
                 return new ImageGenDef(
@@ -55,14 +52,13 @@ public record ImageGenDef(
                         "usage.input_tokens",
                         "usage.output_tokens",
                         "",
-                        16,
                         "/v1/images/generations",
                         "/v1/images/edits",
                         java.util.List.of(
-                                new ImageModelDef("gpt-image-1", "GPT Image 1", java.util.List.of(), java.util.List.of(), 0),
-                                new ImageModelDef("gpt-image-1-mini", "GPT Image 1 Mini", java.util.List.of(), java.util.List.of(), 0),
-                                new ImageModelDef("gpt-image-1.5", "GPT Image 1.5", java.util.List.of(), java.util.List.of(), 0),
-                                new ImageModelDef("gpt-image-2", "GPT Image 2", java.util.List.of(), java.util.List.of(), 0)
+                                new ImageModelDef("gpt-image-1", "GPT Image 1", java.util.List.of(), java.util.List.of(), 0, true),
+                                new ImageModelDef("gpt-image-1-mini", "GPT Image 1 Mini", java.util.List.of(), java.util.List.of(), 0, true),
+                                new ImageModelDef("gpt-image-1.5", "GPT Image 1.5", java.util.List.of(), java.util.List.of(), 0, true),
+                                new ImageModelDef("gpt-image-2", "GPT Image 2", java.util.List.of(), java.util.List.of(), 0, true)
                         ));
             case OPENROUTER:
                 return new ImageGenDef(
@@ -72,17 +68,16 @@ public record ImageGenDef(
                         "usage.prompt_tokens",
                         "usage.completion_tokens",
                         "",
-                        0,
                         "/v1/images",
                         "",
                         java.util.List.of(
-                                new ImageModelDef("google/gemini-2.5-flash-image", "Nano Banana (Gemini 2.5 Flash Image)", java.util.List.of(), java.util.List.of(), 0),
-                                new ImageModelDef("google/gemini-3-pro-image", "Nano Banana Pro (Gemini 3 Pro Image)", java.util.List.of(), java.util.List.of(), 0),
-                                new ImageModelDef("google/gemini-3.1-flash-image", "Nano Banana 2 (Gemini 3.1 Flash Image)", java.util.List.of(), java.util.List.of(), 0),
-                                new ImageModelDef("google/gemini-3.1-flash-lite-image", "Nano Banana 2 Lite (Gemini 3.1 Flash Lite Image)", java.util.List.of(), java.util.List.of(), 0),
-                                new ImageModelDef("openai/gpt-5-image", "GPT-5 Image", java.util.List.of(), java.util.List.of(), 0),
-                                new ImageModelDef("openai/gpt-5-image-mini", "GPT-5 Image Mini", java.util.List.of(), java.util.List.of(), 0),
-                                new ImageModelDef("openai/gpt-5.4-image-2", "GPT-5.4 Image 2", java.util.List.of(), java.util.List.of(), 0)
+                                new ImageModelDef("google/gemini-2.5-flash-image", "Nano Banana (Gemini 2.5 Flash Image)", java.util.List.of(), java.util.List.of(), 0, false),
+                                new ImageModelDef("google/gemini-3-pro-image", "Nano Banana Pro (Gemini 3 Pro Image)", java.util.List.of(), java.util.List.of(), 0, false),
+                                new ImageModelDef("google/gemini-3.1-flash-image", "Nano Banana 2 (Gemini 3.1 Flash Image)", java.util.List.of(), java.util.List.of(), 0, false),
+                                new ImageModelDef("google/gemini-3.1-flash-lite-image", "Nano Banana 2 Lite (Gemini 3.1 Flash Lite Image)", java.util.List.of(), java.util.List.of(), 0, false),
+                                new ImageModelDef("openai/gpt-5-image", "GPT-5 Image", java.util.List.of(), java.util.List.of(), 0, false),
+                                new ImageModelDef("openai/gpt-5-image-mini", "GPT-5 Image Mini", java.util.List.of(), java.util.List.of(), 0, false),
+                                new ImageModelDef("openai/gpt-5.4-image-2", "GPT-5.4 Image 2", java.util.List.of(), java.util.List.of(), 0, false)
                         ));
             case RECRAFT:
                 return new ImageGenDef(
@@ -92,12 +87,11 @@ public record ImageGenDef(
                         "",
                         "",
                         "",
-                        0,
                         "/v1/images/generations",
                         "",
                         java.util.List.of(
-                                new ImageModelDef("recraftv3", "Recraft V3", java.util.List.of(), java.util.List.of(), 0),
-                                new ImageModelDef("recraftv3_vector", "Recraft V3 (vector / SVG)", java.util.List.of(), java.util.List.of(), 0)
+                                new ImageModelDef("recraftv3", "Recraft V3", java.util.List.of(), java.util.List.of(), 0, false),
+                                new ImageModelDef("recraftv3_vector", "Recraft V3 (vector / SVG)", java.util.List.of(), java.util.List.of(), 0, false)
                         ));
             case VERTEX:
                 return new ImageGenDef(
@@ -107,13 +101,12 @@ public record ImageGenDef(
                         "",
                         "",
                         "",
-                        1,
                         "",
                         "",
                         java.util.List.of(
-                                new ImageModelDef("imagen-3.0-fast-generate-001", "Imagen 3 Fast", java.util.List.of("16:9", "1:1", "3:4", "4:3", "9:16"), java.util.List.of(), 0),
-                                new ImageModelDef("imagen-3.0-generate-002", "Imagen 3", java.util.List.of("16:9", "1:1", "3:4", "4:3", "9:16"), java.util.List.of(), 0),
-                                new ImageModelDef("imagen-4.0-generate-preview-06-06", "Imagen 4 Preview", java.util.List.of("16:9", "1:1", "3:4", "4:3", "9:16"), java.util.List.of(), 0)
+                                new ImageModelDef("imagen-3.0-fast-generate-001", "Imagen 3 Fast", java.util.List.of("16:9", "1:1", "3:4", "4:3", "9:16"), java.util.List.of(), 1, true),
+                                new ImageModelDef("imagen-3.0-generate-002", "Imagen 3", java.util.List.of("16:9", "1:1", "3:4", "4:3", "9:16"), java.util.List.of(), 1, true),
+                                new ImageModelDef("imagen-4.0-generate-preview-06-06", "Imagen 4 Preview", java.util.List.of("16:9", "1:1", "3:4", "4:3", "9:16"), java.util.List.of(), 1, true)
                         ));
             default: return null;
         }

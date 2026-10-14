@@ -9,4 +9,7 @@ public record ImageModelDef(
         java.util.List<String> imageSizes,
         /** Images llmkit serializes when the wire shape fixes the count
          * (e.g. Grok's single-seed slot); 0 = no llmkit limit (BUG-011). */
-        int maxInputImages) {}
+        int maxInputImages,
+        /** Whether llmkit sends Image Parts for this model; false means the
+         * runtime rejects them (BUG-096). */
+        boolean supportsImageInput) {}

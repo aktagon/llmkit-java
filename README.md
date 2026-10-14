@@ -19,7 +19,7 @@ Also available for Go, TypeScript, Python, Rust, and Swift.
 
 ```kotlin
 dependencies {
-    implementation("com.aktagon:llmkit:1.0.0")
+    implementation("com.aktagon:llmkit:2.0.0")
 }
 ```
 

@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING — image input limits are per model, and the provider-level count is gone.**
+  `ImageGenDef.maxInputCount()` is removed. It mixed two kinds of number: wire limits, and
+  provider maxima (Google 14, OpenAI and Grok 16) that no source confirmed.
+  When a provider raised its limit, image generation rejected calls the
+  provider would accept. Each image model now carries `ImageModelDef.supportsImageInput()`,
+  added as the last field. Image generation rejects image parts when it is
+  false (OpenRouter and Recraft models), and rejects more than
+  `ImageModelDef.maxInputImages()` when that is not 0 (Vertex Imagen: 1). Every
+  other model sends all image parts and lets the provider decide.
+  Migration: read `ImageModelDef.supportsImageInput()` and `ImageModelDef.maxInputImages()`
+  on the model instead of the provider-level count.
+
 - **BREAKING — an unreported usage dimension or finish signal is now absent, not zero.**
   The six `Usage` dimensions (input, output, cache read, cache write, reasoning,
   cost) and the finish reason / finish message on every response container are
