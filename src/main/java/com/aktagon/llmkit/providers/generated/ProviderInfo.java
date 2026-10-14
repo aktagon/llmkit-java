@@ -45,7 +45,7 @@ public record ProviderInfo(
             case GROK:
                 return new ProviderInfo(ProviderName.GROK, "grok", "XAI_API_KEY", "grok-3-fast", "https://api.x.ai", false);
             case GROQ:
-                return new ProviderInfo(ProviderName.GROQ, "groq", "GROQ_API_KEY", "llama-3.3-70b-versatile", "https://api.groq.com/openai", false);
+                return new ProviderInfo(ProviderName.GROQ, "groq", "GROQ_API_KEY", "openai/gpt-oss-120b", "https://api.groq.com/openai", false);
             case INWORLD:
                 return new ProviderInfo(ProviderName.INWORLD, "inworld", "INWORLD_API_KEY", "inworld-tts-2", "https://api.inworld.ai", false);
             case JAN:
@@ -59,7 +59,7 @@ public record ProviderInfo(
             case MISTRAL:
                 return new ProviderInfo(ProviderName.MISTRAL, "mistral", "MISTRAL_API_KEY", "mistral-large-latest", "https://api.mistral.ai", false);
             case MOONSHOT:
-                return new ProviderInfo(ProviderName.MOONSHOT, "moonshot", "MOONSHOT_API_KEY", "moonshot-v1-8k", "https://api.moonshot.ai", false);
+                return new ProviderInfo(ProviderName.MOONSHOT, "moonshot", "MOONSHOT_API_KEY", "kimi-k2.6", "https://api.moonshot.ai", false);
             case OLLAMA:
                 return new ProviderInfo(ProviderName.OLLAMA, "ollama", "OLLAMA_API_KEY", "", "http://localhost:11434", false);
             case OPENAI:
