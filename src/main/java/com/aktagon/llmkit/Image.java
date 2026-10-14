@@ -7,6 +7,7 @@ import com.aktagon.llmkit.providers.generated.ImageResponse;
 import com.aktagon.llmkit.providers.generated.MediaRef;
 import com.aktagon.llmkit.providers.generated.ProviderName;
 import com.aktagon.llmkit.providers.generated.Providers;
+import com.aktagon.llmkit.providers.generated.RequestVariant;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -25,7 +26,8 @@ import java.util.function.Consumer;
  * the universal {@link ImageResponse}.
  *
  * <p>The generated {@code imageGenConfig(provider)} fact selects both the
- * request-body shape ({@code inputMode}) and the response parser
+ * request variant (by the inputs the request carries, ADR-096; its
+ * {@code shape} picks the body) and the response parser
  * ({@code responseShape}) — never the provider name (BUG-024). Pre-flight
  * validation rejects unsupported aspect ratios / sizes / reference-image
  * counts before any HTTP call.
@@ -140,8 +142,8 @@ public final class Image {
 
     /**
      * Attach an inpainting mask (transparent pixels mark the region to edit).
-     * OpenAI edits (requires a reference image) and Vertex Imagen only; other
-     * providers reject it before any HTTP call.
+     * OpenAI edits only (requires a reference image); other providers reject
+     * it before any HTTP call.
      */
     public Image mask(String mimeType, byte[] data) {
         MediaRef ref = new MediaRef(mimeType, data.clone());
@@ -187,14 +189,14 @@ public final class Image {
             throw new ValidationException(
                     "model", model + " is not a known image-generation model for " + config.slug);
         }
-        validate(parts, modelDef, imgCfg, config.slug);
+        RequestVariant variant = validate(parts, modelDef, imgCfg, config.slug);
 
         Event baseEvent = Event.of(MiddlewareOp.IMAGE_GENERATION, config.slug, model);
         long startNanos = System.nanoTime();
         Middleware.firePre(options.middleware, baseEvent);
 
         try {
-            ImageResponse response = send(parts, imgCfg, config);
+            ImageResponse response = send(parts, imgCfg, variant, config);
             Middleware.firePost(
                     options.middleware,
                     baseEvent.toPost("", response.usage(), null, Middleware.elapsedMillis(startNanos)));
@@ -274,14 +276,14 @@ public final class Image {
     // --- Validation ---
 
     /**
-     * Per-provider pre-flight rejects. Aspect ratio / size are checked against
-     * the model whitelist (empty = pass-through); image parts against the
-     * model's {@code supportsImageInput} and {@code maxInputImages} (0 = no
-     * llmkit limit); the OpenAI-only knobs (quality / output_format /
-     * background / count) are rejected on the wire shapes that do not accept
-     * them. Mirror of Swift's {@code validate}.
+     * Pre-flight rejects, returning the request variant the parts select
+     * (ADR-096). Aspect ratio / size are checked against the model whitelist
+     * (empty = pass-through); image parts against the model's
+     * {@code supportsImageInput} and {@code maxInputImages} (0 = no llmkit
+     * limit); the knobs a request shape does not carry are rejected. Mirror of
+     * Go's {@code generateImage} validation.
      */
-    private void validate(List<Part> parts, ImageModelDef modelDef, ImageGenDef imgCfg, String slug) {
+    private RequestVariant validate(List<Part> parts, ImageModelDef modelDef, ImageGenDef imgCfg, String slug) {
         if (options.aspectRatio != null
                 && !modelDef.aspectRatios().isEmpty()
                 && !modelDef.aspectRatios().contains(options.aspectRatio)) {
@@ -293,66 +295,86 @@ public final class Image {
             throw new ValidationException("image_size", options.imageSize + " not supported by " + model);
         }
         long imageCount = parts.stream().filter(Image::isImage).count();
-        // BUG-096: both limits are llmkit wire facts per model. maxInputImages 0
-        // means no llmkit limit; the provider decides volume.
+        validateImageArity(modelDef, imageCount);
+
+        // ADR-096: the request's parts pick the wire request; a config with no
+        // variant for those inputs cannot send it.
+        RequestVariant variant = RequestVariants.select(slug, imgCfg.variants(), imageCount);
+
+        // Per-request-shape knob validation. Quality / output_format /
+        // background are OpenAI-only on the wire; count (n) is OpenAI + Recraft
+        // + xAI + Vertex. Recraft additionally has no aspect_ratio wire field
+        // (it sizes by WxH). Mask rides only the OpenAI multipart edits body;
+        // safetyFilter is Vertex only; safetySettings is Google only (Go parity).
+        if (options.mask != null && !RequestVariant.MULTIPART_FORM.equals(variant.shape())) {
+            if (RequestVariant.JSON_GENERATIONS_OPENAI.equals(variant.shape())) {
+                throw new ValidationException("mask", "requires at least one image part (edits branch only)");
+            }
+            throw new ValidationException("mask", "not supported by " + slug);
+        }
+        Object safetySettings = options.safetySettings.isEmpty() ? null : options.safetySettings;
+        switch (variant.shape()) {
+            case RequestVariant.INLINE_PARTS -> { // Google
+                reject(options.quality, "quality", slug);
+                reject(options.outputFormat, "output_format", slug);
+                reject(options.background, "background", slug);
+                reject(options.count, "count", slug);
+                if (options.safetyFilter != null) {
+                    throw new ValidationException(
+                            "safety_filter", "not supported by " + slug + "; use safetySettings for text-gen");
+                }
+            }
+            case RequestVariant.JSON_INLINE_REFS -> { // xAI Grok
+                reject(options.quality, "quality", slug);
+                reject(options.outputFormat, "output_format", slug);
+                reject(options.background, "background", slug);
+                reject(options.safetyFilter, "safety_filter", slug);
+                reject(safetySettings, "safety_settings", slug);
+            }
+            case RequestVariant.JSON_PREDICT -> { // Vertex Imagen
+                reject(options.quality, "quality", slug);
+                reject(options.outputFormat, "output_format", slug);
+                reject(options.background, "background", slug);
+                if (safetySettings != null) {
+                    throw new ValidationException(
+                            "safety_settings", "not supported by " + slug + "; use safetyFilter for Vertex Imagen");
+                }
+            }
+            case RequestVariant.JSON_GENERATIONS -> { // Recraft, OpenRouter
+                if (options.aspectRatio != null) {
+                    throw new ValidationException(
+                            "aspect_ratio", "not supported by " + slug + "; use image_size (Recraft sizes by WxH)");
+                }
+                reject(options.quality, "quality", slug);
+                reject(options.outputFormat, "output_format", slug);
+                reject(options.background, "background", slug);
+                reject(options.safetyFilter, "safety_filter", slug);
+                reject(safetySettings, "safety_settings", slug);
+            }
+            case RequestVariant.JSON_GENERATIONS_OPENAI, RequestVariant.MULTIPART_FORM -> {
+                // OpenAI: quality / output_format / background / count all valid.
+                reject(options.safetyFilter, "safety_filter", slug);
+                reject(safetySettings, "safety_settings", slug);
+            }
+            default -> {}
+        }
+        return variant;
+    }
+
+    /**
+     * Rejects image parts the model does not take. BUG-096: both limits are
+     * llmkit wire facts per model; {@code maxInputImages} 0 means no llmkit
+     * limit, the provider decides volume.
+     */
+    static void validateImageArity(ImageModelDef modelDef, long imageCount) {
         if (imageCount > 0 && !modelDef.supportsImageInput()) {
-            throw new ValidationException("parts", model + " takes no image parts");
+            throw new ValidationException("parts", modelDef.modelId() + " takes no image parts");
         }
         if (modelDef.maxInputImages() > 0 && imageCount > modelDef.maxInputImages()) {
             throw new ValidationException(
                     "parts",
-                    imageCount + " image parts exceeds maximum " + modelDef.maxInputImages() + " for " + model);
-        }
-
-        // Per-provider knob validation. Quality / output_format / background are
-        // OpenAI-only on the wire; count (n) is OpenAI + Recraft + xAI. Recraft
-        // additionally has no aspect_ratio wire field (it sizes by WxH).
-        //
-        // Mask is OpenAI edits (MultipartForm with image parts) + Vertex only;
-        // safetyFilter is Vertex only; safetySettings is Google only (Go parity).
-        Object safetySettings = options.safetySettings.isEmpty() ? null : options.safetySettings;
-        if ("InlineParts".equals(imgCfg.inputMode())) {
-            reject(options.quality, "quality", slug);
-            reject(options.outputFormat, "output_format", slug);
-            reject(options.background, "background", slug);
-            reject(options.count, "count", slug);
-            reject(options.mask, "mask", slug);
-            if (options.safetyFilter != null) {
-                throw new ValidationException(
-                        "safety_filter", "not supported by " + slug + "; use safetySettings for text-gen");
-            }
-        } else if ("JSONInlineRefs".equals(imgCfg.inputMode())) {
-            reject(options.quality, "quality", slug);
-            reject(options.outputFormat, "output_format", slug);
-            reject(options.background, "background", slug);
-            reject(options.mask, "mask", slug);
-            reject(options.safetyFilter, "safety_filter", slug);
-            reject(safetySettings, "safety_settings", slug);
-        } else if ("JSONPredict".equals(imgCfg.inputMode())) {
-            reject(options.quality, "quality", slug);
-            reject(options.outputFormat, "output_format", slug);
-            reject(options.background, "background", slug);
-            if (safetySettings != null) {
-                throw new ValidationException(
-                        "safety_settings", "not supported by " + slug + "; use safetyFilter for Vertex Imagen");
-            }
-        } else if ("JSONGenerations".equals(imgCfg.inputMode())) {
-            if (options.aspectRatio != null) {
-                throw new ValidationException(
-                        "aspect_ratio", "not supported by " + slug + "; use image_size (Recraft sizes by WxH)");
-            }
-            reject(options.quality, "quality", slug);
-            reject(options.outputFormat, "output_format", slug);
-            reject(options.background, "background", slug);
-            reject(options.mask, "mask", slug);
-            reject(options.safetyFilter, "safety_filter", slug);
-            reject(safetySettings, "safety_settings", slug);
-        } else { // MultipartForm: quality / output_format / background / count all valid.
-            if (options.mask != null && imageCount == 0) {
-                throw new ValidationException("mask", "requires at least one image part (edits branch only)");
-            }
-            reject(options.safetyFilter, "safety_filter", slug);
-            reject(safetySettings, "safety_settings", slug);
+                    imageCount + " image parts exceeds maximum " + modelDef.maxInputImages() + " for "
+                            + modelDef.modelId());
         }
     }
 
@@ -364,35 +386,34 @@ public final class Image {
 
     // --- Send ---
 
-    private ImageResponse send(List<Part> parts, ImageGenDef imgCfg, Providers.Spec config) {
+    /**
+     * Sends the request variant the parts selected (ADR-096), switching on its
+     * request shape, never on provider name. The URL is the base plus the
+     * variant's endpoint, or the provider's main endpoint template (with
+     * {@code {model}} substituted) when the endpoint is empty.
+     */
+    private ImageResponse send(
+            List<Part> parts, ImageGenDef imgCfg, RequestVariant variant, Providers.Spec config) {
         String base = baseUrlOverride != null ? baseUrlOverride : config.baseUrl;
         Map<String, String> headers = RequestBuilder.buildAuthHeaders(config, apiKey);
-        boolean hasImages = parts.stream().anyMatch(Image::isImage);
+        String url = variant.endpoint().isEmpty()
+                ? RequestBuilder.buildUrl(config, config.endpoint, apiKey, model, baseUrlOverride)
+                : base + variant.endpoint();
 
-        String url;
-        JsonObject body;
-        if ("MultipartForm".equals(imgCfg.inputMode()) && hasImages) {
-            HttpTransport.Result result = http.postMultipart(
-                    base + imgCfg.editEndpoint(), openAIEditFields(parts), openAIEditFiles(parts), headers);
+        if (RequestVariant.MULTIPART_FORM.equals(variant.shape())) {
+            HttpTransport.Result result =
+                    http.postMultipart(url, openAIEditFields(parts), openAIEditFiles(parts), headers);
             return decode(result, imgCfg, config);
         }
-        if ("JSONInlineRefs".equals(imgCfg.inputMode())) {
-            body = hasImages ? buildXAIEditBody(parts) : buildXAIGenBody(parts);
-            url = base + (hasImages ? imgCfg.editEndpoint() : imgCfg.genEndpoint());
-        } else if ("JSONGenerations".equals(imgCfg.inputMode())) {
-            body = buildRecraftBody(parts);
-            url = base + imgCfg.genEndpoint();
-        } else if ("MultipartForm".equals(imgCfg.inputMode())) {
-            body = buildOpenAIBody(parts);
-            url = base + imgCfg.genEndpoint();
-        } else if ("JSONPredict".equals(imgCfg.inputMode())) {
-            body = buildVertexBody(parts);
-            url = RequestBuilder.buildUrl(config, config.endpoint, apiKey, model, baseUrlOverride);
-        } else { // InlineParts (Google generateContent)
-            body = buildGoogleBody(parts);
-            url = RequestBuilder.buildUrl(config, config.endpoint, apiKey, model, baseUrlOverride);
-        }
-
+        JsonObject body = switch (variant.shape()) {
+            case RequestVariant.JSON_GENERATIONS_OPENAI -> buildOpenAIBody(parts);
+            case RequestVariant.JSON_INLINE_REFS -> buildXAIBody(parts);
+            case RequestVariant.JSON_PREDICT -> buildVertexBody(parts);
+            case RequestVariant.JSON_GENERATIONS -> buildRecraftBody(parts);
+            case RequestVariant.INLINE_PARTS -> buildGoogleBody(parts);
+            default -> throw new IllegalStateException(
+                    "image request shape " + variant.shape() + " has no body builder");
+        };
         return decode(http.postJson(url, Json.serialize(body), headers), imgCfg, config);
     }
 
@@ -579,11 +600,14 @@ public final class Image {
     }
 
     /**
-     * xAI Grok {@code /v1/images/generations} JSON body. {@code image_size}
+     * xAI Grok body for {@code /v1/images/generations} (text only) and
+     * {@code /v1/images/edits} (with reference images). {@code image_size}
      * maps to {@code resolution} (xAI's name); {@code response_format=b64_json}
-     * is forced (xAI defaults to URL).
+     * is forced (xAI defaults to URL). One image part maps to
+     * {@code image: {url: "data:..."}}, several to {@code images: [...]} in
+     * caller order, none to no image field.
      */
-    private JsonObject buildXAIGenBody(List<Part> parts) {
+    private JsonObject buildXAIBody(List<Part> parts) {
         JsonObject body = new JsonObject();
         body.addProperty("model", model);
         body.addProperty("prompt", joinText(parts));
@@ -597,16 +621,6 @@ public final class Image {
         if (options.count != null) {
             body.addProperty("n", options.count);
         }
-        return body;
-    }
-
-    /**
-     * xAI Grok {@code /v1/images/edits} body: one reference image maps to
-     * {@code image: {url: "data:..."}}, multiple to {@code images: [...]} in
-     * caller order.
-     */
-    private JsonObject buildXAIEditBody(List<Part> parts) {
-        JsonObject body = buildXAIGenBody(parts);
         JsonArray refs = new JsonArray();
         for (Part part : parts) {
             if (part instanceof Part.ImagePart imagePart) {
@@ -628,29 +642,14 @@ public final class Image {
 
     /**
      * Vertex AI Imagen {@code :predict} body: an {@code instances}/
-     * {@code parameters} envelope. The instance carries the prompt and (for
-     * editing) a single reference image; parameters carries {@code sampleCount}
-     * + optional {@code aspectRatio}.
+     * {@code parameters} envelope. The instance carries the prompt;
+     * parameters carries {@code sampleCount} + optional {@code aspectRatio}.
+     * The Imagen generate models take text only (BUG-101), so image parts and
+     * a mask never reach here: pre-flight validation rejects them first.
      */
     private JsonObject buildVertexBody(List<Part> parts) {
         JsonObject instance = new JsonObject();
         instance.addProperty("prompt", joinText(parts));
-        for (Part part : parts) {
-            if (part instanceof Part.ImagePart imagePart) {
-                JsonObject image = new JsonObject();
-                image.addProperty(
-                        "bytesBase64Encoded", Base64.getEncoder().encodeToString(imagePart.media().bytes()));
-                instance.add("image", image);
-                break; // Vertex Imagen takes a single edit-target image
-            }
-        }
-        if (options.mask != null) {
-            JsonObject maskImage = new JsonObject();
-            maskImage.addProperty("bytesBase64Encoded", Base64.getEncoder().encodeToString(options.mask.bytes()));
-            JsonObject mask = new JsonObject();
-            mask.add("image", maskImage);
-            instance.add("mask", mask);
-        }
 
         JsonObject parameters = new JsonObject();
         parameters.addProperty("sampleCount", options.count != null ? options.count : 1);

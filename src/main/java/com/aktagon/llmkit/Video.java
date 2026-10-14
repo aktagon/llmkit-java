@@ -3,6 +3,7 @@ package com.aktagon.llmkit;
 import com.aktagon.llmkit.providers.generated.MediaRef;
 import com.aktagon.llmkit.providers.generated.ProviderName;
 import com.aktagon.llmkit.providers.generated.Providers;
+import com.aktagon.llmkit.providers.generated.RequestVariant;
 import com.aktagon.llmkit.providers.generated.VideoGenDef;
 import com.aktagon.llmkit.providers.generated.VideoHandle;
 import com.aktagon.llmkit.providers.generated.VideoModelDef;
@@ -148,14 +149,14 @@ public final class Video {
             throw new ValidationException(
                     "model", model + " is not a known video-generation model for " + config.slug);
         }
-        validate(parts, modelDef, vgCfg, config.slug);
+        RequestVariant variant = validate(parts, modelDef, vgCfg, config.slug);
 
         Event baseEvent = Event.of(MiddlewareOp.VIDEO_GENERATION, config.slug, model);
         long startNanos = System.nanoTime();
         Middleware.firePre(options.middleware, baseEvent);
 
         try {
-            String id = dispatchSubmit(config, vgCfg, parts);
+            String id = dispatchSubmit(config, vgCfg, variant, parts);
             Middleware.firePost(
                     options.middleware, baseEvent.toPost("", null, null, Middleware.elapsedMillis(startNanos)));
             VideoHandle handle = new VideoHandle(id, provider, options.raw, model);
@@ -231,18 +232,23 @@ public final class Video {
 
     /**
      * Pre-flight rejects: image-to-video only on {@code supportsImageToVideo}
-     * models (else the seed frame would silently drop at wire time), and
-     * output-uri providers require the caller S3 URI (VID-005).
+     * models (else the seed frame would silently drop at wire time), a seed
+     * frame selects the WithReferenceImages submit request (ADR-096), and
+     * output-uri providers require the caller S3 URI (VID-005). Returns the
+     * selected request variant.
      */
-    private void validate(List<Part> parts, VideoModelDef modelDef, VideoGenDef vgCfg, String slug) {
-        if (parts.stream().anyMatch(Video::isImage) && !modelDef.supportsImageToVideo()) {
+    private RequestVariant validate(List<Part> parts, VideoModelDef modelDef, VideoGenDef vgCfg, String slug) {
+        long imageCount = parts.stream().filter(Video::isImage).count();
+        if (imageCount > 0 && !modelDef.supportsImageToVideo()) {
             throw new ValidationException(
                     "parts", model + " is a text-to-video-only model and does not accept image parts");
         }
+        RequestVariant variant = RequestVariants.select(slug, vgCfg.variants(), imageCount);
         if (vgCfg.requiresOutputUri() && options.outputUri.isEmpty()) {
             throw new ValidationException(
                     "output_uri", slug + " requires a caller output S3 URI; set outputUri on the request");
         }
+        return variant;
     }
 
     // --- Submit dispatch (selected by wireShape, never provider name) ---
@@ -253,7 +259,8 @@ public final class Video {
      * dotted path). SigV4 providers (Bedrock) sign the exact bytes via
      * {@link RequestBuilder#send}.
      */
-    private String dispatchSubmit(Providers.Spec config, VideoGenDef vgCfg, List<Part> parts) {
+    private String dispatchSubmit(
+            Providers.Spec config, VideoGenDef vgCfg, RequestVariant variant, List<Part> parts) {
         String base = VideoPoll.baseUrl(config, vgCfg, baseUrlOverride);
         Map<String, String> headers = RequestBuilder.buildAuthHeaders(config, apiKey);
 
@@ -324,11 +331,12 @@ public final class Video {
             }
         }
 
-        // {model} in the submit endpoint is substituted with the per-call
+        // The submit endpoint is the selected request variant's (ADR-096).
+        // {model} in it is substituted with the per-call
         // model (Veo's :predictLongRunning path); a no-op for body-model
         // providers.
         String url = VideoPoll.appendQueryAuth(
-                base + vgCfg.genEndpoint().replace("{model}", model), config, apiKey);
+                base + variant.endpoint().replace("{model}", model), config, apiKey);
 
         HttpTransport.Result result = RequestBuilder.send(config, url, body, headers, apiKey, http);
         if (result.statusCode() < 200 || result.statusCode() >= 300) {
