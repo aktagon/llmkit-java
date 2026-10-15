@@ -25,9 +25,9 @@ final class ImageOptions {
     Integer count;
     /** Observation + veto hooks fired around the {@code imageGeneration} op. */
     List<MiddlewareFn> middleware = new ArrayList<>();
-    /** Inpainting mask (OpenAI edits multipart {@code mask}; Vertex {@code instances[0].mask}). */
+    /** Inpainting mask (OpenAI edits multipart {@code mask}). */
     MediaRef mask;
-    /** Vertex Imagen global safety threshold; wire field {@code parameters.safetySetting}. */
+    /** Global image safety threshold; accepted by no provider (deprecated, BUG-101). */
     String safetyFilter;
     /** Google per-category safety thresholds; wire field {@code safetySettings[]}. */
     List<SafetySetting> safetySettings = new ArrayList<>();
