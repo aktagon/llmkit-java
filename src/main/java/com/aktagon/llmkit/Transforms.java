@@ -73,7 +73,20 @@ final class Transforms {
             messages.add(systemMessage);
         }
 
+        boolean prevResult = false;
         for (Msg msg : msgs) {
+            boolean isResult = msg instanceof Msg.ToolOutput;
+            // Converse wants every toolResult answering one assistant turn
+            // inside ONE user message; one message per result is a 400 (live,
+            // 2026-10-15). A result that follows a result joins the message
+            // the first one opened.
+            if (bedrock && isResult && prevResult) {
+                JsonObject entry = flatProjectedEntry(msg, wireShape, config, bedrock).getAsJsonObject();
+                messages.get(messages.size() - 1).getAsJsonObject()
+                        .getAsJsonArray("content").addAll(entry.getAsJsonArray("content"));
+                continue;
+            }
+            prevResult = isResult;
             if (msg instanceof Msg.Turn turn
                     && appendFlatReplayedTurn(messages, turn, config, bedrock)) {
                 continue;
