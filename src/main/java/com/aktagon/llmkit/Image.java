@@ -305,7 +305,8 @@ public final class Image {
 
         // ADR-096: the request's parts pick the wire request; a config with no
         // variant for those inputs cannot send it.
-        RequestVariant variant = RequestVariants.select(slug, imgCfg.variants(), imageCount);
+        RequestVariant variant = RequestVariants.select(
+                slug, imgCfg.variants(), imageCount, RequestVariant.WITH_REFERENCE_IMAGES);
 
         // Per-request-shape knob validation. Quality / output_format /
         // background are OpenAI-only on the wire; count (n) is OpenAI + Recraft

@@ -10,6 +10,8 @@ public record RequestVariant(String carries, String shape, String endpoint) {
     public static final String TEXT_ONLY = "TextOnly";
     /** Carried input: one or more reference images. */
     public static final String WITH_REFERENCE_IMAGES = "WithReferenceImages";
+    /** Carried input: a video seed frame. */
+    public static final String WITH_SEED_FRAME = "WithSeedFrame";
 
     // Image request shapes: each names one request body.
     public static final String INLINE_PARTS = "InlineParts";

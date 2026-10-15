@@ -6,6 +6,7 @@ import com.aktagon.llmkit.providers.generated.Providers;
 import com.aktagon.llmkit.providers.generated.SpeechGenDef;
 import com.aktagon.llmkit.providers.generated.SpeechModelDef;
 import com.aktagon.llmkit.providers.generated.SpeechResponse;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.nio.charset.StandardCharsets;
@@ -28,9 +29,11 @@ import java.util.Map;
  * {@code audioContent}, ADR-049; Basic-prefixed auth carries the raw API key
  * VERBATIM, never re-encoded) and {@code SpeechOpenAI} (a flat-JSON POST
  * whose reply is RAW audio bytes — never JSON — ADR-051 slice 1). Pre-flight
- * validation (model + text + voice required; provider supports speech; model
- * + voice in the catalogue) runs before any HTTP call. Fires the
- * {@code SPEECH_GENERATION} middleware op around the request (BUG-036).
+ * validation (model + text or lines required; voice or speakers; provider
+ * supports speech; model known; speakers and style the model takes, BUG-091)
+ * runs before any HTTP call. Voices are free-form: there is no catalogue.
+ * Fires the {@code SPEECH_GENERATION} middleware op around the request
+ * (BUG-036).
  */
 public final class Speech {
     private final ProviderName provider;
@@ -39,8 +42,17 @@ public final class Speech {
     private final HttpTransport http;
     private final String model;
     private final String voice;
+    private final String style;
+    private final List<Speaker> speakers;
+    private final List<Line> lines;
     /** Observation + veto hooks fired around the {@code SPEECH_GENERATION} op. */
     private final List<MiddlewareFn> middleware;
+
+    /** One named speaker of a multi-speaker request and its voice (BUG-091). */
+    private record Speaker(String name, String voice) {}
+
+    /** One line of a multi-speaker request; style "" means none (BUG-091). */
+    private record Line(String speaker, String style, String text) {}
 
     private Speech(
             ProviderName provider,
@@ -49,6 +61,9 @@ public final class Speech {
             HttpTransport http,
             String model,
             String voice,
+            String style,
+            List<Speaker> speakers,
+            List<Line> lines,
             List<MiddlewareFn> middleware) {
         this.provider = provider;
         this.apiKey = apiKey;
@@ -56,31 +71,73 @@ public final class Speech {
         this.http = http;
         this.model = model;
         this.voice = voice;
+        this.style = style;
+        this.speakers = speakers;
+        this.lines = lines;
         this.middleware = middleware;
     }
 
     static Speech root(ProviderName provider, String apiKey, String baseUrlOverride, HttpTransport http) {
-        return new Speech(provider, apiKey, baseUrlOverride, http, null, null, List.of());
+        return new Speech(provider, apiKey, baseUrlOverride, http, null, null, "", List.of(), List.of(), List.of());
     }
 
     /** Select the speech-generation model (required). */
     public Speech model(String model) {
-        return new Speech(provider, apiKey, baseUrlOverride, http, model, voice, middleware);
+        return new Speech(provider, apiKey, baseUrlOverride, http, model, voice, style, speakers, lines, middleware);
     }
 
     /**
-     * Select the voice — request-data selector validated pre-flight against
-     * the provider's catalogue (SPK-004).
+     * Select the voice — a free-form voice id, sent as given (SPK-004; no
+     * catalogue since 2026-10-15).
      */
     public Speech voice(String voice) {
-        return new Speech(provider, apiKey, baseUrlOverride, http, model, voice, middleware);
+        return new Speech(provider, apiKey, baseUrlOverride, http, model, voice, style, speakers, lines, middleware);
+    }
+
+    /**
+     * Sets the delivery style for a single-voice speech request, such as
+     * "cheerful". A model that does not take a style rejects it before send.
+     */
+    public Speech style(String style) {
+        return new Speech(provider, apiKey, baseUrlOverride, http, model, voice, style, speakers, lines, middleware);
+    }
+
+    /**
+     * Declares a named speaker and its voice for a multi-speaker speech
+     * request. Declare exactly 2 speakers, and do not set a voice with them.
+     */
+    public Speech addSpeaker(String name, String voice) {
+        List<Speaker> next = new ArrayList<>(speakers);
+        next.add(new Speaker(name, voice));
+        return new Speech(
+                provider, apiKey, baseUrlOverride, http, model, this.voice, style, List.copyOf(next), lines, middleware);
+    }
+
+    /**
+     * Appends a line said by a declared speaker. Lines are spoken in call
+     * order. When lines are set, the text passed to generate must be empty.
+     */
+    public Speech addLine(String speaker, String text) {
+        return addStyledLine(speaker, "", text);
+    }
+
+    /**
+     * Appends a line said by a declared speaker in a delivery style, such as
+     * "calm and relaxed". Otherwise it works like addLine.
+     */
+    public Speech addStyledLine(String speaker, String style, String text) {
+        List<Line> next = new ArrayList<>(lines);
+        next.add(new Line(speaker, style, text));
+        return new Speech(
+                provider, apiKey, baseUrlOverride, http, model, voice, this.style, speakers, List.copyOf(next), middleware);
     }
 
     /** Register a middleware hook (observation + pre-phase veto). */
     public Speech addMiddleware(MiddlewareFn hook) {
         List<MiddlewareFn> hooks = new ArrayList<>(middleware);
         hooks.add(hook);
-        return new Speech(provider, apiKey, baseUrlOverride, http, model, voice, List.copyOf(hooks));
+        return new Speech(
+                provider, apiKey, baseUrlOverride, http, model, voice, style, speakers, lines, List.copyOf(hooks));
     }
 
     /**
@@ -96,12 +153,9 @@ public final class Speech {
         if (model == null || model.isEmpty()) {
             throw new ValidationException("model", "required for speech generation");
         }
-        if (text == null || text.isEmpty()) {
-            throw new ValidationException("text", "required for speech generation");
-        }
-        if (voice == null || voice.isEmpty()) {
-            throw new ValidationException("voice", "required for speech generation");
-        }
+        String spoken = text == null ? "" : text;
+        String voiceId = voice == null ? "" : voice;
+        validateInputs(voiceId, spoken);
 
         Providers.Spec config = Providers.config(provider);
         SpeechGenDef sgCfg = SpeechGenDef.speechGenConfig(provider);
@@ -113,9 +167,7 @@ public final class Speech {
             throw new ValidationException(
                     "model", model + " is not a known speech-generation model for " + config.slug);
         }
-        if (!sgCfg.voices().contains(voice)) {
-            throw new ValidationException("voice", voice + " is not a known voice for " + config.slug);
-        }
+        validateModel(modelDef);
 
         Event baseEvent = Event.of(MiddlewareOp.SPEECH_GENERATION, config.slug, model);
         long startNanos = System.nanoTime();
@@ -124,13 +176,18 @@ public final class Speech {
         try {
             Map<String, String> headers = RequestBuilder.buildAuthHeaders(config, apiKey);
 
-            String base = baseUrlOverride != null ? baseUrlOverride : config.baseUrl;
             String endpoint = sgCfg.genEndpoint().isEmpty() ? config.endpoint : sgCfg.genEndpoint();
-            String url = endpoint.startsWith("http") ? endpoint : base + endpoint;
+            // buildUrl appends the QueryParamKey ?key= for Google, as on every
+            // other Google call.
+            String url = endpoint.startsWith("http")
+                    ? endpoint
+                    : RequestBuilder.buildUrl(config, endpoint, apiKey, model, baseUrlOverride);
 
-            JsonObject body = "SpeechOpenAI".equals(sgCfg.wireShape())
-                    ? buildOpenAIBody(model, voice, text)
-                    : buildInworldBody(model, voice, text);
+            JsonObject body = switch (sgCfg.wireShape()) {
+                case "SpeechOpenAI" -> buildOpenAIBody(model, voiceId, spoken, style);
+                case "SpeechGemini" -> buildGeminiBody(model, voiceId, spoken);
+                default -> buildInworldBody(model, voiceId, spoken);
+            };
 
             // The OpenAI shape returns binary audio (not JSON), so the reply is
             // read as raw bytes and must not be lossily UTF-8 decoded before the
@@ -149,6 +206,57 @@ public final class Speech {
             Middleware.firePost(
                     middleware, baseEvent.toPost("", null, e, Middleware.elapsedMillis(startNanos)));
             throw e;
+        }
+    }
+
+    /**
+     * Checks the request on its own, before the provider config is read
+     * (BUG-091). The messages are the same in every SDK.
+     */
+    private void validateInputs(String voiceId, String text) {
+        if (lines.isEmpty() && text.isEmpty()) {
+            throw new ValidationException("text", "required for speech generation");
+        }
+        if (!lines.isEmpty() && !text.isEmpty()) {
+            throw new ValidationException("text", "must be empty when lines are set");
+        }
+        if (speakers.isEmpty()) {
+            if (voiceId.isEmpty()) {
+                throw new ValidationException("voice", "required for speech generation");
+            }
+        } else {
+            if (!voiceId.isEmpty()) {
+                throw new ValidationException("voice", "cannot be set together with speakers");
+            }
+            if (!style.isEmpty()) {
+                throw new ValidationException("style", "cannot be set together with speakers; style each line instead");
+            }
+            if (lines.isEmpty()) {
+                throw new ValidationException("lines", "required when speakers are set");
+            }
+        }
+        for (Line line : lines) {
+            if (speakers.stream().noneMatch(s -> s.name().equals(line.speaker()))) {
+                throw new ValidationException("lines", line.speaker() + " is not a declared speaker");
+            }
+        }
+    }
+
+    /** Checks the request against the model's speaker and style facts (BUG-091). */
+    private void validateModel(SpeechModelDef modelDef) {
+        if (!speakers.isEmpty()) {
+            if (modelDef.maxSpeakers() == 0) {
+                throw new ValidationException("speakers", modelDef.modelId() + " does not support multiple speakers");
+            }
+            if (speakers.size() != modelDef.maxSpeakers()) {
+                throw new ValidationException(
+                        "speakers",
+                        "exactly " + modelDef.maxSpeakers() + " speakers are required, got " + speakers.size());
+            }
+        }
+        boolean styled = !style.isEmpty() || lines.stream().anyMatch(l -> !l.style().isEmpty());
+        if (styled && !modelDef.supportsSpeechStyle()) {
+            throw new ValidationException("style", modelDef.modelId() + " does not support a speech style");
         }
     }
 
@@ -176,14 +284,95 @@ public final class Speech {
     /**
      * OpenAI {@code /v1/audio/speech} body. Slice 1 fixes
      * {@code response_format=mp3} (KISS); format selection is a later slice
-     * (ADR-051).
+     * (ADR-051). A style is sent as {@code instructions} (BUG-091), which
+     * gpt-4o-mini-tts accepts.
      */
-    private static JsonObject buildOpenAIBody(String model, String voice, String text) {
+    private static JsonObject buildOpenAIBody(String model, String voice, String text, String style) {
         JsonObject body = new JsonObject();
         body.addProperty("model", model);
         body.addProperty("input", text);
         body.addProperty("voice", voice);
         body.addProperty("response_format", "mp3");
+        if (!style.isEmpty()) {
+            body.addProperty("instructions", style);
+        }
+        return body;
+    }
+
+    /**
+     * Gemini TTS body on the Interactions API (BUG-091): one user_input turn
+     * and an audio response. Single voice: one text item and
+     * {@code speech_config [{voice}]}; a style annotates the text item.
+     * Multi-speaker: one text item per line, each annotated with its speaker
+     * and optional style, and {@code speech_config {speakers}}. {@code store}
+     * is always false: the Interactions API keeps requests by default.
+     */
+    private JsonObject buildGeminiBody(String model, String voice, String text) {
+        JsonArray content = new JsonArray();
+        JsonElement speechConfigValue;
+        if (speakers.isEmpty()) {
+            JsonObject textItem = new JsonObject();
+            textItem.addProperty("type", "text");
+            textItem.addProperty("text", text);
+            if (!style.isEmpty()) {
+                JsonObject meta = new JsonObject();
+                meta.addProperty("type", "speech_metadata");
+                meta.addProperty("style", style);
+                JsonArray annotations = new JsonArray();
+                annotations.add(meta);
+                textItem.add("annotations", annotations);
+            }
+            content.add(textItem);
+            JsonObject speaker = new JsonObject();
+            speaker.addProperty("voice", voice);
+            JsonArray voices = new JsonArray();
+            voices.add(speaker);
+            speechConfigValue = voices;
+        } else {
+            for (Line line : lines) {
+                JsonObject meta = new JsonObject();
+                meta.addProperty("type", "speech_metadata");
+                meta.addProperty("speaker", line.speaker());
+                if (!line.style().isEmpty()) {
+                    meta.addProperty("style", line.style());
+                }
+                JsonArray annotations = new JsonArray();
+                annotations.add(meta);
+                JsonObject item = new JsonObject();
+                item.addProperty("type", "text");
+                item.addProperty("text", line.text());
+                item.add("annotations", annotations);
+                content.add(item);
+            }
+            JsonArray speakerArray = new JsonArray();
+            for (Speaker s : speakers) {
+                JsonObject entry = new JsonObject();
+                entry.addProperty("speaker", s.name());
+                entry.addProperty("voice", s.voice());
+                speakerArray.add(entry);
+            }
+            JsonObject multi = new JsonObject();
+            multi.add("speakers", speakerArray);
+            speechConfigValue = multi;
+        }
+        JsonObject turn = new JsonObject();
+        turn.addProperty("type", "user_input");
+        turn.add("content", content);
+        JsonArray input = new JsonArray();
+        input.add(turn);
+
+        JsonObject responseFormat = new JsonObject();
+        responseFormat.addProperty("type", "audio");
+
+        JsonObject generationConfig = new JsonObject();
+        generationConfig.add("speech_config", speechConfigValue);
+
+        JsonObject body = new JsonObject();
+        body.addProperty("model", model);
+        body.add("input", input);
+        body.add("response_format", responseFormat);
+        body.add("generation_config", generationConfig);
+        body.addProperty("store", false);
         return body;
     }
 
@@ -203,6 +392,8 @@ public final class Speech {
         byte[] bytes;
         if ("rawBody".equals(encoding)) {
             bytes = body;
+        } else if ("base64InteractionSteps".equals(encoding)) {
+            return parseInteractionSteps(providerSlug, fallbackMime, body);
         } else {
             String b64;
             try {
@@ -223,6 +414,57 @@ public final class Speech {
             }
         }
         return new SpeechResponse(new AudioData(fallbackMime, bytes), Usage.none(), null);
+    }
+
+    /**
+     * Decode a Gemini TTS Interactions API reply (BUG-091). Google's
+     * documented path is
+     * {@code [.steps[] | select(.type=="model_output") | .content[] | select(.type=="audio")] | last | .data}:
+     * the LAST audio item across the model_output steps wins. Its
+     * {@code mime_type} is used when present, else the model's outputMime.
+     * No audio item, or invalid base64, is a {@link DecodingException}
+     * (HANDOFF-036 A5).
+     */
+    private static SpeechResponse parseInteractionSteps(String providerSlug, String fallbackMime, byte[] body) {
+        JsonElement raw;
+        try {
+            raw = Json.parse(new String(body, StandardCharsets.UTF_8));
+        } catch (DecodingException e) {
+            throw new DecodingException(providerSlug + " speech response: not valid JSON: " + e.getMessage(), e);
+        }
+        JsonObject last = null;
+        JsonElement steps = raw.isJsonObject() ? raw.getAsJsonObject().get("steps") : null;
+        if (steps != null && steps.isJsonArray()) {
+            for (JsonElement step : steps.getAsJsonArray()) {
+                if (!"model_output".equals(Json.stringAt(step, "type"))) {
+                    continue;
+                }
+                JsonElement content = step.getAsJsonObject().get("content");
+                if (content == null || !content.isJsonArray()) {
+                    continue;
+                }
+                for (JsonElement item : content.getAsJsonArray()) {
+                    if ("audio".equals(Json.stringAt(item, "type"))) {
+                        last = item.getAsJsonObject();
+                    }
+                }
+            }
+        }
+        String b64 = last == null ? "" : Json.stringAt(last, "data");
+        if (b64.isEmpty()) {
+            throw new DecodingException(
+                    providerSlug + " speech response: no audio item in steps[model_output].content");
+        }
+        byte[] bytes;
+        try {
+            bytes = Base64.getDecoder().decode(b64);
+        } catch (IllegalArgumentException e) {
+            throw new DecodingException(
+                    providerSlug + " speech response: invalid base64 in audio data: " + e.getMessage(), e);
+        }
+        String mime = Json.stringAt(last, "mime_type");
+        return new SpeechResponse(
+                new AudioData(mime.isEmpty() ? fallbackMime : mime, bytes), Usage.none(), null);
     }
 
     private static SpeechModelDef findModel(SpeechGenDef cfg, String modelId) {

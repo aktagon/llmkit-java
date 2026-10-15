@@ -40,20 +40,22 @@ public record VideoGenDef(
                         "VideoVeo",
                         "DeliveryDownload",
                         "",
-                        java.util.List.of(new RequestVariant("TextOnly", "", "/v1beta/models/{model}:predictLongRunning")),
+                        java.util.List.of(new RequestVariant("TextOnly", "", "/v1beta/models/{model}:predictLongRunning"), new RequestVariant("WithSeedFrame", "", "/v1beta/models/{model}:predictLongRunning")),
                         "/v1beta/{id}",
                         "",
                         "name",
                         false,
                         java.util.List.of(
-                                new VideoModelDef("veo-3.1-generate-preview", "Veo 3.1", false, 8, "video/mp4", java.util.List.of("1080p", "720p"), 0)
+                                new VideoModelDef("veo-3.1-fast-generate-preview", "Veo 3.1 Fast", true, 8, "video/mp4", java.util.List.of("1080p", "4k", "720p"), 1),
+                                new VideoModelDef("veo-3.1-generate-preview", "Veo 3.1", true, 8, "video/mp4", java.util.List.of("1080p", "720p"), 1),
+                                new VideoModelDef("veo-3.1-lite-generate-preview", "Veo 3.1 Lite", true, 8, "video/mp4", java.util.List.of("1080p", "720p"), 1)
                         ));
             case GROK:
                 return new VideoGenDef(
                         "VideoGrok",
                         "DeliveryURL",
                         "",
-                        java.util.List.of(new RequestVariant("TextOnly", "", "/v1/videos/generations"), new RequestVariant("WithReferenceImages", "", "/v1/videos/generations")),
+                        java.util.List.of(new RequestVariant("TextOnly", "", "/v1/videos/generations"), new RequestVariant("WithSeedFrame", "", "/v1/videos/generations")),
                         "/v1/videos/{id}",
                         "",
                         "request_id",
@@ -120,14 +122,16 @@ public record VideoGenDef(
                         "VideoVertexVeo",
                         "DeliveryDownload",
                         "",
-                        java.util.List.of(new RequestVariant("TextOnly", "", "/{model}:predictLongRunning")),
+                        java.util.List.of(new RequestVariant("TextOnly", "", "/{model}:predictLongRunning"), new RequestVariant("WithSeedFrame", "", "/{model}:predictLongRunning")),
                         "/{model}:fetchPredictOperation",
                         "",
                         "name",
                         false,
                         java.util.List.of(
-                                new VideoModelDef("veo-3.1-generate-001", "Veo 3.1", false, 8, "video/mp4", java.util.List.of("1080p", "4k", "720p"), 0),
-                                new VideoModelDef("veo-3.1-generate-preview", "Veo 3.1", false, 8, "video/mp4", java.util.List.of("1080p", "720p"), 0)
+                                new VideoModelDef("veo-3.1-fast-generate-001", "Veo 3.1 Fast", true, 8, "video/mp4", java.util.List.of("1080p", "720p"), 1),
+                                new VideoModelDef("veo-3.1-generate-001", "Veo 3.1", true, 8, "video/mp4", java.util.List.of("1080p", "4k", "720p"), 1),
+                                new VideoModelDef("veo-3.1-generate-preview", "Veo 3.1", true, 8, "video/mp4", java.util.List.of("1080p", "720p"), 1),
+                                new VideoModelDef("veo-3.1-lite-generate-001", "Veo 3.1 Lite", false, 8, "video/mp4", java.util.List.of("1080p", "720p"), 0)
                         ));
             case VIDU:
                 return new VideoGenDef(
