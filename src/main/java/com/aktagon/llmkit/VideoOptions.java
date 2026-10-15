@@ -1,5 +1,6 @@
 package com.aktagon.llmkit;
 
+import com.aktagon.llmkit.providers.generated.MediaRef;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,6 +14,10 @@ import java.util.List;
 final class VideoOptions {
     /** Caller S3 destination URI for output-uri delivery (Bedrock Nova Reel). */
     String outputUri = "";
+    /** The final frame the video ends on (BUG-089); null when unset. */
+    MediaRef lastFrame = null;
+    /** Asset reference images, in caller order (BUG-089). */
+    List<MediaRef> referenceImages = new ArrayList<>();
     boolean raw = false;
     /** Observation + veto hooks fired around the {@code videoGeneration} op. */
     List<MiddlewareFn> middleware = new ArrayList<>();
@@ -23,6 +28,8 @@ final class VideoOptions {
     VideoOptions copy() {
         VideoOptions o = new VideoOptions();
         o.outputUri = outputUri;
+        o.lastFrame = lastFrame;
+        o.referenceImages = new ArrayList<>(referenceImages);
         o.raw = raw;
         o.middleware = new ArrayList<>(middleware);
         return o;

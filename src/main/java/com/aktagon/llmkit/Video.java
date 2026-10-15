@@ -95,6 +95,24 @@ public final class Video {
     }
 
     /**
+     * Set the final frame the video ends on. Send it with a first frame
+     * ({@link #image}) on a model that takes a last frame; otherwise it is
+     * rejected before send (BUG-089).
+     */
+    public Video lastFrame(String mimeType, byte[] data) {
+        return withOptions(o -> o.lastFrame = new MediaRef(mimeType, data));
+    }
+
+    /**
+     * Append an asset reference image, such as a person, character or
+     * product the video keeps. Add at most 3, without {@link #image} or
+     * {@link #lastFrame} (BUG-089).
+     */
+    public Video addReferenceImage(String mimeType, byte[] data) {
+        return withOptions(o -> o.referenceImages.add(new MediaRef(mimeType, data)));
+    }
+
+    /**
      * Set the caller-supplied destination S3 URI (required by output-uri
      * delivery providers, e.g. Bedrock Nova Reel; ignored otherwise).
      */
@@ -243,12 +261,66 @@ public final class Video {
             throw new ValidationException(
                     "parts", model + " is a text-to-video-only model and does not accept image parts");
         }
-        RequestVariant variant = RequestVariants.select(slug, vgCfg.variants(), imageCount, RequestVariant.WITH_SEED_FRAME);
+        validateFrames(modelDef, imageCount);
+        // ADR-096: the carried inputs select the submit request; a config with
+        // no such variant cannot send it.
+        RequestVariant variant = RequestVariants.select(slug, vgCfg.variants(), carries(imageCount));
         if (vgCfg.requiresOutputUri() && options.outputUri.isEmpty()) {
             throw new ValidationException(
                     "output_uri", slug + " requires a caller output S3 URI; set outputUri on the request");
         }
         return variant;
+    }
+
+    /** The most asset reference images a Veo request takes (Gemini API and Vertex Veo pages, read 2026-10-15). */
+    static final int MAX_REFERENCE_IMAGES = 3;
+
+    /**
+     * Rejects a last frame or reference images the model or the request
+     * cannot carry, before any HTTP call (BUG-089). Same rules, order and
+     * messages as Go's {@code validateVideoFrames}.
+     */
+    private void validateFrames(VideoModelDef modelDef, long imageCount) {
+        int refs = options.referenceImages.size();
+        boolean last = options.lastFrame != null;
+        if (last && !modelDef.supportsLastFrame()) {
+            throw new ValidationException("last_frame", modelDef.modelId() + " does not accept a last frame");
+        }
+        if (refs > 0 && !modelDef.supportsReferenceImages()) {
+            throw new ValidationException(
+                    "reference_images", modelDef.modelId() + " does not accept reference images");
+        }
+        if (refs > MAX_REFERENCE_IMAGES) {
+            throw new ValidationException(
+                    "reference_images", "at most " + MAX_REFERENCE_IMAGES + " reference images, got " + refs);
+        }
+        if (refs > 0 && (imageCount > 0 || last)) {
+            // Live 2026-10-15: Veo answers 400 "Unsupported video generation
+            // request"; Vertex documents the inputs as exclusive.
+            throw new ValidationException("reference_images", "cannot be combined with a first or last frame");
+        }
+        if (last && imageCount == 0) {
+            throw new ValidationException("last_frame", "requires a first frame");
+        }
+    }
+
+    /** The request's carried inputs (ADR-096): reference images, a seed frame with an optional last frame, or text only. */
+    private List<String> carries(long imageCount) {
+        if (!options.referenceImages.isEmpty()) {
+            return List.of(RequestVariant.WITH_REFERENCE_IMAGES);
+        }
+        if (imageCount > 0 && options.lastFrame != null) {
+            return List.of(RequestVariant.WITH_SEED_FRAME, RequestVariant.WITH_LAST_FRAME);
+        }
+        return RequestVariants.partsCarry(imageCount, RequestVariant.WITH_SEED_FRAME);
+    }
+
+    /** A Veo image object: raw base64 bytes and the MIME type. */
+    private static JsonObject veoImage(MediaRef media) {
+        JsonObject image = new JsonObject();
+        image.addProperty("bytesBase64Encoded", Base64.getEncoder().encodeToString(media.bytes()));
+        image.addProperty("mimeType", seedMime(media));
+        return image;
     }
 
     // --- Submit dispatch (selected by wireShape, never provider name) ---
@@ -299,15 +371,32 @@ public final class Video {
                 // live-verified.
                 MediaRef veoSeed = seedImage(parts);
                 if (veoSeed != null) {
-                    JsonObject image = new JsonObject();
-                    image.addProperty("bytesBase64Encoded", Base64.getEncoder().encodeToString(veoSeed.bytes()));
-                    image.addProperty("mimeType", seedMime(veoSeed));
-                    instance.add("image", image);
+                    instance.add("image", veoImage(veoSeed));
+                }
+                // Last frame and asset reference images (BUG-089): same
+                // {bytesBase64Encoded, mimeType} wrapper. Reference images force
+                // an 8-second video, sent as the NUMBER 8 on both APIs (live
+                // 2026-10-15: the Gemini API rejects the string "8" its docs show).
+                if (options.lastFrame != null) {
+                    instance.add("lastFrame", veoImage(options.lastFrame));
                 }
                 JsonArray instances = new JsonArray();
                 instances.add(instance);
                 body = new JsonObject();
                 body.add("instances", instances);
+                if (!options.referenceImages.isEmpty()) {
+                    JsonArray refs = new JsonArray();
+                    for (MediaRef ref : options.referenceImages) {
+                        JsonObject item = new JsonObject();
+                        item.add("image", veoImage(ref));
+                        item.addProperty("referenceType", "asset");
+                        refs.add(item);
+                    }
+                    instance.add("referenceImages", refs);
+                    JsonObject parameters = new JsonObject();
+                    parameters.addProperty("durationSeconds", 8);
+                    body.add("parameters", parameters);
+                }
             }
             case "VideoBedrock" -> {
                 // Nova Reel carries the model in the BODY (modelId) and writes

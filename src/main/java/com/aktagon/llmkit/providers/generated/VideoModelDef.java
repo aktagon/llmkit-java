@@ -6,6 +6,10 @@ public record VideoModelDef(
         String modelId,
         String label,
         boolean supportsImageToVideo,
+        /** Whether lastFrame is accepted; false = rejected before send (BUG-089). */
+        boolean supportsLastFrame,
+        /** Whether addReferenceImage is accepted; false = rejected before send. */
+        boolean supportsReferenceImages,
         int maxDurationSeconds,
         String outputMime,
         java.util.List<String> resolutions,

@@ -23,7 +23,7 @@ public record ImageGenDef(
                         "usageMetadata.promptTokenCount",
                         "usageMetadata.candidatesTokenCount",
                         "usageMetadata.thoughtsTokenCount",
-                        java.util.List.of(new RequestVariant("TextOnly", "InlineParts", ""), new RequestVariant("WithReferenceImages", "InlineParts", "")),
+                        java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "InlineParts", ""), new RequestVariant(java.util.List.of("WithReferenceImages"), "InlineParts", "")),
                         java.util.List.of(
                                 new ImageModelDef("gemini-3-pro-image-preview", "Nano Banana Pro", java.util.List.of("16:9", "1:1", "21:9", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16"), java.util.List.of("1K", "2K", "4K"), 0, true),
                                 new ImageModelDef("gemini-3.1-flash-image-preview", "Nano Banana 2", java.util.List.of("16:9", "1:1", "1:4", "1:8", "21:9", "2:3", "3:2", "3:4", "4:1", "4:3", "4:5", "5:4", "8:1", "9:16"), java.util.List.of("1K", "2K", "4K", "512"), 0, true)
@@ -35,7 +35,7 @@ public record ImageGenDef(
                         "",
                         "",
                         "",
-                        java.util.List.of(new RequestVariant("TextOnly", "JSONInlineRefs", "/v1/images/generations"), new RequestVariant("WithReferenceImages", "JSONInlineRefs", "/v1/images/edits")),
+                        java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "JSONInlineRefs", "/v1/images/generations"), new RequestVariant(java.util.List.of("WithReferenceImages"), "JSONInlineRefs", "/v1/images/edits")),
                         java.util.List.of(
                                 new ImageModelDef("grok-imagine-image-quality", "Grok Imagine Quality", java.util.List.of("16:9", "19.5:9", "1:1", "1:2", "20:9", "2:1", "2:3", "3:2", "3:4", "4:3", "9:16", "9:19.5", "9:20", "auto"), java.util.List.of(), 0, true)
                         ));
@@ -46,7 +46,7 @@ public record ImageGenDef(
                         "usage.input_tokens",
                         "usage.output_tokens",
                         "",
-                        java.util.List.of(new RequestVariant("TextOnly", "JSONGenerationsOpenAI", "/v1/images/generations"), new RequestVariant("WithReferenceImages", "MultipartForm", "/v1/images/edits")),
+                        java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "JSONGenerationsOpenAI", "/v1/images/generations"), new RequestVariant(java.util.List.of("WithReferenceImages"), "MultipartForm", "/v1/images/edits")),
                         java.util.List.of(
                                 new ImageModelDef("gpt-image-1", "GPT Image 1", java.util.List.of(), java.util.List.of(), 0, true),
                                 new ImageModelDef("gpt-image-1-mini", "GPT Image 1 Mini", java.util.List.of(), java.util.List.of(), 0, true),
@@ -60,7 +60,7 @@ public record ImageGenDef(
                         "usage.prompt_tokens",
                         "usage.completion_tokens",
                         "",
-                        java.util.List.of(new RequestVariant("TextOnly", "JSONGenerations", "/v1/images")),
+                        java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "JSONGenerations", "/v1/images")),
                         java.util.List.of(
                                 new ImageModelDef("google/gemini-2.5-flash-image", "Nano Banana (Gemini 2.5 Flash Image)", java.util.List.of(), java.util.List.of(), 0, false),
                                 new ImageModelDef("google/gemini-3-pro-image", "Nano Banana Pro (Gemini 3 Pro Image)", java.util.List.of(), java.util.List.of(), 0, false),
@@ -77,7 +77,7 @@ public record ImageGenDef(
                         "",
                         "",
                         "",
-                        java.util.List.of(new RequestVariant("TextOnly", "JSONGenerations", "/v1/images/generations")),
+                        java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "JSONGenerations", "/v1/images/generations")),
                         java.util.List.of(
                                 new ImageModelDef("recraftv3", "Recraft V3", java.util.List.of(), java.util.List.of(), 0, false),
                                 new ImageModelDef("recraftv3_vector", "Recraft V3 (vector / SVG)", java.util.List.of(), java.util.List.of(), 0, false)
