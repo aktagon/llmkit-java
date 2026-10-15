@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now posts to `/v1/responses` and reads its events: text deltas, the finish
   status and token usage. It used to fail validation.
 
+### Removed
+
+- **Vertex image generation removed.** Google shut down the Imagen endpoints.
+  Image generation on Vertex now fails with a validation error before any
+  request is sent. Vertex music and video are unchanged, and the Vertex default
+  model is now `lyria-002`. The SafetyFilter options (`Image.safetyFilter`) are
+  deprecated and no longer accepted by any provider; they will be removed in the
+  next major version.
+
 ### Fixed
 
 - **Anthropic streams report the finish reason.** It was read from the

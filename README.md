@@ -152,7 +152,7 @@ Files uploaded through the Files API attach by id with `.file(id)` (see Upload b
 
 ### Image — text-to-image and edit
 
-Supports Google's Nano Banana 2 (`gemini-3.1-flash-image-preview`) and Pro (`gemini-3-pro-image-preview`); OpenAI's `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, and `gpt-image-1-mini`; xAI's `grok-imagine-image-quality`; Google Cloud Vertex AI's Imagen 3 / Imagen 4; Recraft's raster and vector models.
+Supports Google's Nano Banana 2 (`gemini-3.1-flash-image-preview`) and Pro (`gemini-3-pro-image-preview`); OpenAI's `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, and `gpt-image-1-mini`; xAI's `grok-imagine-image-quality`; Recraft's raster and vector models.
 
 ```java
 Client g = new Client(ProviderName.GOOGLE, System.getenv("GOOGLE_API_KEY"));

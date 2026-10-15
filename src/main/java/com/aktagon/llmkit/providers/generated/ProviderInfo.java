@@ -79,7 +79,7 @@ public record ProviderInfo(
             case TOGETHER:
                 return new ProviderInfo(ProviderName.TOGETHER, "together", "TOGETHER_API_KEY", "meta-llama/Llama-3.3-70B-Instruct-Turbo", "https://api.together.xyz", false);
             case VERTEX:
-                return new ProviderInfo(ProviderName.VERTEX, "vertex", "VERTEX_BEARER_TOKEN", "imagen-3.0-generate-002", "https://{location}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{location}/publishers/google/models", false);
+                return new ProviderInfo(ProviderName.VERTEX, "vertex", "VERTEX_BEARER_TOKEN", "lyria-002", "https://{location}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{location}/publishers/google/models", false);
             case VIDU:
                 return new ProviderInfo(ProviderName.VIDU, "vidu", "VIDU_API_KEY", "viduq3-pro", "https://api.vidu.com", false);
             case VLLM:

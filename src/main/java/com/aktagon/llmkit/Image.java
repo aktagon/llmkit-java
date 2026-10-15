@@ -150,7 +150,13 @@ public final class Image {
         return withOptions(o -> o.mask = ref);
     }
 
-    /** Vertex Imagen global safety threshold ({@code parameters.safetySetting}); rejected elsewhere. */
+    /**
+     * Global image safety threshold. Every image provider rejects it with a
+     * validation error.
+     *
+     * <p>Deprecated: no provider accepts this since 2026-10-15 (Vertex Imagen
+     * shut down, BUG-101); removed at the next major.
+     */
     public Image safetyFilter(String threshold) {
         return withOptions(o -> o.safetyFilter = threshold);
     }
@@ -303,9 +309,10 @@ public final class Image {
 
         // Per-request-shape knob validation. Quality / output_format /
         // background are OpenAI-only on the wire; count (n) is OpenAI + Recraft
-        // + xAI + Vertex. Recraft additionally has no aspect_ratio wire field
-        // (it sizes by WxH). Mask rides only the OpenAI multipart edits body;
-        // safetyFilter is Vertex only; safetySettings is Google only (Go parity).
+        // + xAI. Recraft additionally has no aspect_ratio wire field (it sizes
+        // by WxH). Mask rides only the OpenAI multipart edits body;
+        // safetyFilter is accepted by no provider (deprecated, BUG-101);
+        // safetySettings is Google only (Go parity).
         if (options.mask != null && !RequestVariant.MULTIPART_FORM.equals(variant.shape())) {
             if (RequestVariant.JSON_GENERATIONS_OPENAI.equals(variant.shape())) {
                 throw new ValidationException("mask", "requires at least one image part (edits branch only)");
@@ -330,15 +337,6 @@ public final class Image {
                 reject(options.background, "background", slug);
                 reject(options.safetyFilter, "safety_filter", slug);
                 reject(safetySettings, "safety_settings", slug);
-            }
-            case RequestVariant.JSON_PREDICT -> { // Vertex Imagen
-                reject(options.quality, "quality", slug);
-                reject(options.outputFormat, "output_format", slug);
-                reject(options.background, "background", slug);
-                if (safetySettings != null) {
-                    throw new ValidationException(
-                            "safety_settings", "not supported by " + slug + "; use safetyFilter for Vertex Imagen");
-                }
             }
             case RequestVariant.JSON_GENERATIONS -> { // Recraft, OpenRouter
                 if (options.aspectRatio != null) {
@@ -408,7 +406,6 @@ public final class Image {
         JsonObject body = switch (variant.shape()) {
             case RequestVariant.JSON_GENERATIONS_OPENAI -> buildOpenAIBody(parts);
             case RequestVariant.JSON_INLINE_REFS -> buildXAIBody(parts);
-            case RequestVariant.JSON_PREDICT -> buildVertexBody(parts);
             case RequestVariant.JSON_GENERATIONS -> buildRecraftBody(parts);
             case RequestVariant.INLINE_PARTS -> buildGoogleBody(parts);
             default -> throw new IllegalStateException(
@@ -640,42 +637,12 @@ public final class Image {
         return body;
     }
 
-    /**
-     * Vertex AI Imagen {@code :predict} body: an {@code instances}/
-     * {@code parameters} envelope. The instance carries the prompt;
-     * parameters carries {@code sampleCount} + optional {@code aspectRatio}.
-     * The Imagen generate models take text only (BUG-101), so image parts and
-     * a mask never reach here: pre-flight validation rejects them first.
-     */
-    private JsonObject buildVertexBody(List<Part> parts) {
-        JsonObject instance = new JsonObject();
-        instance.addProperty("prompt", joinText(parts));
-
-        JsonObject parameters = new JsonObject();
-        parameters.addProperty("sampleCount", options.count != null ? options.count : 1);
-        if (options.aspectRatio != null) {
-            parameters.addProperty("aspectRatio", options.aspectRatio);
-        }
-        if (options.safetyFilter != null) {
-            parameters.addProperty("safetySetting", options.safetyFilter);
-        }
-
-        JsonArray instances = new JsonArray();
-        instances.add(instance);
-
-        JsonObject body = new JsonObject();
-        body.add("instances", instances);
-        body.add("parameters", parameters);
-        return body;
-    }
-
     // --- Response parsing (selected by responseShape, never provider name) ---
 
     private static ImageResponse parseResponse(JsonElement raw, ImageGenDef cfg) {
         return switch (cfg.responseShape()) {
             case "DataArrayB64Json" -> parseDataArray(
                     raw, cfg.usageInputPath(), cfg.usageOutputPath(), cfg.usageReasoningPath());
-            case "VertexPredictions" -> parseVertexResponse(raw);
             default -> parseGoogleParts(raw, cfg); // GoogleParts
         };
     }
@@ -726,43 +693,6 @@ public final class Image {
                 Json.optLong(raw, outputPath),
                 null, null, Json.optLong(raw, reasoningPath), null);
         return new ImageResponse(images, String.join("\n", revised), usage, null, null, null);
-    }
-
-    /**
-     * Vertex AI Imagen {@code :predict} shape: {@code {predictions:
-     * [{bytesBase64Encoded, mimeType}]}}. Vertex reports no token counts, so
-     * usage stays zero.
-     */
-    private static ImageResponse parseVertexResponse(JsonElement raw) {
-        List<ImageData> images = new ArrayList<>();
-        String finishReason = "";
-        JsonElement predsElement = Json.at(raw, "predictions");
-        if (predsElement != null && predsElement.isJsonArray()) {
-            for (JsonElement entryElement : predsElement.getAsJsonArray()) {
-                if (!entryElement.isJsonObject()) {
-                    continue;
-                }
-                JsonObject entry = entryElement.getAsJsonObject();
-                if (finishReason.isEmpty()) {
-                    JsonElement raiElement = entry.get("raiFilteredReason");
-                    if (raiElement != null && raiElement.isJsonPrimitive() && !raiElement.getAsString().isEmpty()) {
-                        finishReason = raiElement.getAsString();
-                    }
-                }
-                JsonElement b64Element = entry.get("bytesBase64Encoded");
-                if (b64Element == null || !b64Element.isJsonPrimitive() || b64Element.getAsString().isEmpty()) {
-                    continue;
-                }
-                byte[] decoded = decodeBase64(b64Element.getAsString(), "image bytesBase64Encoded");
-                String mime = "image/png";
-                JsonElement mimeElement = entry.get("mimeType");
-                if (mimeElement != null && mimeElement.isJsonPrimitive() && !mimeElement.getAsString().isEmpty()) {
-                    mime = mimeElement.getAsString();
-                }
-                images.add(new ImageData(mime, decoded));
-            }
-        }
-        return new ImageResponse(images, "", Usage.none(), Json.optString(finishReason), null, null);
     }
 
     /** Google {@code candidates[].content.parts} inline-data shape. */
