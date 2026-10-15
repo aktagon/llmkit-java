@@ -27,6 +27,7 @@ final class Streaming {
 
     static Response run(
             Providers.Spec config,
+            RequestBuilder.Resolved resolved,
             String apiKey,
             String model,
             String system,
@@ -35,17 +36,26 @@ final class Streaming {
             HttpTransport http,
             String baseUrlOverride,
             Consumer<String> onDelta) {
-        Stream.Def stream = Stream.config(config.name);
+        // A wire shape that declares its own stream facts (OpenAI Responses:
+        // event-typed SSE) outranks the provider's, which describe its default
+        // protocol (HANDOFF-087).
+        Stream.Def shapeStream = Stream.wireShapeConfig(resolved.wireShape());
+        Stream.Def stream = shapeStream != null ? shapeStream : Stream.config(config.name);
         if (stream == null) {
             throw new ValidationException("provider", "streaming not supported: " + config.slug);
         }
+        String finishReasonPath = shapeStream != null
+                ? Stream.wireShapeFinishReasonPath(resolved.wireShape())
+                : config.streamFinishReasonPath;
 
         Event baseEvent = Event.of(MiddlewareOp.LLM_REQUEST, config.slug, model);
         long startNanos = System.nanoTime();
         Middleware.firePre(options.middleware, baseEvent);
 
         try {
-            Response response = doRun(config, apiKey, model, system, msgs, options, http, baseUrlOverride, onDelta, stream);
+            Response response = doRun(
+                    config, resolved, apiKey, model, system, msgs, options, http, baseUrlOverride, onDelta,
+                    stream, finishReasonPath);
             Middleware.firePost(
                     options.middleware,
                     baseEvent.toPost("", response.usage(), null, Middleware.elapsedMillis(startNanos)));
@@ -60,6 +70,7 @@ final class Streaming {
 
     private static Response doRun(
             Providers.Spec config,
+            RequestBuilder.Resolved resolved,
             String apiKey,
             String model,
             String system,
@@ -68,9 +79,10 @@ final class Streaming {
             HttpTransport http,
             String baseUrlOverride,
             Consumer<String> onDelta,
-            Stream.Def stream) {
+            Stream.Def stream,
+            String finishReasonPath) {
         RequestBuilder.Built built = RequestBuilder.buildBody(
-                config, config.chatWireShape, apiKey, model, system, msgs, List.of(), options);
+                config, resolved.wireShape(), apiKey, model, system, msgs, List.of(), options);
         JsonObject body = built.body();
         CachingRuntime.apply(body, config, model, apiKey, options, http, baseUrlOverride);
         if (!stream.param.isEmpty()) {
@@ -83,7 +95,7 @@ final class Streaming {
             body.add("stream_options", streamOptions);
         }
 
-        String url = streamUrl(config, stream, apiKey, model, baseUrlOverride);
+        String url = streamUrl(config, resolved.endpoint(), stream, apiKey, model, baseUrlOverride);
         HttpTransport.StreamResult result =
                 http.postJsonStreaming(url, Json.serialize(body), built.headers());
 
@@ -96,7 +108,7 @@ final class Streaming {
                     config, result.statusCode(), raw.getBytes(StandardCharsets.UTF_8));
         }
 
-        String[] finishSplit = parseStreamFinishPath(config.streamFinishReasonPath);
+        String[] finishSplit = parseStreamFinishPath(finishReasonPath);
         String finishEvent = finishSplit[0];
         String finishPath = finishSplit[1];
         StringBuilder fullText = new StringBuilder();
@@ -221,9 +233,14 @@ final class Streaming {
     }
 
     private static String streamUrl(
-            Providers.Spec config, Stream.Def stream, String apiKey, String model, String baseUrlOverride) {
+            Providers.Spec config,
+            String chatEndpoint,
+            Stream.Def stream,
+            String apiKey,
+            String model,
+            String baseUrlOverride) {
         if (stream.endpoint.isEmpty()) {
-            return RequestBuilder.buildUrl(config, config.endpoint, apiKey, model, baseUrlOverride);
+            return RequestBuilder.buildUrl(config, chatEndpoint, apiKey, model, baseUrlOverride);
         }
         String base = baseUrlOverride != null ? baseUrlOverride : config.baseUrl;
         if (!config.regionEnvVar.isEmpty()) {
