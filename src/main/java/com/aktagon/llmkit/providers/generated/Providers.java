@@ -1225,7 +1225,7 @@ public final class Providers {
                     /* slug */ "vertex",
                     /* baseUrl */ "https://{location}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{location}/publishers/google/models",
                     /* endpoint */ "/{model}:predict",
-                    /* defaultModel */ "imagen-3.0-generate-002",
+                    /* defaultModel */ "lyria-002",
                     /* envVar */ "VERTEX_BEARER_TOKEN",
                     /* defaultMaxTokens */ 0,
                     /* responseTextPath */ "",
