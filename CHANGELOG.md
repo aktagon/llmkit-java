@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Streaming with the Responses protocol.** A stream with `.protocol("responses")`
+  now posts to `/v1/responses` and reads its events: text deltas, the finish
+  status and token usage. It used to fail validation.
+
+### Fixed
+
+- **Anthropic streams report the finish reason.** It was read from the
+  `message_stop` event, which never carries it, so it was always null. It is
+  now read from `message_delta`.
+- **Parallel tool results on AWS Bedrock.** After a reply with several tool
+  calls, the agent sent one user message per result, and Bedrock rejected the
+  request with 400. The results now go in one user message, in call order.
+
 ## [2.0.0] — 2026-10-14
 
 ### Changed
