@@ -282,11 +282,13 @@ public final class Text {
      * BUG-028 usage opt-in applied where the provider requires it).
      */
     public Response stream(String userPrompt, java.util.function.Consumer<String> onDelta) {
-        rejectNonDefaultProtocol("stream");
         Providers.Spec config = Providers.config(provider);
+        // ADR-055: a non-default protocol (Responses) selects its endpoint and
+        // wire shape, and the wire shape selects the stream facts (HANDOFF-087).
+        RequestBuilder.Resolved resolved = RequestBuilder.resolveChatProtocol(config, options.proto);
         String resolvedModel = resolveModel(config);
         return Streaming.run(
-                config, apiKey, resolvedModel, system,
+                config, resolved, apiKey, resolvedModel, system,
                 userMsgs(userPrompt), options, http, baseUrlOverride, onDelta);
     }
 
@@ -325,11 +327,10 @@ public final class Text {
      * (ADR-031 honest no-default contract).
      */
     /**
-     * Enforce that a chat-protocol opt-in (ADR-055, e.g. Responses) is only
-     * honored on the sync prompt terminal: the stream and batch execution
-     * modes raise loudly rather than silently sending the default Chat
-     * Completions envelope the caller explicitly opted out of. Mirrors Go's
-     * {@code rejectNonDefaultProtocol}; uniform across the six SDKs.
+     * Enforce that a chat-protocol opt-in (ADR-055, e.g. Responses) is not
+     * accepted by the batch execution mode: it raises loudly rather than
+     * silently sending the default Chat Completions envelope the caller
+     * explicitly opted out of. Mirrors Go's {@code rejectNonDefaultProtocol}.
      */
     private void rejectNonDefaultProtocol(String terminal) {
         if (options.proto == null || options.proto.isEmpty()) {
