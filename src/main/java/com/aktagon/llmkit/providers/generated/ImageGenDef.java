@@ -82,19 +82,6 @@ public record ImageGenDef(
                                 new ImageModelDef("recraftv3", "Recraft V3", java.util.List.of(), java.util.List.of(), 0, false),
                                 new ImageModelDef("recraftv3_vector", "Recraft V3 (vector / SVG)", java.util.List.of(), java.util.List.of(), 0, false)
                         ));
-            case VERTEX:
-                return new ImageGenDef(
-                        "Base64Inline",
-                        "VertexPredictions",
-                        "",
-                        "",
-                        "",
-                        java.util.List.of(new RequestVariant("TextOnly", "JSONPredict", "")),
-                        java.util.List.of(
-                                new ImageModelDef("imagen-3.0-fast-generate-001", "Imagen 3 Fast", java.util.List.of("16:9", "1:1", "3:4", "4:3", "9:16"), java.util.List.of(), 0, false),
-                                new ImageModelDef("imagen-3.0-generate-002", "Imagen 3", java.util.List.of("16:9", "1:1", "3:4", "4:3", "9:16"), java.util.List.of(), 0, false),
-                                new ImageModelDef("imagen-4.0-generate-preview-06-06", "Imagen 4 Preview", java.util.List.of("16:9", "1:1", "3:4", "4:3", "9:16"), java.util.List.of(), 0, false)
-                        ));
             default: return null;
         }
     }
