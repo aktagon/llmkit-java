@@ -423,6 +423,8 @@ public final class Music {
         }
         JsonObject first = firstElement.getAsJsonObject();
         String finishReason = Json.stringAt(first, "finishReason");
+        // A filtered call has no content; finishMessage is the only explanation.
+        String finishMessage = Json.stringAt(first, "finishMessage");
 
         List<AudioData> audio = new ArrayList<>();
         StringBuilder text = new StringBuilder();
@@ -453,7 +455,8 @@ public final class Music {
                 }
             }
         }
-        return new MusicResponse(audio, text.toString(), Usage.none(), Json.optString(finishReason), null, null);
+        return new MusicResponse(
+                audio, text.toString(), Usage.none(), Json.optString(finishReason), Json.optString(finishMessage), null);
     }
 
     /**
