@@ -16,6 +16,7 @@ public record RequestVariant(String carries, String shape, String endpoint) {
     public static final String JSON_GENERATIONS_OPENAI = "JSONGenerationsOpenAI";
     public static final String MULTIPART_FORM = "MultipartForm";
     public static final String JSON_INLINE_REFS = "JSONInlineRefs";
+    /** Deprecated: no provider accepts this since 2026-10-15 (Vertex Imagen shut down, BUG-101); removed at the next major. */
     public static final String JSON_PREDICT = "JSONPredict";
     public static final String JSON_GENERATIONS = "JSONGenerations";
 }
