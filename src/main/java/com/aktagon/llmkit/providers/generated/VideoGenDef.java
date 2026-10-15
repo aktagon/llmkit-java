@@ -126,6 +126,7 @@ public record VideoGenDef(
                         "name",
                         false,
                         java.util.List.of(
+                                new VideoModelDef("veo-3.1-generate-001", "Veo 3.1", false, 8, "video/mp4", java.util.List.of("1080p", "4k", "720p"), 0),
                                 new VideoModelDef("veo-3.1-generate-preview", "Veo 3.1", false, 8, "video/mp4", java.util.List.of("1080p", "720p"), 0)
                         ));
             case VIDU:
