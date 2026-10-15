@@ -18,7 +18,8 @@ public record MusicGenDef(
                         "",
                         java.util.List.of(
                                 new MusicModelDef("lyria-3-clip-preview", "Lyria 3 Clip", true, 30, "audio/mpeg", 0, java.util.List.of("audio/mpeg"), false),
-                                new MusicModelDef("lyria-3-pro-preview", "Lyria 3 Pro", true, 120, "audio/mpeg", 0, java.util.List.of("audio/mpeg"), false)
+                                new MusicModelDef("lyria-3-pro-preview", "Lyria 3 Pro", true, 120, "audio/mpeg", 0, java.util.List.of("audio/mpeg"), false),
+                                new MusicModelDef("lyria-3.5", "Lyria 3.5", true, 0, "audio/mpeg", 0, java.util.List.of("audio/mpeg"), false)
                         ));
             case MINIMAX:
                 return new MusicGenDef(

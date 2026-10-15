@@ -233,7 +233,7 @@ public final class Video {
     /**
      * Pre-flight rejects: image-to-video only on {@code supportsImageToVideo}
      * models (else the seed frame would silently drop at wire time), a seed
-     * frame selects the WithReferenceImages submit request (ADR-096), and
+     * frame selects the WithSeedFrame submit request (ADR-096), and
      * output-uri providers require the caller S3 URI (VID-005). Returns the
      * selected request variant.
      */
@@ -243,7 +243,7 @@ public final class Video {
             throw new ValidationException(
                     "parts", model + " is a text-to-video-only model and does not accept image parts");
         }
-        RequestVariant variant = RequestVariants.select(slug, vgCfg.variants(), imageCount);
+        RequestVariant variant = RequestVariants.select(slug, vgCfg.variants(), imageCount, RequestVariant.WITH_SEED_FRAME);
         if (vgCfg.requiresOutputUri() && options.outputUri.isEmpty()) {
             throw new ValidationException(
                     "output_uri", slug + " requires a caller output S3 URI; set outputUri on the request");
@@ -293,6 +293,17 @@ public final class Video {
                 // (:predictLongRunning), so the body has no model field.
                 JsonObject instance = new JsonObject();
                 instance.addProperty("prompt", joinPromptText(parts));
+                // First frame (BUG-089): the seed rides at instances[0].image as
+                // raw base64 + mimeType (no data: prefix), per the Vertex Veo
+                // reference (read 2026-10-15). The Gemini API shape is not yet
+                // live-verified.
+                MediaRef veoSeed = seedImage(parts);
+                if (veoSeed != null) {
+                    JsonObject image = new JsonObject();
+                    image.addProperty("bytesBase64Encoded", Base64.getEncoder().encodeToString(veoSeed.bytes()));
+                    image.addProperty("mimeType", seedMime(veoSeed));
+                    instance.add("image", image);
+                }
                 JsonArray instances = new JsonArray();
                 instances.add(instance);
                 body = new JsonObject();
@@ -352,12 +363,11 @@ public final class Video {
     }
 
     /**
-     * The image-to-video seed-frame data URL (BUG-010). Returns null on the
-     * text-to-video hot path; rejects more than one seed frame (a
-     * single-frame condition, so multi-image is a separate slice — rejecting
-     * is honest).
+     * The single image-to-video seed frame (Grok, BUG-010; Veo first frame,
+     * BUG-089). Returns null on the text-to-video hot path; rejects more than
+     * one seed frame (a single-frame condition, so rejecting is honest).
      */
-    private static String seedImageUrl(List<Part> parts) {
+    private static MediaRef seedImage(List<Part> parts) {
         MediaRef seed = null;
         for (Part part : parts) {
             if (part instanceof Part.ImagePart imagePart) {
@@ -368,11 +378,24 @@ public final class Video {
                 seed = imagePart.media();
             }
         }
+        return seed;
+    }
+
+    /** The seed frame's MIME, defaulting to image/png. */
+    private static String seedMime(MediaRef seed) {
+        return seed.mimeType().isEmpty() ? "image/png" : seed.mimeType();
+    }
+
+    /**
+     * The Grok image-to-video seed-frame data URL (BUG-010). Returns null on
+     * the text-to-video hot path.
+     */
+    private static String seedImageUrl(List<Part> parts) {
+        MediaRef seed = seedImage(parts);
         if (seed == null) {
             return null;
         }
-        String mime = seed.mimeType().isEmpty() ? "image/png" : seed.mimeType();
-        return "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(seed.bytes());
+        return "data:" + seedMime(seed) + ";base64," + Base64.getEncoder().encodeToString(seed.bytes());
     }
 
     private static VideoModelDef findModel(VideoGenDef cfg, String modelId) {
