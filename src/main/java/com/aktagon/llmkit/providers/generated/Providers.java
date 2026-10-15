@@ -200,7 +200,7 @@ public final class Providers {
                     /* reasoningTokensPath */ "usage.output_tokens_details.thinking_tokens",
                     /* finishReasonPath */ "stop_reason",
                     /* finishMessagePath */ "",
-                    /* streamFinishReasonPath */ "message_stop:stop_reason",
+                    /* streamFinishReasonPath */ "message_delta:delta.stop_reason",
                     /* streamFinishMessagePath */ "",
                     /* wrapsOptionsIn */ "",
                     /* safetySettingsWirePath */ "",
