@@ -459,4 +459,36 @@ public final class Stream {
             default: return null;
         }
     }
+
+    /**
+     * The streaming config a chat wire shape declares for every provider that
+     * selects it, or null when the provider's {@link #config} holds.
+     */
+    public static Def wireShapeConfig(String chatWireShape) {
+        switch (chatWireShape) {
+            case "ChatResponsesOpenAI":
+                return new Def(
+                        "",
+                        "stream",
+                        "true",
+                        "delta",
+                        "",
+                        true,
+                        "response.output_text.delta",
+                        "",
+                        "response.completed",
+                        "response.usage.input_tokens",
+                        "response.usage.output_tokens",
+                        false);
+            default: return null;
+        }
+    }
+
+    /** The ADR-013 stream finish locator read with {@link #wireShapeConfig}. */
+    public static String wireShapeFinishReasonPath(String chatWireShape) {
+        switch (chatWireShape) {
+            case "ChatResponsesOpenAI": return "response.completed:response.status";
+            default: return "";
+        }
+    }
 }
