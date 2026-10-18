@@ -214,7 +214,15 @@ final class VideoPoll {
             // Download delivery: unsigned_urls[0] needs the API key, so the
             // download step fetches it with the auth headers. The signed urls[]
             // array is a secret and is never read.
-            case "VideoOpenRouter" -> urlResult(mime, Json.stringAt(raw, "unsigned_urls[0]"));
+            // A completed poll without unsigned_urls[0] is an error, not an
+            // empty success (mirrors the Veo done-without-uri guard).
+            case "VideoOpenRouter" -> {
+                String url = Json.stringAt(raw, "unsigned_urls[0]");
+                if (url.isEmpty()) {
+                    throw new DecodingException("video generation: completed but carried no unsigned_urls");
+                }
+                yield single(mime, url, 0);
+            }
             case "VideoBedrock" -> {
                 String url = Json.stringAt(raw, "outputDataConfig.s3OutputDataConfig.s3Uri");
                 if (url.isEmpty()) {
