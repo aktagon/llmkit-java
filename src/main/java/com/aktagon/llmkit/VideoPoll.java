@@ -85,7 +85,7 @@ final class VideoPoll {
      * Classifies one poll body per wire shape (port of {@code
      * parse_video_poll}). Returns running / succeeded / failed; an unmodeled
      * wire shape is an internal invariant violation (the switch is exhaustive
-     * over the ten configured shapes), not a runtime user error.
+     * over the eleven configured shapes), not a runtime user error.
      */
     static Job.Classification classify(VideoGenDef vgCfg, JsonElement raw) {
         return switch (vgCfg.wireShape()) {
@@ -102,6 +102,15 @@ final class VideoPoll {
                 yield switch (status) {
                     case "completed" -> succeeded(status);
                     case "failed", "cancelled" -> failed(status, "");
+                    default -> running(status);
+                };
+            }
+            case "VideoOpenRouter" -> {
+                String status = Json.stringAt(raw, "status");
+                yield switch (status) {
+                    case "completed" -> succeeded(status);
+                    case "failed", "cancelled", "expired" -> failed(
+                            status, firstNonEmpty(Json.stringAt(raw, "error"), status));
                     default -> running(status);
                 };
             }
@@ -202,6 +211,10 @@ final class VideoPoll {
             case "VideoTogether" -> urlResult(mime, Json.stringAt(raw, "outputs.video_url"));
             case "VideoQwen" -> urlResult(mime, Json.stringAt(raw, "output.video_url"));
             case "VideoPixVerse" -> urlResult(mime, Json.stringAt(raw, "Resp.url"));
+            // Download delivery: unsigned_urls[0] needs the API key, so the
+            // download step fetches it with the auth headers. The signed urls[]
+            // array is a secret and is never read.
+            case "VideoOpenRouter" -> urlResult(mime, Json.stringAt(raw, "unsigned_urls[0]"));
             case "VideoBedrock" -> {
                 String url = Json.stringAt(raw, "outputDataConfig.s3OutputDataConfig.s3Uri");
                 if (url.isEmpty()) {
