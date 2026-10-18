@@ -24,4 +24,5 @@ public record RequestVariant(java.util.List<String> carries, String shape, Strin
     /** Deprecated: no provider accepts this since 2026-10-15 (Vertex Imagen shut down, BUG-101); removed at the next major. */
     public static final String JSON_PREDICT = "JSONPredict";
     public static final String JSON_GENERATIONS = "JSONGenerations";
+    public static final String JSON_GENERATIONS_INPUT_REFS = "JSONGenerationsInputRefs";
 }
