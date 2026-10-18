@@ -12,6 +12,7 @@ import com.google.gson.JsonObject;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 
@@ -24,11 +25,13 @@ import java.util.Map;
  *
  * <p>The generated {@code speechGenConfig(provider)} fact selects both the
  * request body ({@code wireShape}) and the audio decode
- * ({@code audioResponseEncoding}) — never the provider name. Two shapes ship:
+ * ({@code audioResponseEncoding}) — never the provider name. Four shapes ship:
  * {@code SpeechInworld} (a flat-JSON POST whose reply carries base64 audio at
  * {@code audioContent}, ADR-049; Basic-prefixed auth carries the raw API key
  * VERBATIM, never re-encoded) and {@code SpeechOpenAI} (a flat-JSON POST
- * whose reply is RAW audio bytes — never JSON — ADR-051 slice 1). Pre-flight
+ * whose reply is RAW audio bytes — never JSON — ADR-051 slice 1), plus
+ * {@code SpeechGemini} (Interactions API, base64 audio in {@code steps[]})
+ * and {@code SpeechMiniMax} (hex audio at {@code data.audio}). Pre-flight
  * validation (model + text or lines required; voice or speakers; provider
  * supports speech; model known; speakers and style the model takes, BUG-091)
  * runs before any HTTP call. Voices are free-form: there is no catalogue.
@@ -178,14 +181,19 @@ public final class Speech {
 
             String endpoint = sgCfg.genEndpoint().isEmpty() ? config.endpoint : sgCfg.genEndpoint();
             // buildUrl appends the QueryParamKey ?key= for Google, as on every
-            // other Google call.
+            // other Google call. Speech base: explicit override > the config's
+            // distinct speech base (MiniMax, HANDOFF-094) > chat base.
+            String speechBase = baseUrlOverride != null
+                    ? baseUrlOverride
+                    : (sgCfg.baseUrl().isEmpty() ? null : sgCfg.baseUrl());
             String url = endpoint.startsWith("http")
                     ? endpoint
-                    : RequestBuilder.buildUrl(config, endpoint, apiKey, model, baseUrlOverride);
+                    : RequestBuilder.buildUrl(config, endpoint, apiKey, model, speechBase);
 
             JsonObject body = switch (sgCfg.wireShape()) {
                 case "SpeechOpenAI" -> buildOpenAIBody(model, voiceId, spoken, style);
                 case "SpeechGemini" -> buildGeminiBody(model, voiceId, spoken);
+                case "SpeechMiniMax" -> buildMiniMaxBody(model, voiceId, spoken);
                 default -> buildInworldBody(model, voiceId, spoken);
             };
 
@@ -278,6 +286,21 @@ public final class Speech {
         body.addProperty("modelId", model);
         body.add("audioConfig", audioConfig);
         body.addProperty("deliveryMode", "BALANCED");
+        return body;
+    }
+
+    /**
+     * MiniMax {@code /v1/t2a_v2} body (HANDOFF-094): only the fields the
+     * reference marks required. stream, output_format (hex) and
+     * audio_setting (mp3) take their defaults.
+     */
+    private static JsonObject buildMiniMaxBody(String model, String voice, String text) {
+        JsonObject voiceSetting = new JsonObject();
+        voiceSetting.addProperty("voice_id", voice);
+        JsonObject body = new JsonObject();
+        body.addProperty("model", model);
+        body.addProperty("text", text);
+        body.add("voice_setting", voiceSetting);
         return body;
     }
 
@@ -383,7 +406,9 @@ public final class Speech {
      * encoding (ADR-051 OAA-002). {@code rawBody} (OpenAI) takes the
      * response body verbatim as the audio bytes; {@code base64Envelope}
      * (Inworld) parses a JSON envelope and base64-decodes the
-     * {@code audioContent} field. A 2xx body that does not parse to audio
+     * {@code audioContent} field; {@code hexEnvelope} (MiniMax) hex-decodes
+     * {@code data.audio} and raises on a nonzero {@code base_resp}. A 2xx
+     * body that does not parse to audio
      * is a {@link DecodingException} (HANDOFF-036 A5) — never a silent
      * empty clip.
      */
@@ -394,6 +419,8 @@ public final class Speech {
             bytes = body;
         } else if ("base64InteractionSteps".equals(encoding)) {
             return parseInteractionSteps(providerSlug, fallbackMime, body);
+        } else if ("hexEnvelope".equals(encoding)) {
+            bytes = parseHexEnvelope(providerSlug, body);
         } else {
             String b64;
             try {
@@ -465,6 +492,39 @@ public final class Speech {
         String mime = Json.stringAt(last, "mime_type");
         return new SpeechResponse(
                 new AudioData(mime.isEmpty() ? fallbackMime : mime, bytes), Usage.none(), null);
+    }
+
+    /**
+     * Decode a MiniMax t2a_v2 reply (HANDOFF-094):
+     * {@code {"data": {"audio": "<hex>"}, "base_resp": {"status_code", "status_msg"}}}.
+     * MiniMax reports failures in {@code base_resp} on an HTTP 200, so a
+     * nonzero {@code status_code} is an {@link ApiException} carrying
+     * {@code status_msg}. A success with missing audio, or invalid hex, is a
+     * {@link DecodingException} (HANDOFF-036 A5).
+     */
+    private static byte[] parseHexEnvelope(String providerSlug, byte[] body) {
+        JsonElement raw;
+        try {
+            raw = Json.parse(new String(body, StandardCharsets.UTF_8));
+        } catch (DecodingException e) {
+            throw new DecodingException(providerSlug + " speech response: not valid JSON: " + e.getMessage(), e);
+        }
+        long code = Json.longAt(raw, "base_resp.status_code");
+        if (code != 0) {
+            throw new ApiException(
+                    providerSlug, 200,
+                    Json.stringAt(raw, "base_resp.status_msg") + " (base_resp.status_code " + code + ")");
+        }
+        String hex = Json.stringAt(raw, "data.audio");
+        if (hex.isEmpty()) {
+            throw new DecodingException(providerSlug + " speech response: missing or empty data.audio");
+        }
+        try {
+            return HexFormat.of().parseHex(hex);
+        } catch (IllegalArgumentException e) {
+            throw new DecodingException(
+                    providerSlug + " speech response: invalid hex in data.audio: " + e.getMessage(), e);
+        }
     }
 
     private static SpeechModelDef findModel(SpeechGenDef cfg, String modelId) {
