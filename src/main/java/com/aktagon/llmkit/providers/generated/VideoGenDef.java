@@ -66,7 +66,9 @@ public record VideoGenDef(
                         "request_id",
                         false,
                         java.util.List.of(
-                                new VideoModelDef("grok-imagine-video", "Grok Imagine Video", true, false, false, 15, "video/mp4", java.util.List.of("480p", "720p"), 1)
+                                new VideoModelDef("grok-imagine-video", "Grok Imagine Video", true, false, false, 15, "video/mp4", java.util.List.of("480p", "720p"), 1),
+                                new VideoModelDef("grok-imagine-video-1.5", "Grok Imagine Video 1.5", true, false, false, 15, "video/mp4", java.util.List.of("1080p", "480p", "720p"), 1),
+                                new VideoModelDef("grok-imagine-video-1.5-lite", "Grok Imagine Video 1.5 Lite", true, false, false, 15, "video/mp4", java.util.List.of("1080p", "480p", "720p"), 1)
                         ));
             case MINIMAX:
                 return new VideoGenDef(
