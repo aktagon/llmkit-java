@@ -4,9 +4,11 @@ package com.aktagon.llmkit.providers.generated;
 
 public record SpeechGenDef(
         String wireShape,
-        /** "base64Envelope" | "rawBody" | "base64InteractionSteps" (ADR-051). */
+        /** "base64Envelope" | "rawBody" | "base64InteractionSteps" | "hexEnvelope" (ADR-051). */
         String audioResponseEncoding,
         String genEndpoint,
+        /** Speech API base when it differs from the chat base; "" = use chat base. */
+        String baseUrl,
         java.util.List<SpeechModelDef> models) {
 
     /** Public, keyless per-provider config; null when the provider has no speech capability. */
@@ -17,6 +19,7 @@ public record SpeechGenDef(
                         "SpeechGemini",
                         "base64InteractionSteps",
                         "/v1beta/interactions",
+                        "",
                         java.util.List.of(
                                 new SpeechModelDef("gemini-3.8-flash-lite-tts", "Gemini 3.8 Flash-Lite TTS", "audio/wav", 24000, 2, true),
                                 new SpeechModelDef("gemini-3.8-flash-tts", "Gemini 3.8 Flash TTS", "audio/wav", 24000, 2, true)
@@ -26,16 +29,30 @@ public record SpeechGenDef(
                         "SpeechInworld",
                         "base64Envelope",
                         "/tts/v1/voice",
+                        "",
                         java.util.List.of(
                                 new SpeechModelDef("inworld-tts-1.5-max", "Inworld TTS 1.5 Max", "audio/wav", 0, 0, false),
                                 new SpeechModelDef("inworld-tts-1.5-mini", "Inworld TTS 1.5 Mini", "audio/wav", 0, 0, false),
                                 new SpeechModelDef("inworld-tts-2", "Inworld TTS 2", "audio/wav", 0, 0, false)
+                        ));
+            case MINIMAX:
+                return new SpeechGenDef(
+                        "SpeechMiniMax",
+                        "hexEnvelope",
+                        "/v1/t2a_v2",
+                        "https://api.minimax.io",
+                        java.util.List.of(
+                                new SpeechModelDef("speech-2.6-hd", "MiniMax Speech 2.6 HD", "audio/mpeg", 0, 0, false),
+                                new SpeechModelDef("speech-2.6-turbo", "MiniMax Speech 2.6 Turbo", "audio/mpeg", 0, 0, false),
+                                new SpeechModelDef("speech-2.8-hd", "MiniMax Speech 2.8 HD", "audio/mpeg", 0, 0, false),
+                                new SpeechModelDef("speech-2.8-turbo", "MiniMax Speech 2.8 Turbo", "audio/mpeg", 0, 0, false)
                         ));
             case OPENAI:
                 return new SpeechGenDef(
                         "SpeechOpenAI",
                         "rawBody",
                         "/v1/audio/speech",
+                        "",
                         java.util.List.of(
                                 new SpeechModelDef("gpt-4o-mini-tts", "GPT-4o mini TTS", "audio/mpeg", 0, 0, true),
                                 new SpeechModelDef("tts-1", "TTS 1", "audio/mpeg", 0, 0, false),
@@ -46,6 +63,7 @@ public record SpeechGenDef(
                         "SpeechOpenAI",
                         "rawBody",
                         "/v1/audio/speech",
+                        "",
                         java.util.List.of(
                                 new SpeechModelDef("elevenlabs/eleven-v3", "Eleven v3", "audio/mpeg", 0, 0, false),
                                 new SpeechModelDef("elevenlabs/eleven-v4", "Eleven v4", "audio/mpeg", 0, 0, false),
