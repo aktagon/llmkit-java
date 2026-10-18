@@ -37,6 +37,7 @@ public record ImageGenDef(
                         "",
                         java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "JSONInlineRefs", "/v1/images/generations"), new RequestVariant(java.util.List.of("WithReferenceImages"), "JSONInlineRefs", "/v1/images/edits")),
                         java.util.List.of(
+                                new ImageModelDef("grok-imagine-image-2.0", "Grok Imagine Image 2.0", java.util.List.of("16:9", "19.5:9", "1:1", "1:2", "20:9", "21:9", "2:1", "2:3", "3:2", "3:4", "4:3", "9:16", "9:19.5", "9:20", "auto"), java.util.List.of(), 0, true),
                                 new ImageModelDef("grok-imagine-image-quality", "Grok Imagine Quality", java.util.List.of("16:9", "19.5:9", "1:1", "1:2", "20:9", "2:1", "2:3", "3:2", "3:4", "4:3", "9:16", "9:19.5", "9:20", "auto"), java.util.List.of(), 0, true)
                         ));
             case OPENAI:
@@ -51,7 +52,9 @@ public record ImageGenDef(
                                 new ImageModelDef("gpt-image-1", "GPT Image 1", java.util.List.of(), java.util.List.of(), 0, true),
                                 new ImageModelDef("gpt-image-1-mini", "GPT Image 1 Mini", java.util.List.of(), java.util.List.of(), 0, true),
                                 new ImageModelDef("gpt-image-1.5", "GPT Image 1.5", java.util.List.of(), java.util.List.of(), 0, true),
-                                new ImageModelDef("gpt-image-2", "GPT Image 2", java.util.List.of(), java.util.List.of(), 0, true)
+                                new ImageModelDef("gpt-image-2", "GPT Image 2", java.util.List.of(), java.util.List.of(), 0, true),
+                                new ImageModelDef("gpt-image-2.5-flare", "GPT Image 2.5 Flare", java.util.List.of(), java.util.List.of(), 0, true),
+                                new ImageModelDef("gpt-image-2.5-sunburst", "GPT Image 2.5 Sunburst", java.util.List.of(), java.util.List.of(), 0, true)
                         ));
             case OPENROUTER:
                 return new ImageGenDef(
