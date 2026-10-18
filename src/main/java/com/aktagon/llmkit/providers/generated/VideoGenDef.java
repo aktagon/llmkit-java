@@ -87,23 +87,23 @@ public record VideoGenDef(
                         "VideoOpenRouter",
                         "DeliveryDownload",
                         "",
-                        java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "", "/v1/videos")),
+                        java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "", "/v1/videos"), new RequestVariant(java.util.List.of("WithSeedFrame"), "", "/v1/videos"), new RequestVariant(java.util.List.of("WithSeedFrame", "WithLastFrame"), "", "/v1/videos")),
                         "/v1/videos/{id}",
                         "",
                         "",
                         "id",
                         false,
                         java.util.List.of(
-                                new VideoModelDef("alibaba/wan-3.0", "Wan 3.0", false, false, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("bytedance/seedance-2.0", "Seedance 2.0", false, false, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("bytedance/seedance-2.0-fast", "Seedance 2.0 Fast", false, false, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("bytedance/seedance-2.5", "Seedance 2.5", false, false, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("google/veo-3.1-fast", "Veo 3.1 Fast", false, false, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("google/veo-3.1-lite", "Veo 3.1 Lite", false, false, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("heygen/heygen-video-1", "HeyGen Video 1", false, false, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("kwaivgi/kling-v3.0-std", "Kling 3.0 Standard", false, false, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("minimax/hailuo-3", "Hailuo 3", false, false, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("x-ai/grok-imagine-video-1.5-lite", "Grok Imagine Video 1.5 Lite", false, false, false, 0, "video/mp4", java.util.List.of(), 0)
+                                new VideoModelDef("alibaba/wan-3.0", "Wan 3.0", true, true, false, 0, "video/mp4", java.util.List.of(), 0),
+                                new VideoModelDef("bytedance/seedance-2.0", "Seedance 2.0", true, true, false, 0, "video/mp4", java.util.List.of(), 0),
+                                new VideoModelDef("bytedance/seedance-2.0-fast", "Seedance 2.0 Fast", true, true, false, 0, "video/mp4", java.util.List.of(), 0),
+                                new VideoModelDef("bytedance/seedance-2.5", "Seedance 2.5", true, true, false, 0, "video/mp4", java.util.List.of(), 0),
+                                new VideoModelDef("google/veo-3.1-fast", "Veo 3.1 Fast", true, true, false, 0, "video/mp4", java.util.List.of(), 0),
+                                new VideoModelDef("google/veo-3.1-lite", "Veo 3.1 Lite", true, true, false, 0, "video/mp4", java.util.List.of(), 0),
+                                new VideoModelDef("heygen/heygen-video-1", "HeyGen Video 1", true, false, false, 0, "video/mp4", java.util.List.of(), 0),
+                                new VideoModelDef("kwaivgi/kling-v3.0-std", "Kling 3.0 Standard", true, true, false, 0, "video/mp4", java.util.List.of(), 0),
+                                new VideoModelDef("minimax/hailuo-3", "Hailuo 3", true, true, false, 0, "video/mp4", java.util.List.of(), 0),
+                                new VideoModelDef("x-ai/grok-imagine-video-1.5-lite", "Grok Imagine Video 1.5 Lite", true, false, false, 0, "video/mp4", java.util.List.of(), 0)
                         ));
             case PIXVERSE:
                 return new VideoGenDef(
