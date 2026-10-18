@@ -315,6 +315,17 @@ public final class Video {
         return RequestVariants.partsCarry(imageCount, RequestVariant.WITH_SEED_FRAME);
     }
 
+    /** One OpenRouter frame_images item. */
+    private static JsonObject openRouterFrame(MediaRef media, String frameType) {
+        JsonObject imageUrl = new JsonObject();
+        imageUrl.addProperty("url", "data:" + seedMime(media) + ";base64," + Base64.getEncoder().encodeToString(media.bytes()));
+        JsonObject frame = new JsonObject();
+        frame.addProperty("type", "image_url");
+        frame.add("image_url", imageUrl);
+        frame.addProperty("frame_type", frameType);
+        return frame;
+    }
+
     /** A Veo image object: raw base64 bytes and the MIME type. */
     private static JsonObject veoImage(MediaRef media) {
         JsonObject image = new JsonObject();
@@ -414,6 +425,23 @@ public final class Video {
                 body.addProperty("modelId", model);
                 body.add("modelInput", modelInput);
                 body.add("outputDataConfig", outputDataConfig);
+            }
+            case "VideoOpenRouter" -> {
+                // Image-to-video (HANDOFF-091): each frame is an OpenRouter
+                // ContentPartImage plus frame_type, first_frame then last_frame
+                // (live probe 2026-10-18; openrouter.ai/openapi.json).
+                body = new JsonObject();
+                body.addProperty("model", model);
+                body.addProperty("prompt", joinPromptText(parts));
+                MediaRef orSeed = seedImage(parts);
+                if (orSeed != null) {
+                    JsonArray frames = new JsonArray();
+                    frames.add(openRouterFrame(orSeed, "first_frame"));
+                    if (options.lastFrame != null) {
+                        frames.add(openRouterFrame(options.lastFrame, "last_frame"));
+                    }
+                    body.add("frame_images", frames);
+                }
             }
             default -> {
                 // Shared {model, prompt} arm (Grok/Zhipu/Vidu/Together/MiniMax).
