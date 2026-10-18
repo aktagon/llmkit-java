@@ -15,6 +15,8 @@ public record VideoGenDef(
         String pollEndpoint,
         /** File-retrieve template with {file_id} for two-hop providers; "" = single-hop. */
         String fileEndpoint,
+        /** Cancel template with {model} and {operation_id}; "" = no documented cancel. */
+        String cancelEndpoint,
         String submitHandleField,
         boolean requiresOutputUri,
         java.util.List<VideoModelDef> models) {
@@ -30,6 +32,7 @@ public record VideoGenDef(
                         java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "", "/async-invoke")),
                         "/async-invoke/{id}",
                         "",
+                        "",
                         "invocationArn",
                         true,
                         java.util.List.of(
@@ -42,6 +45,7 @@ public record VideoGenDef(
                         "",
                         java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "", "/v1beta/models/{model}:predictLongRunning"), new RequestVariant(java.util.List.of("WithReferenceImages"), "", "/v1beta/models/{model}:predictLongRunning"), new RequestVariant(java.util.List.of("WithSeedFrame"), "", "/v1beta/models/{model}:predictLongRunning"), new RequestVariant(java.util.List.of("WithSeedFrame", "WithLastFrame"), "", "/v1beta/models/{model}:predictLongRunning")),
                         "/v1beta/{id}",
+                        "",
                         "",
                         "name",
                         false,
@@ -58,6 +62,7 @@ public record VideoGenDef(
                         java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "", "/v1/videos/generations"), new RequestVariant(java.util.List.of("WithSeedFrame"), "", "/v1/videos/generations")),
                         "/v1/videos/{id}",
                         "",
+                        "",
                         "request_id",
                         false,
                         java.util.List.of(
@@ -71,6 +76,7 @@ public record VideoGenDef(
                         java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "", "/v1/video_generation")),
                         "/v1/query/video_generation?task_id={id}",
                         "/v1/files/retrieve?file_id={file_id}",
+                        "",
                         "task_id",
                         false,
                         java.util.List.of(
@@ -83,6 +89,7 @@ public record VideoGenDef(
                         "",
                         java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "", "/openapi/v2/video/text/generate")),
                         "/openapi/v2/video/result/{id}",
+                        "",
                         "",
                         "Resp.video_id",
                         false,
@@ -99,6 +106,7 @@ public record VideoGenDef(
                         java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "", "/api/v1/services/aigc/video-generation/video-synthesis")),
                         "/api/v1/tasks/{id}",
                         "",
+                        "",
                         "output.task_id",
                         false,
                         java.util.List.of(
@@ -111,6 +119,7 @@ public record VideoGenDef(
                         "",
                         java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "", "/v2/videos")),
                         "/v2/videos/{id}",
+                        "",
                         "",
                         "id",
                         false,
@@ -125,6 +134,7 @@ public record VideoGenDef(
                         java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "", "/{model}:predictLongRunning"), new RequestVariant(java.util.List.of("WithReferenceImages"), "", "/{model}:predictLongRunning"), new RequestVariant(java.util.List.of("WithSeedFrame"), "", "/{model}:predictLongRunning"), new RequestVariant(java.util.List.of("WithSeedFrame", "WithLastFrame"), "", "/{model}:predictLongRunning")),
                         "/{model}:fetchPredictOperation",
                         "",
+                        "/{model}/operations/{operation_id}:cancel",
                         "name",
                         false,
                         java.util.List.of(
@@ -141,6 +151,7 @@ public record VideoGenDef(
                         java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "", "/ent/v2/text2video")),
                         "/ent/v2/tasks/{id}/creations",
                         "",
+                        "",
                         "task_id",
                         false,
                         java.util.List.of(
@@ -155,6 +166,7 @@ public record VideoGenDef(
                         "",
                         java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "", "/v4/videos/generations")),
                         "/v4/async-result/{id}",
+                        "",
                         "",
                         "id",
                         false,
