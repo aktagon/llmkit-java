@@ -339,7 +339,9 @@ public final class Image {
                 reject(options.safetyFilter, "safety_filter", slug);
                 reject(safetySettings, "safety_settings", slug);
             }
-            case RequestVariant.JSON_GENERATIONS -> { // Recraft, OpenRouter
+            // JSON_GENERATIONS_INPUT_REFS is the JSON_GENERATIONS body plus
+            // input_references, so the same knobs apply.
+            case RequestVariant.JSON_GENERATIONS, RequestVariant.JSON_GENERATIONS_INPUT_REFS -> { // Recraft, OpenRouter
                 if (options.aspectRatio != null) {
                     throw new ValidationException(
                             "aspect_ratio", "not supported by " + slug + "; use image_size (Recraft sizes by WxH)");
@@ -408,6 +410,7 @@ public final class Image {
             case RequestVariant.JSON_GENERATIONS_OPENAI -> buildOpenAIBody(parts);
             case RequestVariant.JSON_INLINE_REFS -> buildXAIBody(parts);
             case RequestVariant.JSON_GENERATIONS -> buildRecraftBody(parts);
+            case RequestVariant.JSON_GENERATIONS_INPUT_REFS -> buildInputRefsBody(parts);
             case RequestVariant.INLINE_PARTS -> buildGoogleBody(parts);
             default -> throw new IllegalStateException(
                     "image request shape " + variant.shape() + " has no body builder");
@@ -594,6 +597,31 @@ public final class Image {
         if (options.count != null) {
             body.addProperty("n", options.count);
         }
+        return body;
+    }
+
+    /**
+     * The Recraft body plus {@code input_references}: each image part, in
+     * caller order, as an OpenRouter ContentPartImage
+     * {@code {type:"image_url", image_url:{url}}} with the bytes as a base64
+     * data URL (live probe 2026-10-18).
+     */
+    private JsonObject buildInputRefsBody(List<Part> parts) {
+        JsonObject body = buildRecraftBody(parts);
+        JsonArray refs = new JsonArray();
+        for (Part part : parts) {
+            if (part instanceof Part.ImagePart imagePart) {
+                MediaRef media = imagePart.media();
+                String mime = media.mimeType().isEmpty() ? "image/png" : media.mimeType();
+                JsonObject imageUrl = new JsonObject();
+                imageUrl.addProperty("url", "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(media.bytes()));
+                JsonObject entry = new JsonObject();
+                entry.addProperty("type", "image_url");
+                entry.add("image_url", imageUrl);
+                refs.add(entry);
+            }
+        }
+        body.add("input_references", refs);
         return body;
     }
 
