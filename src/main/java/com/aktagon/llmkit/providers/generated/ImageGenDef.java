@@ -62,13 +62,19 @@ public record ImageGenDef(
                         "",
                         java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "JSONGenerations", "/v1/images")),
                         java.util.List.of(
+                                new ImageModelDef("bytedance-seed/seedream-4.5", "Seedream 4.5", java.util.List.of(), java.util.List.of(), 0, false),
+                                new ImageModelDef("bytedance-seed/seedream-5-0-flash", "Seedream 5.0 Flash", java.util.List.of(), java.util.List.of(), 0, false),
                                 new ImageModelDef("google/gemini-2.5-flash-image", "Nano Banana (Gemini 2.5 Flash Image)", java.util.List.of(), java.util.List.of(), 0, false),
                                 new ImageModelDef("google/gemini-3-pro-image", "Nano Banana Pro (Gemini 3 Pro Image)", java.util.List.of(), java.util.List.of(), 0, false),
                                 new ImageModelDef("google/gemini-3.1-flash-image", "Nano Banana 2 (Gemini 3.1 Flash Image)", java.util.List.of(), java.util.List.of(), 0, false),
                                 new ImageModelDef("google/gemini-3.1-flash-lite-image", "Nano Banana 2 Lite (Gemini 3.1 Flash Lite Image)", java.util.List.of(), java.util.List.of(), 0, false),
+                                new ImageModelDef("meta/muse-image", "Muse Image", java.util.List.of(), java.util.List.of(), 0, false),
                                 new ImageModelDef("openai/gpt-5-image", "GPT-5 Image", java.util.List.of(), java.util.List.of(), 0, false),
                                 new ImageModelDef("openai/gpt-5-image-mini", "GPT-5 Image Mini", java.util.List.of(), java.util.List.of(), 0, false),
-                                new ImageModelDef("openai/gpt-5.4-image-2", "GPT-5.4 Image 2", java.util.List.of(), java.util.List.of(), 0, false)
+                                new ImageModelDef("openai/gpt-5.4-image-2", "GPT-5.4 Image 2", java.util.List.of(), java.util.List.of(), 0, false),
+                                new ImageModelDef("openai/gpt-image-2", "GPT Image 2", java.util.List.of(), java.util.List.of(), 0, false),
+                                new ImageModelDef("openai/gpt-image-2.5-sunburst", "GPT Image 2.5 Sunburst", java.util.List.of(), java.util.List.of(), 0, false),
+                                new ImageModelDef("tencent/hy-image-v3.5-preview", "Hy Image 3.5 Preview", java.util.List.of(), java.util.List.of(), 0, false)
                         ));
             case RECRAFT:
                 return new ImageGenDef(
