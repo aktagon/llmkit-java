@@ -113,6 +113,31 @@ public final class Video {
     }
 
     /**
+     * Set the video length in whole seconds. Only OpenRouter sends it; other
+     * providers reject it before send, as does a value above the model's
+     * maximum (HANDOFF-097).
+     */
+    public Video duration(int seconds) {
+        return withOptions(o -> o.durationSeconds = seconds);
+    }
+
+    /**
+     * Set the output aspect ratio, such as "16:9". Only OpenRouter sends it;
+     * a ratio the model does not list is rejected before send (HANDOFF-097).
+     */
+    public Video aspectRatio(String ratio) {
+        return withOptions(o -> o.aspectRatio = ratio);
+    }
+
+    /**
+     * Set the output resolution, such as "720p". Only OpenRouter sends it; a
+     * resolution the model does not list is rejected before send (HANDOFF-097).
+     */
+    public Video resolution(String resolution) {
+        return withOptions(o -> o.resolution = resolution);
+    }
+
+    /**
      * Set the caller-supplied destination S3 URI (required by output-uri
      * delivery providers, e.g. Bedrock Nova Reel; ignored otherwise).
      */
@@ -262,6 +287,7 @@ public final class Video {
                     "parts", model + " is a text-to-video-only model and does not accept image parts");
         }
         validateFrames(modelDef, imageCount);
+        validateOptions(slug, vgCfg, modelDef);
         // ADR-096: the carried inputs select the submit request; a config with
         // no such variant cannot send it.
         RequestVariant variant = RequestVariants.select(slug, vgCfg.variants(), carries(imageCount));
@@ -301,6 +327,46 @@ public final class Video {
         }
         if (last && imageCount == 0) {
             throw new ValidationException("last_frame", "requires a first frame");
+        }
+    }
+
+    /**
+     * Rejects a duration, aspect ratio or resolution the provider or the
+     * model cannot take, before any HTTP call (HANDOFF-097). Same rules,
+     * order and messages as Go's {@code validateVideoOptions}: a set option
+     * on a wire shape other than VideoOpenRouter (first of duration,
+     * aspect_ratio, resolution), a negative duration, a duration above the
+     * model maximum (0 = no limit), then an unlisted resolution and an
+     * unlisted aspect ratio (empty list = no fixed set).
+     */
+    private void validateOptions(String slug, VideoGenDef vgCfg, VideoModelDef modelDef) {
+        if (!"VideoOpenRouter".equals(vgCfg.wireShape())) {
+            String field = options.durationSeconds != 0 ? "duration"
+                    : !options.aspectRatio.isEmpty() ? "aspect_ratio"
+                    : !options.resolution.isEmpty() ? "resolution"
+                    : null;
+            if (field != null) {
+                throw new ValidationException(field, slug + " video does not send " + field);
+            }
+            return;
+        }
+        int duration = options.durationSeconds;
+        if (duration < 0) {
+            throw new ValidationException("duration", "must be positive");
+        }
+        if (duration > 0 && modelDef.maxDurationSeconds() > 0 && duration > modelDef.maxDurationSeconds()) {
+            throw new ValidationException("duration", modelDef.modelId() + " takes at most "
+                    + modelDef.maxDurationSeconds() + " seconds, got " + duration);
+        }
+        if (!options.resolution.isEmpty() && !modelDef.resolutions().isEmpty()
+                && !modelDef.resolutions().contains(options.resolution)) {
+            throw new ValidationException(
+                    "resolution", modelDef.modelId() + " does not support resolution " + options.resolution);
+        }
+        if (!options.aspectRatio.isEmpty() && !modelDef.aspectRatios().isEmpty()
+                && !modelDef.aspectRatios().contains(options.aspectRatio)) {
+            throw new ValidationException(
+                    "aspect_ratio", modelDef.modelId() + " does not support aspect ratio " + options.aspectRatio);
         }
     }
 
@@ -441,6 +507,18 @@ public final class Video {
                         frames.add(openRouterFrame(options.lastFrame, "last_frame"));
                     }
                     body.add("frame_images", frames);
+                }
+                // Video options (HANDOFF-097): body-root fields, each sent only
+                // when set, so the prompt-only body stays {model, prompt};
+                // validateOptions has already checked each against the model.
+                if (options.durationSeconds > 0) {
+                    body.addProperty("duration", options.durationSeconds);
+                }
+                if (!options.aspectRatio.isEmpty()) {
+                    body.addProperty("aspect_ratio", options.aspectRatio);
+                }
+                if (!options.resolution.isEmpty()) {
+                    body.addProperty("resolution", options.resolution);
                 }
             }
             default -> {
