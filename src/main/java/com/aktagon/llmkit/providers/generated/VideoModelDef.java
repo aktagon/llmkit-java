@@ -13,5 +13,7 @@ public record VideoModelDef(
         int maxDurationSeconds,
         String outputMime,
         java.util.List<String> resolutions,
+        /** Accepted aspect ratios (e.g. "16:9"); empty = no fixed set. */
+        java.util.List<String> aspectRatios,
         /** 0 = no llmkit limit, the provider decides volume (BUG-011). */
         int maxInputImages) {}
