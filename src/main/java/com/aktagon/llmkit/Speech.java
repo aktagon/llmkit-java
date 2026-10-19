@@ -256,9 +256,10 @@ public final class Speech {
      * Checks the request against what the config's body can carry and the
      * model's stated speaker and style facts (BUG-091). An unknown model fact
      * (null) sends the request; only a stated false or a stated speaker count
-     * that does not match blocks it (decision 009, HANDOFF-099).
+     * that does not match blocks it (decision 009, HANDOFF-099). Package-private
+     * so the tests can reach it.
      */
-    private void validateModel(SpeechGenDef sgCfg, SpeechModelDef modelDef) {
+    void validateModel(SpeechGenDef sgCfg, SpeechModelDef modelDef) {
         Integer max = modelDef.maxSpeakers();
         if (!speakers.isEmpty()) {
             if (!sgCfg.multiSpeaker() || Integer.valueOf(1).equals(max)) {
