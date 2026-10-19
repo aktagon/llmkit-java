@@ -18,6 +18,12 @@ final class VideoOptions {
     MediaRef lastFrame = null;
     /** Asset reference images, in caller order (BUG-089). */
     List<MediaRef> referenceImages = new ArrayList<>();
+    /** Video length in whole seconds; 0 = unset (HANDOFF-097). */
+    int durationSeconds = 0;
+    /** Output aspect ratio such as "16:9"; "" = unset (HANDOFF-097). */
+    String aspectRatio = "";
+    /** Output resolution such as "720p"; "" = unset (HANDOFF-097). */
+    String resolution = "";
     boolean raw = false;
     /** Observation + veto hooks fired around the {@code videoGeneration} op. */
     List<MiddlewareFn> middleware = new ArrayList<>();
@@ -30,6 +36,9 @@ final class VideoOptions {
         o.outputUri = outputUri;
         o.lastFrame = lastFrame;
         o.referenceImages = new ArrayList<>(referenceImages);
+        o.durationSeconds = durationSeconds;
+        o.aspectRatio = aspectRatio;
+        o.resolution = resolution;
         o.raw = raw;
         o.middleware = new ArrayList<>(middleware);
         return o;
