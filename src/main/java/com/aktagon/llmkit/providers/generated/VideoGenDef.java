@@ -50,9 +50,9 @@ public record VideoGenDef(
                         "name",
                         false,
                         java.util.List.of(
-                                new VideoModelDef("veo-3.1-fast-generate-preview", "Veo 3.1 Fast", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "4k", "720p"), java.util.List.of(), 1),
-                                new VideoModelDef("veo-3.1-generate-preview", "Veo 3.1", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of(), 1),
-                                new VideoModelDef("veo-3.1-lite-generate-preview", "Veo 3.1 Lite", true, true, false, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of(), 1)
+                                new VideoModelDef("veo-3.1-fast-generate-preview", "Veo 3.1 Fast", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "4k", "720p"), java.util.List.of("16:9", "9:16"), 1),
+                                new VideoModelDef("veo-3.1-generate-preview", "Veo 3.1", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of("16:9", "9:16"), 1),
+                                new VideoModelDef("veo-3.1-lite-generate-preview", "Veo 3.1 Lite", true, true, false, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of("16:9", "9:16"), 1)
                         ));
             case GROK:
                 return new VideoGenDef(
@@ -66,9 +66,9 @@ public record VideoGenDef(
                         "request_id",
                         false,
                         java.util.List.of(
-                                new VideoModelDef("grok-imagine-video", "Grok Imagine Video", true, false, false, 15, "video/mp4", java.util.List.of("480p", "720p"), java.util.List.of(), 1),
-                                new VideoModelDef("grok-imagine-video-1.5", "Grok Imagine Video 1.5", true, false, false, 15, "video/mp4", java.util.List.of("1080p", "480p", "720p"), java.util.List.of(), 1),
-                                new VideoModelDef("grok-imagine-video-1.5-lite", "Grok Imagine Video 1.5 Lite", true, false, false, 15, "video/mp4", java.util.List.of("1080p", "480p", "720p"), java.util.List.of(), 1)
+                                new VideoModelDef("grok-imagine-video", "Grok Imagine Video", true, false, false, 15, "video/mp4", java.util.List.of("480p", "720p"), java.util.List.of("16:9", "1:1", "21:9", "2:3", "3:2", "3:4", "4:3", "5:2", "9:16"), 1),
+                                new VideoModelDef("grok-imagine-video-1.5", "Grok Imagine Video 1.5", true, false, false, 15, "video/mp4", java.util.List.of("1080p", "480p", "720p"), java.util.List.of("16:9", "1:1", "21:9", "2:3", "3:2", "3:4", "4:3", "5:2", "9:16"), 1),
+                                new VideoModelDef("grok-imagine-video-1.5-lite", "Grok Imagine Video 1.5 Lite", true, false, false, 15, "video/mp4", java.util.List.of("1080p", "480p", "720p"), java.util.List.of("16:9", "1:1", "21:9", "2:3", "3:2", "3:4", "4:3", "5:2", "9:16"), 1)
                         ));
             case MINIMAX:
                 return new VideoGenDef(
@@ -163,10 +163,10 @@ public record VideoGenDef(
                         "name",
                         false,
                         java.util.List.of(
-                                new VideoModelDef("veo-3.1-fast-generate-001", "Veo 3.1 Fast", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of(), 1),
-                                new VideoModelDef("veo-3.1-generate-001", "Veo 3.1", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "4k", "720p"), java.util.List.of(), 1),
-                                new VideoModelDef("veo-3.1-generate-preview", "Veo 3.1", true, false, true, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of(), 1),
-                                new VideoModelDef("veo-3.1-lite-generate-001", "Veo 3.1 Lite", false, false, false, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of(), 0)
+                                new VideoModelDef("veo-3.1-fast-generate-001", "Veo 3.1 Fast", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of("16:9", "9:16"), 1),
+                                new VideoModelDef("veo-3.1-generate-001", "Veo 3.1", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "4k", "720p"), java.util.List.of("16:9", "9:16"), 1),
+                                new VideoModelDef("veo-3.1-generate-preview", "Veo 3.1", true, false, true, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of("16:9", "9:16"), 1),
+                                new VideoModelDef("veo-3.1-lite-generate-001", "Veo 3.1 Lite", false, false, false, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of("16:9", "9:16"), 0)
                         ));
             case VIDU:
                 return new VideoGenDef(
