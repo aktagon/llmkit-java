@@ -20,6 +20,7 @@ public record SpeechGenDef(
                         "base64InteractionSteps",
                         "/v1beta/interactions",
                         java.util.List.of(
+                                new SpeechModelDef("gemini-3.1-flash-tts-preview", "Gemini 3.1 Flash TTS Preview", "audio/l16", 0, 0, false),
                                 new SpeechModelDef("gemini-3.8-flash-lite-tts", "Gemini 3.8 Flash-Lite TTS", "audio/wav", 24000, 2, true),
                                 new SpeechModelDef("gemini-3.8-flash-tts", "Gemini 3.8 Flash TTS", "audio/wav", 24000, 2, true)
                         ),
