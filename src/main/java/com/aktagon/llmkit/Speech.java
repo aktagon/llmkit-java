@@ -191,13 +191,7 @@ public final class Speech {
                     ? endpoint
                     : RequestBuilder.buildUrl(config, endpoint, apiKey, model, speechBase);
 
-            JsonObject body = switch (sgCfg.wireShape()) {
-                case "SpeechOpenAI" -> buildOpenAIBody(model, voiceId, spoken, style);
-                case "SpeechGemini" -> buildGeminiBody(model, voiceId, spoken);
-                case "SpeechMiniMax" -> buildMiniMaxBody(model, voiceId, spoken);
-                case "SpeechXAI" -> buildXAIBody(voiceId, spoken);
-                default -> buildInworldBody(model, voiceId, spoken);
-            };
+            JsonObject body = requestBody(sgCfg, model, voiceId, spoken);
 
             // The OpenAI shape returns binary audio (not JSON), so the reply is
             // read as raw bytes and must not be lossily UTF-8 decoded before the
@@ -272,14 +266,27 @@ public final class Speech {
 
     // --- Request bodies ---
 
+    /** Selects the request body by the config's wire shape (BUG-105). */
+    JsonObject requestBody(SpeechGenDef sgCfg, String model, String voice, String text) {
+        return switch (sgCfg.wireShape()) {
+            case "SpeechInworld" -> buildInworldBody(model, voice, text, sgCfg.requestedOutputFormat());
+            case "SpeechOpenAI" -> buildOpenAIBody(model, voice, text, style, sgCfg.requestedOutputFormat());
+            case "SpeechGemini" -> buildGeminiBody(model, voice, text);
+            case "SpeechMiniMax" -> buildMiniMaxBody(model, voice, text);
+            case "SpeechXAI" -> buildXAIBody(voice, text, sgCfg.requestedOutputFormat());
+            default -> throw new IllegalStateException(
+                    "speech: unsupported wire shape \"" + sgCfg.wireShape() + "\"");
+        };
+    }
+
     /**
-     * Inworld {@code /tts/v1/voice} body. Slice 1 sends a fixed audioConfig
-     * (LINEAR16/22050 -> WAV) and BALANCED delivery; format/sample-rate
-     * selection is a later slice (ADR-049 OQ-5).
+     * Inworld {@code /tts/v1/voice} body. Sends the config's requested
+     * format (LINEAR16) at a fixed 22050 Hz and BALANCED delivery;
+     * sample-rate selection is a later slice (ADR-049 OQ-5).
      */
-    private static JsonObject buildInworldBody(String model, String voice, String text) {
+    private static JsonObject buildInworldBody(String model, String voice, String text, String format) {
         JsonObject audioConfig = new JsonObject();
-        audioConfig.addProperty("audioEncoding", "LINEAR16");
+        audioConfig.addProperty("audioEncoding", format);
         audioConfig.addProperty("sampleRateHertz", 22050);
 
         JsonObject body = new JsonObject();
@@ -297,9 +304,9 @@ public final class Speech {
      * with_timestamps is never sent: it switches the reply from raw audio
      * bytes to JSON.
      */
-    private static JsonObject buildXAIBody(String voice, String text) {
+    private static JsonObject buildXAIBody(String voice, String text, String format) {
         JsonObject outputFormat = new JsonObject();
-        outputFormat.addProperty("codec", "mp3");
+        outputFormat.addProperty("codec", format);
         JsonObject body = new JsonObject();
         body.addProperty("text", text);
         body.addProperty("voice_id", voice);
@@ -324,17 +331,17 @@ public final class Speech {
     }
 
     /**
-     * OpenAI {@code /v1/audio/speech} body. Slice 1 fixes
-     * {@code response_format=mp3} (KISS); format selection is a later slice
-     * (ADR-051). A style is sent as {@code instructions} (BUG-091), which
-     * gpt-4o-mini-tts accepts.
+     * OpenAI {@code /v1/audio/speech} body. {@code response_format} is the
+     * config's requested format (mp3). A style is sent as
+     * {@code instructions} (BUG-091), which gpt-4o-mini-tts accepts.
      */
-    private static JsonObject buildOpenAIBody(String model, String voice, String text, String style) {
+    private static JsonObject buildOpenAIBody(
+            String model, String voice, String text, String style, String format) {
         JsonObject body = new JsonObject();
         body.addProperty("model", model);
         body.addProperty("input", text);
         body.addProperty("voice", voice);
-        body.addProperty("response_format", "mp3");
+        body.addProperty("response_format", format);
         if (!style.isEmpty()) {
             body.addProperty("instructions", style);
         }
@@ -431,7 +438,7 @@ public final class Speech {
      * is a {@link DecodingException} (HANDOFF-036 A5) — never a silent
      * empty clip.
      */
-    private static SpeechResponse parseResponse(
+    static SpeechResponse parseResponse(
             String providerSlug, String encoding, String fallbackMime, byte[] body) {
         byte[] bytes;
         if ("rawBody".equals(encoding)) {
@@ -440,7 +447,7 @@ public final class Speech {
             return parseInteractionSteps(providerSlug, fallbackMime, body);
         } else if ("hexEnvelope".equals(encoding)) {
             bytes = parseHexEnvelope(providerSlug, body);
-        } else {
+        } else if ("base64Envelope".equals(encoding)) {
             String b64;
             try {
                 JsonElement raw = Json.parse(new String(body, StandardCharsets.UTF_8));
@@ -458,6 +465,8 @@ public final class Speech {
                 throw new DecodingException(
                         providerSlug + " speech response: invalid base64 in audioContent: " + e.getMessage(), e);
             }
+        } else {
+            throw new IllegalStateException("speech: unsupported audio encoding \"" + encoding + "\"");
         }
         return new SpeechResponse(new AudioData(fallbackMime, bytes), Usage.none(), null);
     }
