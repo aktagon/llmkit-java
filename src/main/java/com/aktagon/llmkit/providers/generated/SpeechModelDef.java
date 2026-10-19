@@ -8,7 +8,7 @@ public record SpeechModelDef(
         String outputMime,
         /** ADR-037 advisory fact (queryable, never gated); 0 when unverified. */
         int sampleRateHz,
-        /** Speakers a multi-speaker request declares; 0 = one voice only (BUG-091). */
-        int maxSpeakers,
-        /** Whether a style (style, addStyledLine) is sent to this model (BUG-091). */
-        boolean supportsSpeechStyle) {}
+        /** Speakers the model takes (1 or 2); null = unknown, which sends (decision 009). */
+        Integer maxSpeakers,
+        /** Whether the provider accepts a style; null = unknown, only false blocks (decision 009). */
+        Boolean supportsSpeechStyle) {}
