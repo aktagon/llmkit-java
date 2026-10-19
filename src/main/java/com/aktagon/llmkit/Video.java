@@ -222,7 +222,7 @@ public final class Video {
     // --- Parts ---
 
     /** The internal video-input atom: prompt text plus optional seed frames. */
-    private sealed interface Part {
+    sealed interface Part {
         record Text(String text) implements Part {}
 
         record ImagePart(MediaRef media) implements Part {}
@@ -408,7 +408,7 @@ public final class Video {
      * dotted path). SigV4 providers (Bedrock) sign the exact bytes via
      * {@link RequestBuilder#send}.
      */
-    private String dispatchSubmit(
+    String dispatchSubmit(
             Providers.Spec config, VideoGenDef vgCfg, RequestVariant variant, List<Part> parts) {
         String base = VideoPoll.baseUrl(config, vgCfg, baseUrlOverride);
         Map<String, String> headers = RequestBuilder.buildAuthHeaders(config, apiKey);
@@ -521,7 +521,7 @@ public final class Video {
                     body.addProperty("resolution", options.resolution);
                 }
             }
-            default -> {
+            case "VideoGrok", "VideoZhipu", "VideoVidu", "VideoTogether", "VideoMinimax" -> {
                 // Shared {model, prompt} arm (Grok/Zhipu/Vidu/Together/MiniMax).
                 // Image-to-video (BUG-010): a seed frame inlines as a data URL
                 // at xAI's image.url field (absent on the text-to-video hot path).
@@ -535,6 +535,8 @@ public final class Video {
                     body.add("image", image);
                 }
             }
+            default -> throw new IllegalStateException(
+                    "video submit: unsupported wire shape \"" + vgCfg.wireShape() + "\"");
         }
 
         // The submit endpoint is the selected request variant's (ADR-096).
