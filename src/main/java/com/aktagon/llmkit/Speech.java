@@ -25,13 +25,14 @@ import java.util.Map;
  *
  * <p>The generated {@code speechGenConfig(provider)} fact selects both the
  * request body ({@code wireShape}) and the audio decode
- * ({@code audioResponseEncoding}) — never the provider name. Four shapes ship:
+ * ({@code audioResponseEncoding}) — never the provider name. Five shapes ship:
  * {@code SpeechInworld} (a flat-JSON POST whose reply carries base64 audio at
  * {@code audioContent}, ADR-049; Basic-prefixed auth carries the raw API key
  * VERBATIM, never re-encoded) and {@code SpeechOpenAI} (a flat-JSON POST
  * whose reply is RAW audio bytes — never JSON — ADR-051 slice 1), plus
  * {@code SpeechGemini} (Interactions API, base64 audio in {@code steps[]})
- * and {@code SpeechMiniMax} (hex audio at {@code data.audio}). Pre-flight
+ * {@code SpeechMiniMax} (hex audio at {@code data.audio}) and
+ * {@code SpeechXAI} (a flat-JSON POST whose reply is RAW audio bytes). Pre-flight
  * validation (model + text or lines required; voice or speakers; provider
  * supports speech; model known; speakers and style the model takes, BUG-091)
  * runs before any HTTP call. Voices are free-form: there is no catalogue.
@@ -194,6 +195,7 @@ public final class Speech {
                 case "SpeechOpenAI" -> buildOpenAIBody(model, voiceId, spoken, style);
                 case "SpeechGemini" -> buildGeminiBody(model, voiceId, spoken);
                 case "SpeechMiniMax" -> buildMiniMaxBody(model, voiceId, spoken);
+                case "SpeechXAI" -> buildXAIBody(voiceId, spoken);
                 default -> buildInworldBody(model, voiceId, spoken);
             };
 
@@ -286,6 +288,23 @@ public final class Speech {
         body.addProperty("modelId", model);
         body.add("audioConfig", audioConfig);
         body.addProperty("deliveryMode", "BALANCED");
+        return body;
+    }
+
+    /**
+     * xAI {@code /v1/tts} body (HANDOFF-095). The endpoint has no model
+     * field. language is always "auto" (llmkit has no language option), and
+     * with_timestamps is never sent: it switches the reply from raw audio
+     * bytes to JSON.
+     */
+    private static JsonObject buildXAIBody(String voice, String text) {
+        JsonObject outputFormat = new JsonObject();
+        outputFormat.addProperty("codec", "mp3");
+        JsonObject body = new JsonObject();
+        body.addProperty("text", text);
+        body.addProperty("voice_id", voice);
+        body.addProperty("language", "auto");
+        body.add("output_format", outputFormat);
         return body;
     }
 
@@ -403,7 +422,7 @@ public final class Speech {
 
     /**
      * Decode the synthesized audio per the wire shape's audio response
-     * encoding (ADR-051 OAA-002). {@code rawBody} (OpenAI) takes the
+     * encoding (ADR-051 OAA-002). {@code rawBody} (OpenAI, xAI) takes the
      * response body verbatim as the audio bytes; {@code base64Envelope}
      * (Inworld) parses a JSON envelope and base64-decodes the
      * {@code audioContent} field; {@code hexEnvelope} (MiniMax) hex-decodes
