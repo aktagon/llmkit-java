@@ -265,7 +265,8 @@ final class VideoPoll {
                         List.of(new VideoData(vmime, "", decoded, 0)), Usage.none(), "", "", null);
             }
             case "VideoMinimax" -> resolveFile(vgCfg, raw, base, headers, http, mime);
-            default -> emptyResponse();
+            default -> throw new IllegalStateException(
+                    "video poll: unsupported wire shape \"" + vgCfg.wireShape() + "\"");
         };
     }
 
