@@ -36,7 +36,7 @@ public record VideoGenDef(
                         "invocationArn",
                         true,
                         java.util.List.of(
-                                new VideoModelDef("amazon.nova-reel-v1:0", "Nova Reel", false, false, false, 6, "video/mp4", java.util.List.of("720p"), 0)
+                                new VideoModelDef("amazon.nova-reel-v1:0", "Nova Reel", false, false, false, 6, "video/mp4", java.util.List.of("720p"), java.util.List.of(), 0)
                         ));
             case GOOGLE:
                 return new VideoGenDef(
@@ -50,9 +50,9 @@ public record VideoGenDef(
                         "name",
                         false,
                         java.util.List.of(
-                                new VideoModelDef("veo-3.1-fast-generate-preview", "Veo 3.1 Fast", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "4k", "720p"), 1),
-                                new VideoModelDef("veo-3.1-generate-preview", "Veo 3.1", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "720p"), 1),
-                                new VideoModelDef("veo-3.1-lite-generate-preview", "Veo 3.1 Lite", true, true, false, 8, "video/mp4", java.util.List.of("1080p", "720p"), 1)
+                                new VideoModelDef("veo-3.1-fast-generate-preview", "Veo 3.1 Fast", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "4k", "720p"), java.util.List.of(), 1),
+                                new VideoModelDef("veo-3.1-generate-preview", "Veo 3.1", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of(), 1),
+                                new VideoModelDef("veo-3.1-lite-generate-preview", "Veo 3.1 Lite", true, true, false, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of(), 1)
                         ));
             case GROK:
                 return new VideoGenDef(
@@ -66,9 +66,9 @@ public record VideoGenDef(
                         "request_id",
                         false,
                         java.util.List.of(
-                                new VideoModelDef("grok-imagine-video", "Grok Imagine Video", true, false, false, 15, "video/mp4", java.util.List.of("480p", "720p"), 1),
-                                new VideoModelDef("grok-imagine-video-1.5", "Grok Imagine Video 1.5", true, false, false, 15, "video/mp4", java.util.List.of("1080p", "480p", "720p"), 1),
-                                new VideoModelDef("grok-imagine-video-1.5-lite", "Grok Imagine Video 1.5 Lite", true, false, false, 15, "video/mp4", java.util.List.of("1080p", "480p", "720p"), 1)
+                                new VideoModelDef("grok-imagine-video", "Grok Imagine Video", true, false, false, 15, "video/mp4", java.util.List.of("480p", "720p"), java.util.List.of(), 1),
+                                new VideoModelDef("grok-imagine-video-1.5", "Grok Imagine Video 1.5", true, false, false, 15, "video/mp4", java.util.List.of("1080p", "480p", "720p"), java.util.List.of(), 1),
+                                new VideoModelDef("grok-imagine-video-1.5-lite", "Grok Imagine Video 1.5 Lite", true, false, false, 15, "video/mp4", java.util.List.of("1080p", "480p", "720p"), java.util.List.of(), 1)
                         ));
             case MINIMAX:
                 return new VideoGenDef(
@@ -82,7 +82,7 @@ public record VideoGenDef(
                         "task_id",
                         false,
                         java.util.List.of(
-                                new VideoModelDef("MiniMax-Hailuo-2.3", "MiniMax Hailuo 2.3", false, false, false, 6, "video/mp4", java.util.List.of("1080p", "768p"), 0)
+                                new VideoModelDef("MiniMax-Hailuo-2.3", "MiniMax Hailuo 2.3", false, false, false, 6, "video/mp4", java.util.List.of("1080p", "768p"), java.util.List.of(), 0)
                         ));
             case OPENROUTER:
                 return new VideoGenDef(
@@ -96,16 +96,16 @@ public record VideoGenDef(
                         "id",
                         false,
                         java.util.List.of(
-                                new VideoModelDef("alibaba/wan-3.0", "Wan 3.0", true, true, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("bytedance/seedance-2.0", "Seedance 2.0", true, true, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("bytedance/seedance-2.0-fast", "Seedance 2.0 Fast", true, true, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("bytedance/seedance-2.5", "Seedance 2.5", true, true, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("google/veo-3.1-fast", "Veo 3.1 Fast", true, true, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("google/veo-3.1-lite", "Veo 3.1 Lite", true, true, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("heygen/heygen-video-1", "HeyGen Video 1", true, false, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("kwaivgi/kling-v3.0-std", "Kling 3.0 Standard", true, true, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("minimax/hailuo-3", "Hailuo 3", true, true, false, 0, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("x-ai/grok-imagine-video-1.5-lite", "Grok Imagine Video 1.5 Lite", true, false, false, 0, "video/mp4", java.util.List.of(), 0)
+                                new VideoModelDef("alibaba/wan-3.0", "Wan 3.0", true, true, false, 30, "video/mp4", java.util.List.of("1080p", "480p", "720p"), java.util.List.of("16:9", "1:1", "3:4", "4:3", "9:16"), 0),
+                                new VideoModelDef("bytedance/seedance-2.0", "Seedance 2.0", true, true, false, 15, "video/mp4", java.util.List.of("1080p", "480p", "4K", "720p"), java.util.List.of("16:9", "1:1", "21:9", "3:4", "4:3", "9:16"), 0),
+                                new VideoModelDef("bytedance/seedance-2.0-fast", "Seedance 2.0 Fast", true, true, false, 15, "video/mp4", java.util.List.of("480p", "720p"), java.util.List.of("16:9", "1:1", "21:9", "3:4", "4:3", "9:16"), 0),
+                                new VideoModelDef("bytedance/seedance-2.5", "Seedance 2.5", true, true, false, 30, "video/mp4", java.util.List.of("480p", "720p"), java.util.List.of("16:9", "1:1", "21:9", "3:4", "4:3", "9:16"), 0),
+                                new VideoModelDef("google/veo-3.1-fast", "Veo 3.1 Fast", true, true, false, 8, "video/mp4", java.util.List.of("1080p", "4K", "720p"), java.util.List.of("16:9", "9:16"), 0),
+                                new VideoModelDef("google/veo-3.1-lite", "Veo 3.1 Lite", true, true, false, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of("16:9", "9:16"), 0),
+                                new VideoModelDef("heygen/heygen-video-1", "HeyGen Video 1", true, false, false, 15, "video/mp4", java.util.List.of("2K", "480p", "768p"), java.util.List.of("16:9", "1:1", "21:9", "3:4", "4:3", "9:16"), 0),
+                                new VideoModelDef("kwaivgi/kling-v3.0-std", "Kling 3.0 Standard", true, true, false, 15, "video/mp4", java.util.List.of("720p"), java.util.List.of("16:9", "1:1", "9:16"), 0),
+                                new VideoModelDef("minimax/hailuo-3", "Hailuo 3", true, true, false, 15, "video/mp4", java.util.List.of("2K"), java.util.List.of("16:9", "1:1", "21:9", "3:4", "4:3", "9:16"), 0),
+                                new VideoModelDef("x-ai/grok-imagine-video-1.5-lite", "Grok Imagine Video 1.5 Lite", true, false, false, 15, "video/mp4", java.util.List.of("1080p", "480p", "720p"), java.util.List.of("16:9", "1:1", "2:3", "3:2", "3:4", "4:3", "9:16"), 0)
                         ));
             case PIXVERSE:
                 return new VideoGenDef(
@@ -119,9 +119,9 @@ public record VideoGenDef(
                         "Resp.video_id",
                         false,
                         java.util.List.of(
-                                new VideoModelDef("v4.5", "PixVerse v4.5", false, false, false, 8, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("v5", "PixVerse v5", false, false, false, 8, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("v6", "PixVerse v6", false, false, false, 15, "video/mp4", java.util.List.of(), 0)
+                                new VideoModelDef("v4.5", "PixVerse v4.5", false, false, false, 8, "video/mp4", java.util.List.of(), java.util.List.of(), 0),
+                                new VideoModelDef("v5", "PixVerse v5", false, false, false, 8, "video/mp4", java.util.List.of(), java.util.List.of(), 0),
+                                new VideoModelDef("v6", "PixVerse v6", false, false, false, 15, "video/mp4", java.util.List.of(), java.util.List.of(), 0)
                         ));
             case QWEN:
                 return new VideoGenDef(
@@ -135,7 +135,7 @@ public record VideoGenDef(
                         "output.task_id",
                         false,
                         java.util.List.of(
-                                new VideoModelDef("wan2.2-t2v-plus", "Wan 2.2 T2V Plus", false, false, false, 5, "video/mp4", java.util.List.of("720p"), 0)
+                                new VideoModelDef("wan2.2-t2v-plus", "Wan 2.2 T2V Plus", false, false, false, 5, "video/mp4", java.util.List.of("720p"), java.util.List.of(), 0)
                         ));
             case TOGETHER:
                 return new VideoGenDef(
@@ -149,7 +149,7 @@ public record VideoGenDef(
                         "id",
                         false,
                         java.util.List.of(
-                                new VideoModelDef("minimax/video-01-director", "MiniMax Video 01 Director (Together)", false, false, false, 6, "video/mp4", java.util.List.of("720p"), 0)
+                                new VideoModelDef("minimax/video-01-director", "MiniMax Video 01 Director (Together)", false, false, false, 6, "video/mp4", java.util.List.of("720p"), java.util.List.of(), 0)
                         ));
             case VERTEX:
                 return new VideoGenDef(
@@ -163,10 +163,10 @@ public record VideoGenDef(
                         "name",
                         false,
                         java.util.List.of(
-                                new VideoModelDef("veo-3.1-fast-generate-001", "Veo 3.1 Fast", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "720p"), 1),
-                                new VideoModelDef("veo-3.1-generate-001", "Veo 3.1", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "4k", "720p"), 1),
-                                new VideoModelDef("veo-3.1-generate-preview", "Veo 3.1", true, false, true, 8, "video/mp4", java.util.List.of("1080p", "720p"), 1),
-                                new VideoModelDef("veo-3.1-lite-generate-001", "Veo 3.1 Lite", false, false, false, 8, "video/mp4", java.util.List.of("1080p", "720p"), 0)
+                                new VideoModelDef("veo-3.1-fast-generate-001", "Veo 3.1 Fast", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of(), 1),
+                                new VideoModelDef("veo-3.1-generate-001", "Veo 3.1", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "4k", "720p"), java.util.List.of(), 1),
+                                new VideoModelDef("veo-3.1-generate-preview", "Veo 3.1", true, false, true, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of(), 1),
+                                new VideoModelDef("veo-3.1-lite-generate-001", "Veo 3.1 Lite", false, false, false, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of(), 0)
                         ));
             case VIDU:
                 return new VideoGenDef(
@@ -180,9 +180,9 @@ public record VideoGenDef(
                         "task_id",
                         false,
                         java.util.List.of(
-                                new VideoModelDef("viduq1", "Vidu Q1", false, false, false, 16, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("viduq2", "Vidu Q2", false, false, false, 16, "video/mp4", java.util.List.of(), 0),
-                                new VideoModelDef("viduq3-pro", "Vidu Q3 Pro", false, false, false, 16, "video/mp4", java.util.List.of(), 0)
+                                new VideoModelDef("viduq1", "Vidu Q1", false, false, false, 16, "video/mp4", java.util.List.of(), java.util.List.of(), 0),
+                                new VideoModelDef("viduq2", "Vidu Q2", false, false, false, 16, "video/mp4", java.util.List.of(), java.util.List.of(), 0),
+                                new VideoModelDef("viduq3-pro", "Vidu Q3 Pro", false, false, false, 16, "video/mp4", java.util.List.of(), java.util.List.of(), 0)
                         ));
             case ZHIPU:
                 return new VideoGenDef(
@@ -196,7 +196,7 @@ public record VideoGenDef(
                         "id",
                         false,
                         java.util.List.of(
-                                new VideoModelDef("cogvideox-3", "CogVideoX-3", false, false, false, 10, "video/mp4", java.util.List.of("1080p", "4k", "720p"), 0)
+                                new VideoModelDef("cogvideox-3", "CogVideoX-3", false, false, false, 10, "video/mp4", java.util.List.of("1080p", "4k", "720p"), java.util.List.of(), 0)
                         ));
             default: return null;
         }
