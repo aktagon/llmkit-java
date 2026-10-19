@@ -25,6 +25,15 @@ public record SpeechGenDef(
                                 new SpeechModelDef("gemini-3.8-flash-tts", "Gemini 3.8 Flash TTS", "audio/wav", 24000, 2, true)
                         ),
                         "");
+            case GROK:
+                return new SpeechGenDef(
+                        "SpeechXAI",
+                        "rawBody",
+                        "/v1/tts",
+                        java.util.List.of(
+                                new SpeechModelDef("grok-tts", "Grok TTS", "audio/mpeg", 0, 0, false)
+                        ),
+                        "");
             case INWORLD:
                 return new SpeechGenDef(
                         "SpeechInworld",
