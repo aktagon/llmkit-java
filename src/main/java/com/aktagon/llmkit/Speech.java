@@ -171,7 +171,7 @@ public final class Speech {
             throw new ValidationException(
                     "model", model + " is not a known speech-generation model for " + config.slug);
         }
-        validateModel(modelDef);
+        validateModel(sgCfg, modelDef);
 
         Event baseEvent = Event.of(MiddlewareOp.SPEECH_GENERATION, config.slug, model);
         long startNanos = System.nanoTime();
@@ -252,20 +252,25 @@ public final class Speech {
         }
     }
 
-    /** Checks the request against the model's speaker and style facts (BUG-091). */
-    private void validateModel(SpeechModelDef modelDef) {
+    /**
+     * Checks the request against what the config's body can carry and the
+     * model's stated speaker and style facts (BUG-091). An unknown model fact
+     * (null) sends the request; only a stated false or a stated speaker count
+     * that does not match blocks it (decision 009, HANDOFF-099).
+     */
+    private void validateModel(SpeechGenDef sgCfg, SpeechModelDef modelDef) {
+        Integer max = modelDef.maxSpeakers();
         if (!speakers.isEmpty()) {
-            if (modelDef.maxSpeakers() == 0) {
+            if (!sgCfg.multiSpeaker() || Integer.valueOf(1).equals(max)) {
                 throw new ValidationException("speakers", modelDef.modelId() + " does not support multiple speakers");
             }
-            if (speakers.size() != modelDef.maxSpeakers()) {
+            if (max != null && speakers.size() != max) {
                 throw new ValidationException(
-                        "speakers",
-                        "exactly " + modelDef.maxSpeakers() + " speakers are required, got " + speakers.size());
+                        "speakers", "exactly " + max + " speakers are required, got " + speakers.size());
             }
         }
         boolean styled = !style.isEmpty() || lines.stream().anyMatch(l -> !l.style().isEmpty());
-        if (styled && !modelDef.supportsSpeechStyle()) {
+        if (styled && (!sgCfg.carriesSpeechStyle() || Boolean.FALSE.equals(modelDef.supportsSpeechStyle()))) {
             throw new ValidationException("style", modelDef.modelId() + " does not support a speech style");
         }
     }
