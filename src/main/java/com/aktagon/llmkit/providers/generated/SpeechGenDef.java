@@ -6,6 +6,8 @@ public record SpeechGenDef(
         String wireShape,
         /** "base64Envelope" | "rawBody" | "base64InteractionSteps" | "hexEnvelope" (ADR-051). */
         String audioResponseEncoding,
+        /** The format token the body sends (mp3, LINEAR16); "" = the body sends no format (HANDOFF-098). */
+        String requestedOutputFormat,
         String genEndpoint,
         java.util.List<SpeechModelDef> models,
         /** Speech API base when it differs from the chat base; "" = use chat base. */
@@ -18,6 +20,7 @@ public record SpeechGenDef(
                 return new SpeechGenDef(
                         "SpeechGemini",
                         "base64InteractionSteps",
+                        "",
                         "/v1beta/interactions",
                         java.util.List.of(
                                 new SpeechModelDef("gemini-3.1-flash-tts-preview", "Gemini 3.1 Flash TTS Preview", "audio/l16", 0, 0, false),
@@ -29,6 +32,7 @@ public record SpeechGenDef(
                 return new SpeechGenDef(
                         "SpeechXAI",
                         "rawBody",
+                        "mp3",
                         "/v1/tts",
                         java.util.List.of(
                                 new SpeechModelDef("grok-tts", "Grok TTS", "audio/mpeg", 0, 0, false)
@@ -38,6 +42,7 @@ public record SpeechGenDef(
                 return new SpeechGenDef(
                         "SpeechInworld",
                         "base64Envelope",
+                        "LINEAR16",
                         "/tts/v1/voice",
                         java.util.List.of(
                                 new SpeechModelDef("inworld-tts-1.5-max", "Inworld TTS 1.5 Max", "audio/wav", 0, 0, false),
@@ -49,6 +54,7 @@ public record SpeechGenDef(
                 return new SpeechGenDef(
                         "SpeechMiniMax",
                         "hexEnvelope",
+                        "",
                         "/v1/t2a_v2",
                         java.util.List.of(
                                 new SpeechModelDef("speech-2.6-hd", "MiniMax Speech 2.6 HD", "audio/mpeg", 0, 0, false),
@@ -61,6 +67,7 @@ public record SpeechGenDef(
                 return new SpeechGenDef(
                         "SpeechOpenAI",
                         "rawBody",
+                        "mp3",
                         "/v1/audio/speech",
                         java.util.List.of(
                                 new SpeechModelDef("gpt-4o-mini-tts", "GPT-4o mini TTS", "audio/mpeg", 0, 0, true),
@@ -72,6 +79,7 @@ public record SpeechGenDef(
                 return new SpeechGenDef(
                         "SpeechOpenAI",
                         "rawBody",
+                        "mp3",
                         "/v1/audio/speech",
                         java.util.List.of(
                                 new SpeechModelDef("elevenlabs/eleven-v3", "Eleven v3", "audio/mpeg", 0, 0, false),
