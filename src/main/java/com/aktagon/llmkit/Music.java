@@ -174,7 +174,7 @@ public final class Music {
      * (the Rust runtime rejects {@code Part::Image}; here the case does not
      * exist).
      */
-    private sealed interface Part {
+    sealed interface Part {
         record Text(String text) implements Part {}
 
         record Lyrics(String text) implements Part {}
@@ -222,7 +222,7 @@ public final class Music {
 
     // --- Send ---
 
-    private MusicResponse send(List<Part> parts, MusicModelDef modelDef, MusicGenDef mgCfg, Providers.Spec config) {
+    MusicResponse send(List<Part> parts, MusicModelDef modelDef, MusicGenDef mgCfg, Providers.Spec config) {
         // Explicit override > the provider's distinct music base > the chat
         // base. mgCfg.baseUrl() is "" for every provider whose music API shares
         // the chat host, so this is a no-op except for MiniMax.
@@ -244,11 +244,13 @@ public final class Music {
                 url = base + mgCfg.genEndpoint();
                 body = buildMinimaxBody(parts, model);
             }
-            default -> { // MusicGenerateContent (Gemini)
+            case "MusicGenerateContent" -> { // Gemini
                 String endpoint = mgCfg.genEndpoint().isEmpty() ? config.endpoint : mgCfg.genEndpoint();
                 url = RequestBuilder.buildUrl(config, endpoint, apiKey, model, baseUrlOverride);
                 body = buildGeminiBody(parts);
             }
+            default -> throw new IllegalStateException(
+                    "music: unsupported wire shape \"" + mgCfg.wireShape() + "\"");
         }
 
         HttpTransport.Result result = http.postJson(url, Json.serialize(body), headers);
@@ -352,11 +354,12 @@ public final class Music {
 
     // --- Response parsing (selected by wireShape, never provider name) ---
 
-    private static MusicResponse parseResponse(String wireShape, String fallbackMime, JsonElement raw) {
+    static MusicResponse parseResponse(String wireShape, String fallbackMime, JsonElement raw) {
         return switch (wireShape) {
             case "MusicPredict" -> parseVertexResponse(raw, fallbackMime);
             case "MusicMinimax" -> parseMinimaxResponse(raw, fallbackMime);
-            default -> parseGeminiResponse(raw, fallbackMime); // MusicGenerateContent
+            case "MusicGenerateContent" -> parseGeminiResponse(raw, fallbackMime);
+            default -> throw new IllegalStateException("music: unsupported wire shape \"" + wireShape + "\"");
         };
     }
 

@@ -229,7 +229,7 @@ public final class Image {
      * followed by the prompt text (edit path), or the bare prompt text
      * (generation path). Mirrors Swift's {@code ImagePart} / Rust's {@code Part}.
      */
-    private sealed interface Part {
+    sealed interface Part {
         record Text(String text) implements Part {}
 
         record ImagePart(MediaRef media) implements Part {}
@@ -289,7 +289,7 @@ public final class Image {
      * limit); the knobs a request shape does not carry are rejected. Mirror of
      * Go's {@code generateImage} validation.
      */
-    private RequestVariant validate(List<Part> parts, ImageModelDef modelDef, ImageGenDef imgCfg, String slug) {
+    RequestVariant validate(List<Part> parts, ImageModelDef modelDef, ImageGenDef imgCfg, String slug) {
         if (options.aspectRatio != null
                 && !modelDef.aspectRatios().isEmpty()
                 && !modelDef.aspectRatios().contains(options.aspectRatio)) {
@@ -357,7 +357,8 @@ public final class Image {
                 reject(options.safetyFilter, "safety_filter", slug);
                 reject(safetySettings, "safety_settings", slug);
             }
-            default -> {}
+            default -> throw new IllegalStateException(
+                    "image: unsupported request shape \"" + variant.shape() + "\"");
         }
         return variant;
     }
@@ -668,11 +669,13 @@ public final class Image {
 
     // --- Response parsing (selected by responseShape, never provider name) ---
 
-    private static ImageResponse parseResponse(JsonElement raw, ImageGenDef cfg) {
+    static ImageResponse parseResponse(JsonElement raw, ImageGenDef cfg) {
         return switch (cfg.responseShape()) {
             case "DataArrayB64Json" -> parseDataArray(
                     raw, cfg.usageInputPath(), cfg.usageOutputPath(), cfg.usageReasoningPath());
-            default -> parseGoogleParts(raw, cfg); // GoogleParts
+            case "GoogleParts" -> parseGoogleParts(raw, cfg);
+            default -> throw new IllegalStateException(
+                    "image: unsupported response shape \"" + cfg.responseShape() + "\"");
         };
     }
 
