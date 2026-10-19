@@ -31,7 +31,7 @@ public record SpeechGenDef(
                         "rawBody",
                         "/v1/tts",
                         java.util.List.of(
-                                new SpeechModelDef("grok-tts", "Grok TTS", "audio/mpeg", 0, 0, false)
+                                new SpeechModelDef("grok-tts", "Grok TTS", "audio/mpeg", 24000, 0, true)
                         ),
                         "");
             case INWORLD:
@@ -42,7 +42,7 @@ public record SpeechGenDef(
                         java.util.List.of(
                                 new SpeechModelDef("inworld-tts-1.5-max", "Inworld TTS 1.5 Max", "audio/wav", 0, 0, false),
                                 new SpeechModelDef("inworld-tts-1.5-mini", "Inworld TTS 1.5 Mini", "audio/wav", 0, 0, false),
-                                new SpeechModelDef("inworld-tts-2", "Inworld TTS 2", "audio/wav", 0, 0, false)
+                                new SpeechModelDef("inworld-tts-2", "Inworld TTS 2", "audio/wav", 0, 0, true)
                         ),
                         "");
             case MINIMAX:
@@ -51,10 +51,10 @@ public record SpeechGenDef(
                         "hexEnvelope",
                         "/v1/t2a_v2",
                         java.util.List.of(
-                                new SpeechModelDef("speech-2.6-hd", "MiniMax Speech 2.6 HD", "audio/mpeg", 0, 0, false),
-                                new SpeechModelDef("speech-2.6-turbo", "MiniMax Speech 2.6 Turbo", "audio/mpeg", 0, 0, false),
-                                new SpeechModelDef("speech-2.8-hd", "MiniMax Speech 2.8 HD", "audio/mpeg", 0, 0, false),
-                                new SpeechModelDef("speech-2.8-turbo", "MiniMax Speech 2.8 Turbo", "audio/mpeg", 0, 0, false)
+                                new SpeechModelDef("speech-2.6-hd", "MiniMax Speech 2.6 HD", "audio/mpeg", 0, 0, true),
+                                new SpeechModelDef("speech-2.6-turbo", "MiniMax Speech 2.6 Turbo", "audio/mpeg", 0, 0, true),
+                                new SpeechModelDef("speech-2.8-hd", "MiniMax Speech 2.8 HD", "audio/mpeg", 0, 0, true),
+                                new SpeechModelDef("speech-2.8-turbo", "MiniMax Speech 2.8 Turbo", "audio/mpeg", 0, 0, true)
                         ),
                         "https://api.minimax.io");
             case OPENAI:
@@ -74,16 +74,16 @@ public record SpeechGenDef(
                         "rawBody",
                         "/v1/audio/speech",
                         java.util.List.of(
-                                new SpeechModelDef("elevenlabs/eleven-v3", "Eleven v3", "audio/mpeg", 0, 0, false),
-                                new SpeechModelDef("elevenlabs/eleven-v4", "Eleven v4", "audio/mpeg", 0, 0, false),
-                                new SpeechModelDef("elevenlabs/eleven-v4-turbo", "Eleven v4 Turbo", "audio/mpeg", 0, 0, false),
-                                new SpeechModelDef("fish-audio/drama-3", "Fish Audio Drama 3", "audio/mpeg", 0, 0, false),
-                                new SpeechModelDef("fish-audio/s2.1-pro", "Fish Audio S2.1 Pro", "audio/mpeg", 0, 0, false),
-                                new SpeechModelDef("google/gemini-3.1-flash-tts-preview", "Gemini 3.1 Flash TTS Preview", "audio/mpeg", 0, 0, false),
-                                new SpeechModelDef("google/gemini-3.8-flash-lite-tts", "Gemini 3.8 Flash Lite TTS", "audio/mpeg", 0, 0, false),
-                                new SpeechModelDef("google/gemini-3.8-flash-tts", "Gemini 3.8 Flash TTS", "audio/mpeg", 0, 0, false),
-                                new SpeechModelDef("hexgrad/kokoro-82m", "Kokoro 82M", "audio/mpeg", 0, 0, false),
-                                new SpeechModelDef("x-ai/grok-voice-tts-1.0", "Grok Voice TTS 1.0", "audio/mpeg", 0, 0, false)
+                                new SpeechModelDef("elevenlabs/eleven-v3", "Eleven v3", "audio/mpeg", 0, 1, false),
+                                new SpeechModelDef("elevenlabs/eleven-v4", "Eleven v4", "audio/mpeg", 0, 1, false),
+                                new SpeechModelDef("elevenlabs/eleven-v4-turbo", "Eleven v4 Turbo", "audio/mpeg", 0, 1, false),
+                                new SpeechModelDef("fish-audio/drama-3", "Fish Audio Drama 3", "audio/mpeg", 0, 0, true),
+                                new SpeechModelDef("fish-audio/s2.1-pro", "Fish Audio S2.1 Pro", "audio/mpeg", 0, 0, true),
+                                new SpeechModelDef("google/gemini-3.1-flash-tts-preview", "Gemini 3.1 Flash TTS Preview", "audio/mpeg", 0, 0, true),
+                                new SpeechModelDef("google/gemini-3.8-flash-lite-tts", "Gemini 3.8 Flash Lite TTS", "audio/mpeg", 0, 0, true),
+                                new SpeechModelDef("google/gemini-3.8-flash-tts", "Gemini 3.8 Flash TTS", "audio/mpeg", 0, 0, true),
+                                new SpeechModelDef("hexgrad/kokoro-82m", "Kokoro 82M", "audio/mpeg", 0, 1, false),
+                                new SpeechModelDef("x-ai/grok-voice-tts-1.0", "Grok Voice TTS 1.0", "audio/mpeg", 0, 1, false)
                         ),
                         "");
             default: return null;
