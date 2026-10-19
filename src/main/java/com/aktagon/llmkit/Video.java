@@ -113,25 +113,27 @@ public final class Video {
     }
 
     /**
-     * Set the video length in whole seconds. Only OpenRouter sends it; other
-     * providers reject it before send, as does a value above the model's
-     * maximum (HANDOFF-097).
+     * Set the video length in whole seconds. OpenRouter, Grok, Veo and Vertex
+     * Veo send it; other providers reject it before send, as does a value
+     * above the model's maximum (HANDOFF-097, HANDOFF-100).
      */
     public Video duration(int seconds) {
         return withOptions(o -> o.durationSeconds = seconds);
     }
 
     /**
-     * Set the output aspect ratio, such as "16:9". Only OpenRouter sends it;
-     * a ratio the model does not list is rejected before send (HANDOFF-097).
+     * Set the output aspect ratio, such as "16:9". Sent on the same providers
+     * as {@link #duration}; a ratio the model does not list is rejected before
+     * send (HANDOFF-097, HANDOFF-100).
      */
     public Video aspectRatio(String ratio) {
         return withOptions(o -> o.aspectRatio = ratio);
     }
 
     /**
-     * Set the output resolution, such as "720p". Only OpenRouter sends it; a
-     * resolution the model does not list is rejected before send (HANDOFF-097).
+     * Set the output resolution, such as "720p". Sent on the same providers as
+     * {@link #duration}; a resolution the model does not list is rejected
+     * before send (HANDOFF-097, HANDOFF-100).
      */
     public Video resolution(String resolution) {
         return withOptions(o -> o.resolution = resolution);
@@ -334,13 +336,15 @@ public final class Video {
      * Rejects a duration, aspect ratio or resolution the provider or the
      * model cannot take, before any HTTP call (HANDOFF-097). Same rules,
      * order and messages as Go's {@code validateVideoOptions}: a set option
-     * on a wire shape other than VideoOpenRouter (first of duration,
-     * aspect_ratio, resolution), a negative duration, a duration above the
-     * model maximum (0 = no limit), then an unlisted resolution and an
+     * on a wire shape with no body field for it (see
+     * {@link #shapeSendsOptions}; first of duration, aspect_ratio,
+     * resolution), a negative duration, a duration above the model maximum
+     * (0 = no limit), a duration other than 8 with reference images (Veo
+     * forces 8 seconds; HANDOFF-100), then an unlisted resolution and an
      * unlisted aspect ratio (empty list = no fixed set).
      */
     private void validateOptions(String slug, VideoGenDef vgCfg, VideoModelDef modelDef) {
-        if (!"VideoOpenRouter".equals(vgCfg.wireShape())) {
+        if (!shapeSendsOptions(vgCfg.wireShape())) {
             String field = options.durationSeconds != 0 ? "duration"
                     : !options.aspectRatio.isEmpty() ? "aspect_ratio"
                     : !options.resolution.isEmpty() ? "resolution"
@@ -358,6 +362,9 @@ public final class Video {
             throw new ValidationException("duration", modelDef.modelId() + " takes at most "
                     + modelDef.maxDurationSeconds() + " seconds, got " + duration);
         }
+        if (duration > 0 && !options.referenceImages.isEmpty() && duration != 8) {
+            throw new ValidationException("duration", "reference images take 8 seconds, got " + duration);
+        }
         if (!options.resolution.isEmpty() && !modelDef.resolutions().isEmpty()
                 && !modelDef.resolutions().contains(options.resolution)) {
             throw new ValidationException(
@@ -367,6 +374,36 @@ public final class Video {
                 && !modelDef.aspectRatios().contains(options.aspectRatio)) {
             throw new ValidationException(
                     "aspect_ratio", modelDef.modelId() + " does not support aspect ratio " + options.aspectRatio);
+        }
+    }
+
+    /**
+     * Whether a video wire shape has body fields for duration, aspect ratio
+     * and resolution (HANDOFF-097, HANDOFF-100).
+     */
+    private static boolean shapeSendsOptions(String wireShape) {
+        return switch (wireShape) {
+            case "VideoOpenRouter", "VideoGrok", "VideoVeo", "VideoVertexVeo" -> true;
+            default -> false;
+        };
+    }
+
+    /**
+     * Sets the body-root duration, aspect_ratio and resolution of the
+     * VideoOpenRouter and VideoGrok bodies (HANDOFF-097, HANDOFF-100), each
+     * only when set, so the prompt-only body stays {model, prompt}. duration
+     * is a JSON integer; validateOptions has already checked each value
+     * against the model.
+     */
+    private void setRootVideoOptions(JsonObject body) {
+        if (options.durationSeconds > 0) {
+            body.addProperty("duration", options.durationSeconds);
+        }
+        if (!options.aspectRatio.isEmpty()) {
+            body.addProperty("aspect_ratio", options.aspectRatio);
+        }
+        if (!options.resolution.isEmpty()) {
+            body.addProperty("resolution", options.resolution);
         }
     }
 
@@ -461,6 +498,7 @@ public final class Video {
                 instances.add(instance);
                 body = new JsonObject();
                 body.add("instances", instances);
+                JsonObject parameters = new JsonObject();
                 if (!options.referenceImages.isEmpty()) {
                     JsonArray refs = new JsonArray();
                     for (MediaRef ref : options.referenceImages) {
@@ -470,8 +508,22 @@ public final class Video {
                         refs.add(item);
                     }
                     instance.add("referenceImages", refs);
-                    JsonObject parameters = new JsonObject();
                     parameters.addProperty("durationSeconds", 8);
+                }
+                // Video options (HANDOFF-100): parameters.durationSeconds (a
+                // JSON number), aspectRatio and resolution, each only when set.
+                // With reference images validateOptions allows only 8, so a set
+                // duration matches the forced 8.
+                if (options.durationSeconds > 0) {
+                    parameters.addProperty("durationSeconds", options.durationSeconds);
+                }
+                if (!options.aspectRatio.isEmpty()) {
+                    parameters.addProperty("aspectRatio", options.aspectRatio);
+                }
+                if (!options.resolution.isEmpty()) {
+                    parameters.addProperty("resolution", options.resolution);
+                }
+                if (parameters.size() > 0) {
                     body.add("parameters", parameters);
                 }
             }
@@ -508,18 +560,7 @@ public final class Video {
                     }
                     body.add("frame_images", frames);
                 }
-                // Video options (HANDOFF-097): body-root fields, each sent only
-                // when set, so the prompt-only body stays {model, prompt};
-                // validateOptions has already checked each against the model.
-                if (options.durationSeconds > 0) {
-                    body.addProperty("duration", options.durationSeconds);
-                }
-                if (!options.aspectRatio.isEmpty()) {
-                    body.addProperty("aspect_ratio", options.aspectRatio);
-                }
-                if (!options.resolution.isEmpty()) {
-                    body.addProperty("resolution", options.resolution);
-                }
+                setRootVideoOptions(body);
             }
             case "VideoGrok", "VideoZhipu", "VideoVidu", "VideoTogether", "VideoMinimax" -> {
                 // Shared {model, prompt} arm (Grok/Zhipu/Vidu/Together/MiniMax).
@@ -533,6 +574,11 @@ public final class Video {
                     JsonObject image = new JsonObject();
                     image.addProperty("url", seed);
                     body.add("image", image);
+                }
+                // Only VideoGrok in this arm sends the options (HANDOFF-100);
+                // the other shapes reject a set option in validateOptions.
+                if ("VideoGrok".equals(vgCfg.wireShape())) {
+                    setRootVideoOptions(body);
                 }
             }
             default -> throw new IllegalStateException(
