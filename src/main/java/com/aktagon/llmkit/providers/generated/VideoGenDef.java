@@ -97,8 +97,8 @@ public record VideoGenDef(
                         false,
                         java.util.List.of(
                                 new VideoModelDef("alibaba/wan-3.0", "Wan 3.0", true, true, false, 30, "video/mp4", java.util.List.of("1080p", "480p", "720p"), java.util.List.of("16:9", "1:1", "3:4", "4:3", "9:16"), 0),
-                                new VideoModelDef("bytedance/seedance-2.0", "Seedance 2.0", true, true, false, 15, "video/mp4", java.util.List.of("1080p", "480p", "4K", "720p"), java.util.List.of("16:9", "1:1", "21:9", "3:4", "4:3", "9:16"), 0),
-                                new VideoModelDef("bytedance/seedance-2.0-fast", "Seedance 2.0 Fast", true, true, false, 15, "video/mp4", java.util.List.of("480p", "720p"), java.util.List.of("16:9", "1:1", "21:9", "3:4", "4:3", "9:16"), 0),
+                                new VideoModelDef("bytedance/seedance-2.0", "Seedance 2.0", true, true, false, 15, "video/mp4", java.util.List.of("1080p", "480p", "4K", "720p"), java.util.List.of("16:9", "1:1", "21:9", "3:4", "4:3", "9:16", "9:21"), 0),
+                                new VideoModelDef("bytedance/seedance-2.0-fast", "Seedance 2.0 Fast", true, true, false, 15, "video/mp4", java.util.List.of("480p", "720p"), java.util.List.of("16:9", "1:1", "21:9", "3:4", "4:3", "9:16", "9:21"), 0),
                                 new VideoModelDef("bytedance/seedance-2.5", "Seedance 2.5", true, true, false, 30, "video/mp4", java.util.List.of("480p", "720p"), java.util.List.of("16:9", "1:1", "21:9", "3:4", "4:3", "9:16"), 0),
                                 new VideoModelDef("google/veo-3.1-fast", "Veo 3.1 Fast", true, true, false, 8, "video/mp4", java.util.List.of("1080p", "4K", "720p"), java.util.List.of("16:9", "9:16"), 0),
                                 new VideoModelDef("google/veo-3.1-lite", "Veo 3.1 Lite", true, true, false, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of("16:9", "9:16"), 0),
