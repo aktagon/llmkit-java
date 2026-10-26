@@ -223,6 +223,7 @@ public final class Catalogue {
         public final String endpoint;
         public final String pagination;
         public final String cursorParam;
+        public final String listQuery;
         public final String parserKind;
         public final String specUrl;
         public final String specFormat;
@@ -231,12 +232,14 @@ public final class Catalogue {
                 String endpoint,
                 String pagination,
                 String cursorParam,
+                String listQuery,
                 String parserKind,
                 String specUrl,
                 String specFormat) {
             this.endpoint = endpoint;
             this.pagination = pagination;
             this.cursorParam = cursorParam;
+            this.listQuery = listQuery;
             this.parserKind = parserKind;
             this.specUrl = specUrl;
             this.specFormat = specFormat;
@@ -247,6 +250,7 @@ public final class Catalogue {
             "/v1/models",
             "CursorByLastID",
             "after_id",
+            "",
             "ParseAnthropicModels",
             "https://github.com/anthropics/anthropic-sdk-typescript/blob/main/api.md",
             "OpenAPI3");
@@ -254,6 +258,7 @@ public final class Catalogue {
     private static final CatalogueConfig CEREBRAS_CATALOGUE = new CatalogueConfig(
             "/v1/models",
             "PaginationNone",
+            "",
             "",
             "ParseOpenAICohortModels",
             "",
@@ -263,6 +268,7 @@ public final class Catalogue {
             "/v1/models",
             "PaginationNone",
             "",
+            "",
             "ParseOpenAICohortModels",
             "",
             "");
@@ -270,6 +276,7 @@ public final class Catalogue {
     private static final CatalogueConfig FIREWORKS_CATALOGUE = new CatalogueConfig(
             "/v1/models",
             "PaginationNone",
+            "",
             "",
             "ParseOpenAICohortModels",
             "",
@@ -279,6 +286,7 @@ public final class Catalogue {
             "/v1beta/models",
             "CursorOpaqueToken",
             "pageToken",
+            "",
             "ParseGoogleModels",
             "https://generativelanguage.googleapis.com/$discovery/rest?version=v1beta",
             "GoogleDiscovery");
@@ -286,6 +294,7 @@ public final class Catalogue {
     private static final CatalogueConfig GROK_CATALOGUE = new CatalogueConfig(
             "/v1/models",
             "PaginationNone",
+            "",
             "",
             "ParseOpenAICohortModels",
             "",
@@ -295,6 +304,7 @@ public final class Catalogue {
             "/v1/models",
             "PaginationNone",
             "",
+            "",
             "ParseOpenAICohortModels",
             "",
             "");
@@ -302,6 +312,7 @@ public final class Catalogue {
     private static final CatalogueConfig JAN_CATALOGUE = new CatalogueConfig(
             "/v1/models",
             "PaginationNone",
+            "",
             "",
             "ParseOpenAICohortModels",
             "",
@@ -311,6 +322,7 @@ public final class Catalogue {
             "/v1/models",
             "PaginationNone",
             "",
+            "",
             "ParseOpenAICohortModels",
             "",
             "");
@@ -318,6 +330,7 @@ public final class Catalogue {
     private static final CatalogueConfig LMSTUDIO_CATALOGUE = new CatalogueConfig(
             "/v1/models",
             "PaginationNone",
+            "",
             "",
             "ParseOpenAICohortModels",
             "",
@@ -327,6 +340,7 @@ public final class Catalogue {
             "/v1/models",
             "PaginationNone",
             "",
+            "",
             "ParseOpenAICohortModels",
             "https://raw.githubusercontent.com/mistralai/platform-docs-public/main/openapi.yaml",
             "OpenAPI3");
@@ -334,6 +348,7 @@ public final class Catalogue {
     private static final CatalogueConfig MOONSHOT_CATALOGUE = new CatalogueConfig(
             "/v1/models",
             "PaginationNone",
+            "",
             "",
             "ParseOpenAICohortModels",
             "",
@@ -343,6 +358,7 @@ public final class Catalogue {
             "/v1/models",
             "PaginationNone",
             "",
+            "",
             "ParseOpenAICohortModels",
             "https://raw.githubusercontent.com/ollama/ollama/main/docs/openapi.yaml",
             "OpenAPI3");
@@ -350,6 +366,7 @@ public final class Catalogue {
     private static final CatalogueConfig OPENAI_CATALOGUE = new CatalogueConfig(
             "/v1/models",
             "PaginationNone",
+            "",
             "",
             "ParseOpenAICohortModels",
             "https://github.com/openai/openai-openapi/blob/master/openapi.yaml",
@@ -359,6 +376,7 @@ public final class Catalogue {
             "/v1/models",
             "PaginationNone",
             "",
+            "output_modalities=all",
             "ParseOpenAICohortModels",
             "https://openrouter.ai/openapi.json",
             "OpenAPI3");
@@ -366,6 +384,7 @@ public final class Catalogue {
     private static final CatalogueConfig QWEN_CATALOGUE = new CatalogueConfig(
             "/v1/models",
             "PaginationNone",
+            "",
             "",
             "ParseOpenAICohortModels",
             "",
@@ -375,6 +394,7 @@ public final class Catalogue {
             "/v1/models",
             "PaginationNone",
             "",
+            "",
             "ParseOpenAICohortModels",
             "https://raw.githubusercontent.com/togethercomputer/openapi/main/openapi.yaml",
             "OpenAPI3");
@@ -382,6 +402,7 @@ public final class Catalogue {
     private static final CatalogueConfig VLLM_CATALOGUE = new CatalogueConfig(
             "/v1/models",
             "PaginationNone",
+            "",
             "",
             "ParseOpenAICohortModels",
             "",
