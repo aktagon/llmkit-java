@@ -430,7 +430,7 @@ Client client2 = c.addTelemetry(new Telemetry(bytes -> processor.enqueue(bytes))
 Response resp = client.text().prompt("Hello");
 ```
 
-`httpExport` is a synchronous, fail-open POST — convenient for low volume; for high volume hand your own consumer into your OTEL SDK's batch processor. The same OTLP span shape is emitted byte-for-byte across all six SDKs. Because the export consumer is a required constructor argument, an enabled-but-no-sink `Telemetry` cannot be constructed.
+`httpExport` is a synchronous, fail-open POST — convenient for low volume; for high volume hand your own consumer into your OTEL SDK's batch processor. The same OTLP span shape is emitted byte-for-byte across all seven SDKs. Because the export consumer is a required constructor argument, an enabled-but-no-sink `Telemetry` cannot be constructed.
 
 ## Errors
 
