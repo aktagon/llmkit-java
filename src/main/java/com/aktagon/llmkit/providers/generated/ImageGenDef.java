@@ -25,7 +25,6 @@ public record ImageGenDef(
                         "usageMetadata.thoughtsTokenCount",
                         java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "InlineParts", ""), new RequestVariant(java.util.List.of("WithReferenceImages"), "InlineParts", "")),
                         java.util.List.of(
-                                new ImageModelDef("gemini-3-pro-image-preview", "Nano Banana Pro", java.util.List.of("16:9", "1:1", "21:9", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16"), java.util.List.of("1K", "2K", "4K"), 0, true),
                                 new ImageModelDef("gemini-nano-banana-2.1", "Nano Banana 2.1", java.util.List.of("16:9", "1:1", "1:4", "1:8", "21:9", "2:3", "3:2", "3:4", "4:1", "4:3", "4:5", "5:4", "8:1", "9:16"), java.util.List.of("1K", "2K", "4K"), 0, true)
                         ));
             case GROK:

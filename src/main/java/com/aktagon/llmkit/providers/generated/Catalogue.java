@@ -118,22 +118,6 @@ public final class Catalogue {
                     1048576,
                     65536),
             new CompiledModelDef(
-                    "gemini-3-pro-image-preview",
-                    ProviderName.GOOGLE,
-                    java.util.List.of(Capability.IMAGE_GENERATION),
-                    "Nano Banana Pro",
-                    "Gemini 3 Pro Image Preview",
-                    131072,
-                    32768),
-            new CompiledModelDef(
-                    "gemini-3-pro-preview",
-                    ProviderName.GOOGLE,
-                    java.util.List.of(Capability.CHAT_COMPLETION, Capability.REASONING, Capability.TOOL_CALLING),
-                    "Gemini 3 Pro Preview",
-                    "Gemini 3 Pro Preview",
-                    1048576,
-                    65536),
-            new CompiledModelDef(
                     "gemini-nano-banana-2.1",
                     ProviderName.GOOGLE,
                     java.util.List.of(Capability.IMAGE_GENERATION),
