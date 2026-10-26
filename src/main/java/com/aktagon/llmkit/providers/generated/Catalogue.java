@@ -134,13 +134,13 @@ public final class Catalogue {
                     1048576,
                     65536),
             new CompiledModelDef(
-                    "gemini-3.1-flash-image-preview",
+                    "gemini-nano-banana-2.1",
                     ProviderName.GOOGLE,
                     java.util.List.of(Capability.IMAGE_GENERATION),
-                    "Nano Banana 2",
-                    "Gemini 3.1 Flash Image Preview",
-                    65536,
-                    65536),
+                    "Nano Banana 2.1",
+                    "Gemini Nano Banana 2.1",
+                    131072,
+                    32768),
             new CompiledModelDef(
                     "gpt-4o",
                     ProviderName.OPENAI,
