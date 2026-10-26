@@ -34,7 +34,7 @@ import java.util.function.Consumer;
  * Grok's image-to-video seed frame inlined as a data URL at {@code image.url}
  * (BUG-010), the nested Qwen {@code {model, input:{prompt}}} (with the
  * {@code X-DashScope-Async: enable} header), PixVerse's five-field body (+ a
- * per-request {@code Ai-trace-id} header), the model-in-path Veo/Vertex
+ * per-request {@code Ai-trace-id} header), the model-in-path Vertex Veo
  * {@code {instances:[{prompt}]}}, and Bedrock Nova Reel's SigV4-signed
  * {@code {modelId, modelInput, outputDataConfig}} (VID-005).
  *
@@ -113,8 +113,8 @@ public final class Video {
     }
 
     /**
-     * Set the video length in whole seconds. OpenRouter, Grok, Veo and Vertex
-     * Veo send it; other providers reject it before send, as does a value
+     * Set the video length in whole seconds. OpenRouter, Grok and Vertex Veo
+     * send it; other providers reject it before send, as does a value
      * above the model's maximum (HANDOFF-097, HANDOFF-100).
      */
     public Video duration(int seconds) {
@@ -300,7 +300,7 @@ public final class Video {
         return variant;
     }
 
-    /** The most asset reference images a Veo request takes (Gemini API and Vertex Veo pages, read 2026-10-15). */
+    /** The most asset reference images a Vertex Veo request takes (Vertex Veo page, read 2026-10-15). */
     static final int MAX_REFERENCE_IMAGES = 3;
 
     /**
@@ -323,8 +323,8 @@ public final class Video {
                     "reference_images", "at most " + MAX_REFERENCE_IMAGES + " reference images, got " + refs);
         }
         if (refs > 0 && (imageCount > 0 || last)) {
-            // Live 2026-10-15: Veo answers 400 "Unsupported video generation
-            // request"; Vertex documents the inputs as exclusive.
+            // Vertex documents the inputs as exclusive (live 2026-10-15, the
+            // Gemini API Veo answered 400 "Unsupported video generation request").
             throw new ValidationException("reference_images", "cannot be combined with a first or last frame");
         }
         if (last && imageCount == 0) {
@@ -383,7 +383,7 @@ public final class Video {
      */
     private static boolean shapeSendsOptions(String wireShape) {
         return switch (wireShape) {
-            case "VideoOpenRouter", "VideoGrok", "VideoVeo", "VideoVertexVeo" -> true;
+            case "VideoOpenRouter", "VideoGrok", "VideoVertexVeo" -> true;
             default -> false;
         };
     }
@@ -474,23 +474,21 @@ public final class Video {
                 body.addProperty("quality", "540p");
                 body.addProperty("aspect_ratio", "16:9");
             }
-            case "VideoVeo", "VideoVertexVeo" -> {
-                // Veo / Vertex Veo carry the model in the submit PATH
+            case "VideoVertexVeo" -> {
+                // Vertex Veo carries the model in the submit PATH
                 // (:predictLongRunning), so the body has no model field.
                 JsonObject instance = new JsonObject();
                 instance.addProperty("prompt", joinPromptText(parts));
                 // First frame (BUG-089): the seed rides at instances[0].image as
                 // raw base64 + mimeType (no data: prefix), per the Vertex Veo
-                // reference (read 2026-10-15). The Gemini API shape is not yet
-                // live-verified.
+                // reference (read 2026-10-15).
                 MediaRef veoSeed = seedImage(parts);
                 if (veoSeed != null) {
                     instance.add("image", veoImage(veoSeed));
                 }
                 // Last frame and asset reference images (BUG-089): same
                 // {bytesBase64Encoded, mimeType} wrapper. Reference images force
-                // an 8-second video, sent as the NUMBER 8 on both APIs (live
-                // 2026-10-15: the Gemini API rejects the string "8" its docs show).
+                // an 8-second video, sent as the NUMBER 8.
                 if (options.lastFrame != null) {
                     instance.add("lastFrame", veoImage(options.lastFrame));
                 }
@@ -606,8 +604,8 @@ public final class Video {
     }
 
     /**
-     * The single image-to-video seed frame (Grok, BUG-010; Veo first frame,
-     * BUG-089). Returns null on the text-to-video hot path; rejects more than
+     * The single image-to-video seed frame (Grok, BUG-010; Vertex Veo first
+     * frame, BUG-089). Returns null on the text-to-video hot path; rejects more than
      * one seed frame (a single-frame condition, so rejecting is honest).
      */
     private static MediaRef seedImage(List<Part> parts) {

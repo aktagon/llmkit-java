@@ -21,7 +21,7 @@ import java.util.Map;
  * on the {@code wireShape} fact (a port of Rust's {@code parse_video_poll}) and
  * {@link #result} extracts the finished video URL/bytes per shape (the
  * {@code video_result_from_*} family, including the MiniMax two-hop file
- * retrieve and the Veo download hop). A port of Swift's {@code VideoPoll.swift}.
+ * retrieve and the OpenRouter download hop). A port of Swift's {@code VideoPoll.swift}.
  */
 final class VideoPoll {
     private VideoPoll() {}
@@ -151,7 +151,7 @@ final class VideoPoll {
                         ? succeeded(status)
                         : "Fail".equals(status) ? failed(status, "") : running(status);
             }
-            case "VideoVeo", "VideoVertexVeo" -> {
+            case "VideoVertexVeo" -> {
                 // Operation-based LRO: poll until done==true. A done op with an
                 // error object is a terminal failure; otherwise the finished
                 // video is in the response (extracted in result).
@@ -215,7 +215,7 @@ final class VideoPoll {
             // download step fetches it with the auth headers. The signed urls[]
             // array is a secret and is never read.
             // A completed poll without unsigned_urls[0] is an error, not an
-            // empty success (mirrors the Veo done-without-uri guard).
+            // empty success (mirrors the Vertex Veo done-without-bytes guard).
             case "VideoOpenRouter" -> {
                 String url = Json.stringAt(raw, "unsigned_urls[0]");
                 if (url.isEmpty()) {
@@ -227,13 +227,6 @@ final class VideoPoll {
                 String url = Json.stringAt(raw, "outputDataConfig.s3OutputDataConfig.s3Uri");
                 if (url.isEmpty()) {
                     throw new DecodingException("video generation: completed but carried no output s3 uri");
-                }
-                yield single(mime, url, 0);
-            }
-            case "VideoVeo" -> {
-                String url = Json.stringAt(raw, "response.generateVideoResponse.generatedSamples[0].video.uri");
-                if (url.isEmpty()) {
-                    throw new DecodingException("video generation: operation done but carried no video uri");
                 }
                 yield single(mime, url, 0);
             }
@@ -463,7 +456,7 @@ final class VideoPoll {
         @Override
         public VideoResponse result(Job.PollBody body) {
             VideoResponse response = VideoPoll.result(vgCfg, body.raw(), base, headers, http);
-            // Download delivery (Veo): the poll result placed a temporary fetch
+            // Download delivery (OpenRouter): the poll result placed a temporary fetch
             // URI in VideoData.url; fetch each and fill VideoData.bytes
             // (clearing url, the source-XOR contract VID-004). Vertex is
             // inline-base64 (no url) — no-op.
