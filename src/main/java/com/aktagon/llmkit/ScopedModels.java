@@ -120,16 +120,10 @@ public final class ScopedModels {
     // --- HTTP internals ---
 
     private List<ModelsParsers.ParsedModelRecord> paginate(Providers.Spec pcfg, Catalogue.CatalogueConfig cfg) {
-        // Build the full URL FIRST, then splice the cursor: the QueryParamKey
-        // `?key=` must precede the cursor param so a Google multi-page URL
-        // reads `?key=...&pageToken=...`, byte-identical to the other five
-        // SDKs' catalogue-wire golden (CR-003 alignment; HANDOFF-036 Part C
-        // caught Java on the wrong side of the order when it was enrolled).
-        String baseUrl = buildCatalogueUrl(pcfg, cfg.endpoint);
         String cursor = "";
         List<ModelsParsers.ParsedModelRecord> all = new ArrayList<>();
         while (true) {
-            String url = appendCursor(baseUrl, cfg.cursorParam, cursor);
+            String url = listPageUrl(pcfg, cfg, cursor);
             byte[] body = fetchAbsoluteUrl(pcfg, url);
             ModelsParsers.ParsedModelsPage page = dispatchParser(cfg.parserKind, body);
             all.addAll(page.records);
@@ -138,6 +132,23 @@ public final class ScopedModels {
             }
             cursor = page.nextCursor;
         }
+    }
+
+    /**
+     * The URL of one list page: the endpoint, the provider's fixed list query
+     * (BUG-107: OpenRouter lists text-output models only without
+     * output_modalities=all), then the cursor. The full URL (incl. the
+     * QueryParamKey {@code ?key=}) comes first, so a Google multi-page URL
+     * reads {@code ?key=...&pageToken=...} (CR-003). Get-by-id never sends the
+     * list query. Package-private: the catalogue-wire driver
+     * ({@code CatalogueWireTest}) exercises this exact seam.
+     */
+    String listPageUrl(Providers.Spec pcfg, Catalogue.CatalogueConfig cfg, String cursor) {
+        String url = buildCatalogueUrl(pcfg, cfg.endpoint);
+        if (!cfg.listQuery.isEmpty()) {
+            url = url + (url.contains("?") ? "&" : "?") + cfg.listQuery;
+        }
+        return appendCursor(url, cfg.cursorParam, cursor);
     }
 
     /**
