@@ -38,22 +38,6 @@ public record VideoGenDef(
                         java.util.List.of(
                                 new VideoModelDef("amazon.nova-reel-v1:0", "Nova Reel", false, false, false, 6, "video/mp4", java.util.List.of("720p"), java.util.List.of(), 0)
                         ));
-            case GOOGLE:
-                return new VideoGenDef(
-                        "VideoVeo",
-                        "DeliveryDownload",
-                        "",
-                        java.util.List.of(new RequestVariant(java.util.List.of("TextOnly"), "", "/v1beta/models/{model}:predictLongRunning"), new RequestVariant(java.util.List.of("WithReferenceImages"), "", "/v1beta/models/{model}:predictLongRunning"), new RequestVariant(java.util.List.of("WithSeedFrame"), "", "/v1beta/models/{model}:predictLongRunning"), new RequestVariant(java.util.List.of("WithSeedFrame", "WithLastFrame"), "", "/v1beta/models/{model}:predictLongRunning")),
-                        "/v1beta/{id}",
-                        "",
-                        "",
-                        "name",
-                        false,
-                        java.util.List.of(
-                                new VideoModelDef("veo-3.1-fast-generate-preview", "Veo 3.1 Fast", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "4k", "720p"), java.util.List.of("16:9", "9:16"), 1),
-                                new VideoModelDef("veo-3.1-generate-preview", "Veo 3.1", true, true, true, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of("16:9", "9:16"), 1),
-                                new VideoModelDef("veo-3.1-lite-generate-preview", "Veo 3.1 Lite", true, true, false, 8, "video/mp4", java.util.List.of("1080p", "720p"), java.util.List.of("16:9", "9:16"), 1)
-                        ));
             case GROK:
                 return new VideoGenDef(
                         "VideoGrok",
