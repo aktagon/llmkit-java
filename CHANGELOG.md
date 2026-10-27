@@ -7,34 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-10-27
+
 ### Added
+
+- `Batch.BATCH_SLOT_MISSING` and `Batch.BATCH_SLOT_ERROR`: the finish reasons
+  of a batch slot with no result, and of a
+  failed slot the provider gave no reason for. Compare against them instead
+  of typing the strings.
+- `Text.raw()`: opts into the provider body on `Response.raw`, on the prompt
+  and batch paths.
+- `Text.history(...)` and `Text.text(...)`: seed the conversation, and add
+  text parts sent before the prompt.
+- `Agent` takes the same generation options as `Text`: `temperature`,
+  `maxTokens`, `topP`, `topK`, `seed`, `stopSequences`, `frequencyPenalty`,
+  `presencePenalty`, `reasoningEffort`, `thinkingBudget` and
+  `safetySettings`. `Agent.history(...)` seeds the conversation, and
+  `Agent.raw()` puts the last turn's provider body on `Response.raw`.
+- `Image.mask(...)`, `Image.safetyFilter(...)`, `Image.safetySettings(...)`,
+  `Image.text(...)` and `Image.raw()`, and `Video.text(...)`. OpenAI image
+  edits with reference images now work; they used to be refused.
 
 - **Streaming with the Responses protocol.** A stream with `.protocol("responses")`
   now posts to `/v1/responses` and reads its events: text deltas, the finish
   status and token usage. It used to fail validation.
-
-### Removed
-
-- **Vertex image generation removed.** Google shut down the Imagen endpoints.
-  Image generation on Vertex now fails with a validation error before any
-  request is sent. Vertex music and video are unchanged, and the Vertex default
-  model is now `lyria-002`. The SafetyFilter options (`Image.safetyFilter`) are
-  deprecated and no longer accepted by any provider; they will be removed in the
-  next major version.
-- **Google video generation removed.** Google shut down the Gemini API Veo
-  preview models. Video generation on the `google` provider now fails before
-  any request is sent. Veo stays available on Vertex.
-
-### Fixed
-
-- **Anthropic streams report the finish reason.** It was read from the
-  `message_stop` event, which never carries it, so it was always null. It is
-  now read from `message_delta`.
-- **Parallel tool results on AWS Bedrock.** After a reply with several tool
-  calls, the agent sent one user message per result, and Bedrock rejected the
-  request with 400. The results now go in one user message, in call order.
-
-## [2.0.0] — 2026-10-14
 
 ### Changed
 
@@ -80,24 +76,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   total. Telemetry now exports a usage attribute when the value is *reported*,
   zero included, instead of when it is greater than zero.
 
-### Added
+### Removed
 
-- `Batch.BATCH_SLOT_MISSING` and `Batch.BATCH_SLOT_ERROR`: the finish reasons
-  of a batch slot with no result, and of a
-  failed slot the provider gave no reason for. Compare against them instead
-  of typing the strings.
-- `Text.raw()`: opts into the provider body on `Response.raw`, on the prompt
-  and batch paths.
-- `Text.history(...)` and `Text.text(...)`: seed the conversation, and add
-  text parts sent before the prompt.
-- `Agent` takes the same generation options as `Text`: `temperature`,
-  `maxTokens`, `topP`, `topK`, `seed`, `stopSequences`, `frequencyPenalty`,
-  `presencePenalty`, `reasoningEffort`, `thinkingBudget` and
-  `safetySettings`. `Agent.history(...)` seeds the conversation, and
-  `Agent.raw()` puts the last turn's provider body on `Response.raw`.
-- `Image.mask(...)`, `Image.safetyFilter(...)`, `Image.safetySettings(...)`,
-  `Image.text(...)` and `Image.raw()`, and `Video.text(...)`. OpenAI image
-  edits with reference images now work; they used to be refused.
+- **Vertex image generation removed.** Google shut down the Imagen endpoints.
+  Image generation on Vertex now fails with a validation error before any
+  request is sent. Vertex music and video are unchanged, and the Vertex default
+  model is now `lyria-002`. The SafetyFilter options (`Image.safetyFilter`) are
+  deprecated and no longer accepted by any provider; they will be removed in a
+  later major version.
+- **Google video generation removed.** Google shut down the Gemini API Veo
+  preview models. Video generation on the `google` provider now fails before
+  any request is sent. Veo stays available on Vertex.
 
 ### Fixed
 
@@ -120,6 +109,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   message as the finish message. A request with no result reads finish reason
   `missing`. Results for request ids this SDK did not assign follow in file
   order.
+
+- **Anthropic streams report the finish reason.** It was read from the
+  `message_stop` event, which never carries it, so it was always null. It is
+  now read from `message_delta`.
+- **Parallel tool results on AWS Bedrock.** After a reply with several tool
+  calls, the agent sent one user message per result, and Bedrock rejected the
+  request with 400. The results now go in one user message, in call order.
 
 ## [1.0.0] — 2026-07-19
 
