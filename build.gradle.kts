@@ -40,9 +40,9 @@ tasks.test {
     // (the signature is time-dependent and not asserted; only the body is).
     environment("AWS_REGION", "us-east-1")
     environment("AWS_SECRET_ACCESS_KEY", "test-secret")
-    // -PunitOnly: the hermetic unit suite without the tests that read the
-    //
-    // so a new or changed golden must not fail it; make check runs this form.
+    // -PunitOnly: the hermetic unit suite without the tests that compare
+    // against the shared cross-language request and response fixtures, so a
+    // new or changed fixture cannot fail it. Security fixes only from here on.
     if (project.hasProperty("unitOnly")) {
         filter {
             excludeTestsMatching("com.aktagon.llmkit.*WireTest")
