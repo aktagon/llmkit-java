@@ -40,6 +40,19 @@ tasks.test {
     // (the signature is time-dependent and not asserted; only the body is).
     environment("AWS_REGION", "us-east-1")
     environment("AWS_SECRET_ACCESS_KEY", "test-secret")
+    // -PunitOnly: the hermetic unit suite without the tests that read the
+    //
+    // so a new or changed golden must not fail it; make check runs this form.
+    if (project.hasProperty("unitOnly")) {
+        filter {
+            excludeTestsMatching("com.aktagon.llmkit.*WireTest")
+            excludeTestsMatching("com.aktagon.llmkit.ResponseParseTest")
+            excludeTestsMatching("com.aktagon.llmkit.BuilderOptionParityTest.agentSamplingOptionsMatchOpenAIGolden")
+            excludeTestsMatching("com.aktagon.llmkit.BuilderOptionParityTest.agentReasoningEffortMatchesOSeriesGolden")
+            excludeTestsMatching("com.aktagon.llmkit.BuilderOptionParityTest.agentTopKAndSafetySettingsMatchGoogleGolden")
+            excludeTestsMatching("com.aktagon.llmkit.BuilderOptionParityTest.agentThinkingBudgetMatchesGemini25Golden")
+        }
+    }
 }
 
 mavenPublishing {
