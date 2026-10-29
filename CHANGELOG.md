@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- On JDK 27, a streaming reply that lasted longer than the client timeout
+  failed with `TransportException: stream interrupted`. The timeout now bounds
+  only the wait for the response headers and each gap between body reads, on
+  every JDK.
+
 ## [2.0.0] — 2026-10-27
 
 ### Added
