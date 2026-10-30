@@ -154,7 +154,7 @@ final class JdkHttpTransport implements HttpTransport {
         try {
             return timeout.isZero() ? pending.get() : pending.get(timeout.toNanos(), TimeUnit.NANOSECONDS);
         } catch (TimeoutException e) {
-            pending.cancel(true);
+            abandon(pending);
             HttpTimeoutException timedOut =
                     new HttpTimeoutException("no response headers for " + timeout.toMillis() + " ms");
             throw new TransportException(timedOut.getMessage(), timedOut);
@@ -163,11 +163,31 @@ final class JdkHttpTransport implements HttpTransport {
             if (cause instanceof RuntimeException runtime) {
                 throw runtime;
             }
+            if (cause instanceof Error error) {
+                throw error;
+            }
             throw new TransportException(cause.getMessage(), cause);
         } catch (InterruptedException e) {
-            pending.cancel(true);
+            abandon(pending);
             Thread.currentThread().interrupt();
             throw new TransportException("interrupted", e);
+        }
+    }
+
+    /**
+     * Cancel a response the caller no longer waits for. If the headers
+     * arrived after the wait ended, cancel fails, and the body is closed so
+     * the pooled connection is released.
+     */
+    private static void abandon(CompletableFuture<HttpResponse<InputStream>> pending) {
+        if (!pending.cancel(true)) {
+            pending.thenAccept(response -> {
+                try {
+                    response.body().close();
+                } catch (IOException ignored) {
+                    // The connection is being dropped anyway.
+                }
+            });
         }
     }
 
