@@ -15,16 +15,19 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
 
 /** Default transport over {@code java.net.http} (ADR-068 JAVA-003). */
 final class JdkHttpTransport implements HttpTransport {
     // Connect timeout mirrors Go's DefaultTransport 30s dial timeout. The
-    // client timeout (BUG-062) is per request: HttpRequest.timeout bounds the
-    // wait for headers, IdleTimeoutInputStream bounds each body read.
+    // client timeout (BUG-062) is per request: open() bounds the wait for
+    // headers, IdleTimeoutInputStream bounds each body read.
     private static final HttpClient CLIENT =
             HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();
 
@@ -139,18 +142,52 @@ final class JdkHttpTransport implements HttpTransport {
         }
     }
 
-    /** Send and wait for the response headers, bounded by the timeout. */
+    /**
+     * Send and wait for the response headers, bounded by the timeout. The
+     * bound is a wait on the response future, not HttpRequest.timeout: the
+     * JDK 27 built-in client runs that timer until the body is consumed (JDK
+     * 21 stopped it at the headers), so it would cut off a healthy stream.
+     */
     private HttpResponse<InputStream> open(HttpRequest.Builder builder) {
-        if (!timeout.isZero()) {
-            builder.timeout(timeout);
-        }
+        CompletableFuture<HttpResponse<InputStream>> pending =
+                CLIENT.sendAsync(builder.build(), HttpResponse.BodyHandlers.ofInputStream());
         try {
-            return CLIENT.send(builder.build(), HttpResponse.BodyHandlers.ofInputStream());
-        } catch (IOException e) {
-            throw new TransportException(e.getMessage(), e);
+            return timeout.isZero() ? pending.get() : pending.get(timeout.toNanos(), TimeUnit.NANOSECONDS);
+        } catch (TimeoutException e) {
+            abandon(pending);
+            HttpTimeoutException timedOut =
+                    new HttpTimeoutException("no response headers for " + timeout.toMillis() + " ms");
+            throw new TransportException(timedOut.getMessage(), timedOut);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new TransportException(cause.getMessage(), cause);
         } catch (InterruptedException e) {
+            abandon(pending);
             Thread.currentThread().interrupt();
             throw new TransportException("interrupted", e);
+        }
+    }
+
+    /**
+     * Cancel a response the caller no longer waits for. If the headers
+     * arrived after the wait ended, cancel fails, and the body is closed so
+     * the pooled connection is released.
+     */
+    private static void abandon(CompletableFuture<HttpResponse<InputStream>> pending) {
+        if (!pending.cancel(true)) {
+            pending.thenAccept(response -> {
+                try {
+                    response.body().close();
+                } catch (IOException ignored) {
+                    // The connection is being dropped anyway.
+                }
+            });
         }
     }
 
