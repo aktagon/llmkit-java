@@ -122,6 +122,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   calls, the agent sent one user message per result, and Bedrock rejected the
   request with 400. The results now go in one user message, in call order.
 
+## [1.1.2] — 2026-10-14
+
+### Fixed
+- The release now includes the MIT license file. 1.1.1 shipped without it.
+
+## [1.1.1] — 2026-10-07
+
+### Changed
+- The javadoc jar and the sources jar carry their documentation comments.
+- The error for a chat protocol on a terminal other than prompt no longer ends with an internal reference.
+- 1.1.0 was not published to Maven Central. 1.1.1 is the first Maven release after 1.0.0 and includes the 1.1.0 changes below.
+
+## [1.1.0] — 2026-10-04
+
+### Added
+
+- `ResponseCodec.decodeResponse(provider, chatWireShape, body)` turns a provider's chat response body into a `Response`, the same way the client reads it. `ResponseCodec.encodeResponse(provider, chatWireShape, response)` writes a `Response` back into that provider's body shape. Both are pure functions: no client, no key, no network. `encodeResponse` throws for a field it cannot write back faithfully.
+
+### Fixed
+
+- Middleware now runs for speech generation and transcription requests, as the new `speech_generation` and `transcription` operations, and its pre phase can veto them. For transcription it runs on the sync and async calls, not on waits or polls.
+- OpenAI Responses protocol: gpt-5 and o-series models now send the output-token cap as `max_output_tokens`. They sent `max_completion_tokens`, which the Responses API rejects with HTTP 400.
+- Anthropic requests no longer send `anthropic-beta: files-api-2025-04-14`. The Files API left beta, and with that header an upload returned the older response shape, without `expires_at`.
+
 ## [1.0.0] — 2026-07-19
 
 First release. Java 17 floor, one dependency (Gson) over the JDK's own
