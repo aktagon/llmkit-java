@@ -7,14 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- On JDK 27, a streaming reply that lasted longer than the client timeout
-  failed with `TransportException: stream interrupted`. The timeout now bounds
-  only the wait for the response headers and each gap between body reads, on
-  every JDK.
-
-## [2.0.0] — 2026-10-27
+## [2.0.0] — 2026-11-01
 
 ### Added
 
@@ -96,6 +89,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   any request is sent. Veo stays available on Vertex.
 
 ### Fixed
+
+- On JDK 27, a streaming reply that lasted longer than the client timeout
+  failed with `TransportException: stream interrupted`. The timeout now bounds
+  only the wait for the response headers and each gap between body reads, on
+  every JDK.
 
 - **OpenAI batch failures show the provider's error.** Waiting on an OpenAI
   batch now also reads its error file. A failed request's finish reason is the
