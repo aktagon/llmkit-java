@@ -43,10 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   change. Migration: read the variant whose carried input matches your request
   from `variants()` instead of the removed fields.
 
-- **Vertex Imagen is text-to-image only.** Image parts and a mask on a
-  Vertex image request are now rejected before the request is sent. Google's
-  reference documents no reference-image field for these models.
-
 - **A mask is accepted only on an OpenAI request with reference images.** A
   mask on any other image request is rejected before the request is sent.
 
